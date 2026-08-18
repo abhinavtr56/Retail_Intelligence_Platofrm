@@ -150,3 +150,47 @@ ported 1:1 from `js/components/charts.js` et al. in the vanilla app.
 `useNav`/`useUser`). All ported from `css/components.css` + `css/layout.css`
 rules onto Tailwind utilities that reference the tokens in `tokens.css` —
 no new colors/spacing invented, only translated.
+
+## TPO Command Center backend (real data)
+
+The Command Center reads the finalized TPO datasets through a new FastAPI
+service. Run it exactly as above — no extra process, no database.
+
+```
+backend/app/tpo/
+  config.py      one place for the data path, the 50% ROI target and the
+                 INR->USD rate. Nothing else reads os.environ.
+  loader.py      the 5 CSVs -> one cached columnar store (~15 MB, ~2 s once)
+  filters.py     THE filter engine + dependent option lists
+  aggregate.py   THE KPI engine — adapted from the validated previous project
+  service.py     payloads for the 7 endpoints
+  formatting.py  currency, magnitude and the F24/F25 labels
+```
+
+Datasets resolve in order: `$TPO_DATA_DIR`, then the in-repo `Data/`, then
+`~/OneDrive/Desktop/TPO_FINAL/`.
+`TPO_USD_PER_INR` overrides the exchange rate (default 0.0115).
+
+Endpoints, all taking the same filter query params:
+
+```
+/api/command-center/{filters,kpis,trend,risk-alerts,
+                    underperforming-promotions,promotion-mix,top-promotions}
+```
+
+Tests: `cd backend && ../venv/Scripts/python.exe -m pytest tests/ -q`
+
+### Two things that look like bugs and are not
+
+**A year is not the sum of its months.** Trade Spend and Margin Impact are
+plain row sums and do add up. Incremental Sales, ROI and PEI are measured
+against a baseline re-derived from whatever is selected, so January's uplift
+is judged against January's ordinary trading and the year's against the
+year's. `test_incremental_sales_is_not_additive_across_months` pins this.
+
+**The baseline is keyed on (product, CHANNEL), not product alone.** `Schedule`
+is a property of the channel — CH001/CH004 book one row per week (mean
+Base_Quantity 142.9), CH002/CH003/CH005 one per month (576.9). Pooling them
+measures period length rather than promotional response: it drags F25
+all-channel ROI from 141.2% to 8.6%. `test_baseline_is_keyed_per_channel`
+guards it.
