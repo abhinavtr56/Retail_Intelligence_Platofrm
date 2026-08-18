@@ -92,3 +92,20 @@ def promotion_mix(state: Filters, currency: Currency = "INR") -> dict[str, Any]:
 @router.get("/top-promotions")
 def top_promotions(state: Filters, currency: Currency = "INR", limit: int = 10) -> dict[str, Any]:
     return service.top_promotions(state, currency, limit)
+
+
+@router.get("/breakdown")
+def breakdown(
+    state: Filters,
+    by: Annotated[str, Query(pattern="^(channel|retailer|product|category|brand|promotion|promotion_type|region|state|city)$")],
+    metric: Annotated[str, Query(pattern="^(incremental_sales|trade_spend|incremental_units|roi)$")] = "incremental_sales",
+    limit: Annotated[int, Query(ge=1, le=50)] = 10,
+    currency: Currency = "INR",
+) -> dict[str, Any]:
+    """Every KPI per value of one dimension — the single source behind all the
+    ranking and scatter charts.
+
+    Deliberately one endpoint rather than one per dimension: the alternative is
+    ten places for the same aggregation to drift apart.
+    """
+    return service.breakdown(state, by=by, currency=currency, metric=metric, limit=limit)

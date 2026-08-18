@@ -161,3 +161,39 @@ export interface PromotionMixResponse {
   total_spend_display: string
   meta: Meta
 }
+
+/** One value of a breakdown dimension, with every KPI computed for it by the
+ *  frozen engine. Monetary fields are base-currency; `*_display` is converted. */
+export interface BreakdownGroup {
+  code: string
+  label: string
+  trade_spend: number
+  trade_spend_display: string
+  incremental_units: number | null
+  incremental_sales: number | null
+  incremental_sales_display: string
+  roi: number | null
+  margin_impact: number | null
+  pei: number | null
+  cannibalization: number | null
+  /** Share of TRADE SPEND only — the one money measure that is additive.
+   *  Incremental Sales is not, so it must never be shown as a share. */
+  share_pct: number
+}
+
+export type BreakdownDimension =
+  | 'channel' | 'retailer' | 'product' | 'category' | 'brand'
+  | 'promotion' | 'promotion_type' | 'region' | 'state' | 'city'
+
+export type BreakdownMetric = 'incremental_sales' | 'trade_spend' | 'incremental_units' | 'roi'
+
+export interface BreakdownResponse {
+  by: BreakdownDimension
+  metric: BreakdownMetric
+  groups: BreakdownGroup[]
+  /** True when more groups exist than were returned — the UI must say so
+   *  rather than implying the ranking is the whole population. */
+  truncated: boolean
+  total_groups: number
+  meta: Meta
+}

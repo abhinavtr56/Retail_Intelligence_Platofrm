@@ -624,3 +624,199 @@ def filters(state: FilterState) -> dict[str, Any]:
     options["currencies"] = list(config.SUPPORTED_CURRENCIES)
     options["selected"] = state.applied()
     return options
+
+
+# --- breakdown -------------------------------------------------------------
+#
+# ONE endpoint behind every ranking and scatter chart. It does not contain a
+# single line of KPI arithmetic: for each group it narrows the SAME FilterState
+# by one more constraint and calls the frozen functions in aggregate.py. If a
+# formula ever changes there, these charts move with it automatically.
+
+#: Dimensions a breakdown can group by -> where its option list lives and how a
+#: group value is labelled for display.
+BREAKDOWN_DIMENSIONS: dict[str, str] = {
+    "channel": "channels",
+    "retailer": "retailers",
+    "product": "products",
+    "category": "categories",
+    "brand": "brands",
+    "promotion": "offers",
+    "promotion_type": "promotion_types",
+    "region": "regions",
+    "state": "states",
+    "city": "cities",
+}
+
+#: What a breakdown may be ranked by. Incremental Sales is the default
+#: everywhere: ranking by raw ROI surfaces trivia, because a promotion with
+#: Rs 17k of trade spend can post 1,398% and outrank one carrying real money.
+BREAKDOWN_METRICS = ("incremental_sales", "trade_spend", "incremental_units", "roi")
+
+
+def _group_label(store, dimension: str, code: str) -> str:
+    """The display name for one group value."""
+    if dimension == "channel":
+        channel = store.dims.channels.get(code)
+        return channel.name if channel else code
+    if dimension == "product":
+        product = store.dims.products.get(code)
+        return product.name.strip() if product else code
+    if dimension == "promotion":
+        promotion = store.dims.promotions.get(code)
+        # Promotion_Description via Promotion.label — the one shared source.
+        # Never deduplicated by Promotion_Name.
+        return offer_label(promotion) or code
+    return code
+
+
+
+#: Dimensions carried on the WeekRow itself, so a breakdown can partition one
+#: already-filtered row set instead of re-running the filter per group.
+#:
+#: This is an optimisation, not a different calculation. The KPI grain is
+#: (product, channel, week, offer), so filtering to one channel yields exactly
+#: the WeekRows whose channel_id is that channel — no other group's rows can
+#: merge into them. Partitioning therefore hands the frozen engine byte-identical
+#: input to what a re-filter would, and `tests/test_breakdown.py` asserts the two
+#: paths agree for every supported dimension.
+#:
+#: Retailer/region/state/city are NOT here: stores are pooled when WeekRows are
+#: built, so their values are no longer recoverable from a row and a real filter
+#: pass is required.
+_WEEKROW_DIMENSIONS = ("channel", "product", "promotion", "promotion_type", "brand", "category")
+
+
+def _partition(
+    rows: Sequence[A.WeekRow], volume: Sequence[A.WeekRow], by: str, store
+) -> dict[str, tuple[tuple[A.WeekRow, ...], tuple[A.WeekRow, ...]]]:
+    """One filtered row set -> per-group (selection rows, volume rows).
+
+    The volume set needs care for offer dimensions. `baseline_rows_for` keeps
+    the non-promoted rows an uplift is measured against, so each offer's volume
+    partition is ITS promoted rows plus EVERY non-promoted row — exactly what
+    filtering to that offer would have produced.
+    """
+    def key_of(row: A.WeekRow) -> str | None:
+        if by == "channel":
+            return row.channel_id
+        if by == "product":
+            return row.product_id
+        if by == "brand":
+            return row.brand_form
+        if by == "category":
+            product = store.dims.products.get(row.product_id)
+            return product.category if product else None
+        if by == "promotion":
+            return row.promotion_id if row.is_promoted else None
+        if by == "promotion_type":
+            promotion = store.dims.promotions.get(row.promotion_id)
+            return promotion.type if promotion and row.is_promoted else None
+        return None
+
+    offer_dimension = by in ("promotion", "promotion_type")
+    selection: dict[str, list[A.WeekRow]] = defaultdict(list)
+    volumes: dict[str, list[A.WeekRow]] = defaultdict(list)
+    baseline_rows = [r for r in volume if not r.is_promoted] if offer_dimension else []
+
+    for row in rows:
+        key = key_of(row)
+        if key is not None:
+            selection[key].append(row)
+    for row in volume:
+        key = key_of(row)
+        if key is not None:
+            volumes[key].append(row)
+
+    return {
+        key: (tuple(selection.get(key, ())), tuple(volumes.get(key, ())) + tuple(baseline_rows))
+        for key in set(selection) | set(volumes)
+    }
+
+
+def breakdown(
+    state: FilterState,
+    by: str,
+    currency: str = "INR",
+    metric: str = "incremental_sales",
+    limit: int = 10,
+) -> dict[str, Any]:
+    """Every KPI, computed per value of one dimension, ranked and truncated.
+
+    For each group: take the user's FilterState, add that one constraint, and
+    run the frozen engine over the resulting rows. The group list comes from
+    `options_for`, so a value is only ever computed if it actually returns rows.
+
+    ADDITIVITY. Trade Spend is a plain row sum and its groups add back to the
+    headline exactly. Incremental Sales does NOT reliably add up: the baseline
+    is re-derived per selection, which is why a year is not the sum of its
+    months (-17.6% on this data). `share_pct` is therefore computed on Trade
+    Spend only, and the caller must render a ranking, never a composition.
+    """
+    if by not in BREAKDOWN_DIMENSIONS:
+        raise ValueError(f"Unsupported breakdown dimension: {by!r}")
+    if metric not in BREAKDOWN_METRICS:
+        raise ValueError(f"Unsupported breakdown metric: {metric!r}")
+
+    currency = F.normalise_currency(currency)
+    store = get_store()
+
+    raw = options_for(state)[BREAKDOWN_DIMENSIONS[by]]
+    codes = [entry["code"] if isinstance(entry, dict) else str(entry) for entry in raw]
+
+    base_rows = rows_for(state)
+    base_volume = baseline_rows_for(state)
+    partitioned = _partition(base_rows, base_volume, by, store) if by in _WEEKROW_DIMENSIONS else None
+
+    groups: list[dict[str, Any]] = []
+    for code in codes:
+        if partitioned is not None:
+            rows, volume = partitioned.get(code, ((), ()))
+        else:
+            # Geography lives on the STORE, which WeekRow has already pooled
+            # away, so those dimensions genuinely need a re-filter.
+            scoped = state.replace(**{by: frozenset({code})})
+            rows, volume = rows_for(scoped), baseline_rows_for(scoped)
+        if not rows:
+            continue
+
+        # Every number below comes from app/tpo/aggregate.py unchanged.
+        trade_spend = A.calculate_trade_spend(rows)
+        groups.append({
+            "code": code,
+            "label": _group_label(store, by, code),
+            "trade_spend": trade_spend,
+            "trade_spend_display": F.money(trade_spend, currency),
+            "incremental_units": A.calculate_incremental_quantity(volume),
+            "incremental_sales": A.calculate_incremental_sales(volume),
+            "incremental_sales_display": F.money(A.calculate_incremental_sales(volume), currency),
+            "roi": A.calculate_roi(rows, volume),
+            "margin_impact": A.calculate_margin(rows),
+            "pei": A.calculate_pei(rows, volume),
+            "cannibalization": A.calculate_cannibalization(volume),
+        })
+
+    # Share is of Trade Spend, the one additive money measure.
+    total_spend = sum(g["trade_spend"] or 0.0 for g in groups)
+    for group in groups:
+        group["share_pct"] = (
+            round((group["trade_spend"] or 0.0) / total_spend * 100, 1) if total_spend else 0.0
+        )
+
+    # None sorts last regardless of direction — an undefined ROI is not a
+    # ranking position, and must not masquerade as the worst or the best.
+    groups.sort(key=lambda g: (g[metric] is None, -(g[metric] or 0.0)))
+
+    total_groups = len(groups)
+    truncated = limit > 0 and total_groups > limit
+    if truncated:
+        groups = groups[:limit]
+
+    return {
+        "by": by,
+        "metric": metric,
+        "groups": groups,
+        "truncated": truncated,
+        "total_groups": total_groups,
+        "meta": _meta(state, rows_for(state), currency, None),
+    }

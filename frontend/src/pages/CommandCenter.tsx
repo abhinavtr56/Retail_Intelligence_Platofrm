@@ -22,9 +22,18 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon, type IconName } from '../icons'
-import { ComboBarLine, DonutBreakdown } from '../components/charts'
+import { DonutBreakdown } from '../components/charts'
 import { FilterBar } from '../components/command/FilterBar'
-import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, Stale } from '../components/command/States'
+import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
+import { TrendPanels } from '../components/command/TrendPanels'
+import {
+  ChannelSection,
+  OfferSection,
+  ProductSection,
+  PromotionTypeSection,
+  RetailerSection,
+  SpendVsReturnSection,
+} from '../components/command/ChartSections'
 import {
   useFilterOptions,
   useKpis,
@@ -249,32 +258,28 @@ export function CommandCenter() {
           />
           <CardBody>
             <div className="mb-2 flex flex-wrap gap-4 pb-2">
-              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm" style={{ background: '#7C5CFF' }} />} label="ROI (%)" />
+              <LegendItem swatch={<span className="h-2.5 w-3.5 rounded-sm bg-brand-violet/60" />} label={`Incremental Sales (${meta.currency})`} />
+              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm bg-status-danger" />} label={`Trade Spend (${meta.currency})`} />
+              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm bg-brand-violet" />} label="ROI (%)" />
               <LegendItem
-                swatch={<span className="h-2.5 w-3.5 rounded-sm" style={{ background: '#B7CAFF' }} />}
-                label={`Incremental Sales (${meta.currency})`}
-              />
-              <LegendItem
-                swatch={<span className="h-0.5 w-[18px] rounded-sm" style={{ background: '#EF4444' }} />}
-                label={`Trade Spend (${meta.currency})`}
-              />
-              <LegendItem
-                swatch={<span className="h-0 w-[18px] border-t-2 border-dashed" style={{ borderColor: '#9CA3AF' }} />}
+                swatch={<span className="h-0 w-[18px] border-t-2 border-dashed border-brand-violet" />}
                 label={`Target ROI (${meta.target_roi_pct}%)`}
               />
             </div>
-            {trend.data && trend.data.labels.length > 0 ? (
-              <ComboBarLine
-                labels={trend.data.labels}
-                bars={{ values: trend.data.series.incremental_sales, color: '#B7CAFF' }}
-                lines={[
-                  { values: trend.data.series.roi.map((v) => v ?? 0), color: '#7C5CFF', axis: 'left' },
-                  { values: trend.data.series.trade_spend, color: '#EF4444', axis: 'right' },
-                  { values: trend.data.series.target_roi, color: '#9CA3AF', axis: 'left', dashed: true },
-                ]}
-              />
+            {trend.isLoading ? (
+              <PanelSkeleton height={300} />
+            ) : trend.error ? (
+              <ErrorState error={trend.error} onRetry={() => void trend.refetch()} retrying={trend.isFetching} compact />
+            ) : trend.data && trend.data.labels.length > 0 ? (
+              <Stale when={trend.isFetching}>
+                <TrendPanels
+                  data={trend.data}
+                  rate={trend.data.meta.exchange_rate}
+                  symbol={meta.currency === 'USD' ? '$' : '₹'}
+                />
+              </Stale>
             ) : (
-              <EmptyState message="No promotions in this selection." />
+              <CcEmptyState compact message="No promotions in this selection." />
             )}
           </CardBody>
         </Card>
@@ -388,6 +393,20 @@ export function CommandCenter() {
             )}
           </CardBody>
         </Card>
+      </div>
+
+      {/* ---- Chart sections. Each reads the same filter state as the cards. ---- */}
+      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+        <ChannelSection />
+        <SpendVsReturnSection />
+      </div>
+      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+        <OfferSection />
+        <RetailerSection />
+      </div>
+      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1100px]:grid-cols-1">
+        <ProductSection />
+        <PromotionTypeSection />
       </div>
       </Stale>
       </>

@@ -2,6 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
 import { toQuery, useCommandFilters, type CommandFilters } from '../store/commandFilters'
 import type {
+  BreakdownDimension,
+  BreakdownMetric,
+  BreakdownResponse,
   Currency,
   FiltersResponse,
   KpiResponse,
@@ -85,6 +88,26 @@ export function usePromotionMix() {
     queryKey: key('promotion-mix', filters, currency),
     queryFn: () =>
       apiFetch<PromotionMixResponse>(`/command-center/promotion-mix?${toQuery(filters, currency)}`),
+    placeholderData: (previous) => previous,
+  })
+}
+
+/** ONE hook for every ranking and scatter chart.
+ *
+ *  Deliberately not one hook per dimension: the filter state, currency and
+ *  cache key are identical in each case, and duplicating them is how a chart
+ *  ends up quietly querying a different scope from the KPI cards. */
+export function useBreakdown(
+  by: BreakdownDimension,
+  { metric = 'incremental_sales', limit = 10 }: { metric?: BreakdownMetric; limit?: number } = {},
+) {
+  const { filters, currency } = useScope()
+  return useQuery({
+    queryKey: [...key('breakdown', filters, currency), by, metric, limit],
+    queryFn: () =>
+      apiFetch<BreakdownResponse>(
+        `/command-center/breakdown?${toQuery(filters, currency)}&by=${by}&metric=${metric}&limit=${limit}`,
+      ),
     placeholderData: (previous) => previous,
   })
 }
