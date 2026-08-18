@@ -1,0 +1,1281 @@
+{
+  "legacyDefault": {
+    "title": "Promotion Investigation Workspace",
+    "subtitle": "Investigation Compression Engine",
+    "businessQuestion": "Why did South Modern Trade Push underperform despite increased trade spend?",
+    "contextChips": {
+      "period": "Apr – Jun 2025",
+      "channel": "Modern Trade",
+      "region": "South",
+      "spend": "₹98.6 Cr"
+    },
+    "center": {
+      "label": "South MT Push",
+      "sub": "(Apr – Jun 25)"
+    },
+    "nodes": [
+      {
+        "key": "spend",
+        "label": "Trade Spend",
+        "metric": "₹98.6 Cr",
+        "delta": "+18%",
+        "trend": "up",
+        "impact": "strong",
+        "icon": "pricing",
+        "pos": {
+          "x": 30,
+          "y": 18
+        }
+      },
+      {
+        "key": "retail",
+        "label": "Retailer Participation",
+        "metric": "72%",
+        "delta": "-8 pp",
+        "trend": "down",
+        "impact": "moderate",
+        "icon": "users",
+        "pos": {
+          "x": 50,
+          "y": 12
+        }
+      },
+      {
+        "key": "discount",
+        "label": "Discount & Price",
+        "metric": "Avg. Disc 18.2%",
+        "delta": "+2.3 pp",
+        "trend": "up",
+        "impact": "risk",
+        "icon": "tag",
+        "pos": {
+          "x": 70,
+          "y": 18
+        }
+      },
+      {
+        "key": "incsales",
+        "label": "Incremental Sales",
+        "metric": "₹24.8 Cr",
+        "delta": "-4.2%",
+        "trend": "down",
+        "impact": "negative",
+        "icon": "trending",
+        "pos": {
+          "x": 18,
+          "y": 50
+        }
+      },
+      {
+        "key": "inventory",
+        "label": "Inventory Position",
+        "metric": "High Risk",
+        "delta": "",
+        "trend": "",
+        "impact": "risk",
+        "icon": "inventory",
+        "pos": {
+          "x": 82,
+          "y": 50
+        }
+      },
+      {
+        "key": "competitor",
+        "label": "Competitor Activity",
+        "metric": "High",
+        "delta": "",
+        "trend": "",
+        "impact": "risk",
+        "icon": "pieChart",
+        "pos": {
+          "x": 30,
+          "y": 82
+        }
+      },
+      {
+        "key": "history",
+        "label": "Promotion History",
+        "metric": "8 Similar Promotions",
+        "delta": "",
+        "trend": "",
+        "impact": "data",
+        "icon": "history",
+        "pos": {
+          "x": 50,
+          "y": 88
+        }
+      },
+      {
+        "key": "cannib",
+        "label": "Cannibalization Impact",
+        "metric": "High",
+        "delta": "",
+        "trend": "",
+        "impact": "risk",
+        "icon": "cannib",
+        "pos": {
+          "x": 70,
+          "y": 82
+        }
+      }
+    ],
+    "accelerators": [
+      {
+        "key": "pva",
+        "name": "Promotion Variance Analysis",
+        "desc": "Analyzing spend vs. expected ROI",
+        "status": "Completed",
+        "icon": "variance",
+        "tone": "success"
+      },
+      {
+        "key": "rpm",
+        "name": "Retailer Participation Mapping",
+        "desc": "Identifying participation gaps",
+        "status": "Completed",
+        "icon": "retailer",
+        "tone": "success"
+      },
+      {
+        "key": "dsa",
+        "name": "Discount Saturation Analysis",
+        "desc": "Evaluating discount elasticity",
+        "status": "Completed",
+        "icon": "pricing",
+        "tone": "success"
+      },
+      {
+        "key": "cd",
+        "name": "Cannibalization Detection",
+        "desc": "Measuring cross SKU impact",
+        "status": "Completed",
+        "icon": "cannib",
+        "tone": "success"
+      },
+      {
+        "key": "isa",
+        "name": "Inventory Stress Analysis",
+        "desc": "Checking stock loading vs. sell-out",
+        "status": "In Progress",
+        "icon": "inventory",
+        "tone": "warning"
+      },
+      {
+        "key": "hps",
+        "name": "Historical Promotion Similarity",
+        "desc": "Finding learnings from past promotions",
+        "status": "In Progress",
+        "icon": "history",
+        "tone": "warning"
+      }
+    ],
+    "progress": {
+      "completed": 7,
+      "total": 8,
+      "pct": 88,
+      "insights": 16,
+      "sources": 24,
+      "confidence": 82,
+      "confidenceDelta": "+6 pp"
+    },
+    "legend": [
+      {
+        "label": "Strong Impact",
+        "color": "#4F7CFF",
+        "style": "solid"
+      },
+      {
+        "label": "Moderate Impact",
+        "color": "#4F7CFF",
+        "style": "dashed"
+      },
+      {
+        "label": "Negative Impact",
+        "color": "#EF4444",
+        "style": "dashed"
+      },
+      {
+        "label": "Risk / Concern",
+        "color": "#F97316",
+        "style": "dashed"
+      },
+      {
+        "label": "Data Available",
+        "color": "#9CA3AF",
+        "style": "dashed"
+      }
+    ],
+    "nodeDetails": {
+      "spend": {
+        "headline": "Trade Spend ↑ 18% vs plan",
+        "body": "₹98.6 Cr deployed against ₹83.5 Cr plan. Higher incentives to retailers and deeper discounts to drive uptake.",
+        "evidence": "+₹15.1 Cr over plan · concentrated in last 4 weeks"
+      },
+      "retail": {
+        "headline": "Retailer Participation 72% (−8 pp)",
+        "body": "12 of 38 retailers in South MT discontinued promo display by Week 4. Drop concentrated in B/C class outlets.",
+        "evidence": "Plan: 80% · Actual: 72% · last refreshed: 2 hrs ago"
+      },
+      "discount": {
+        "headline": "Discount past elasticity",
+        "body": "Avg discount depth 18.2% (+2.3 pp). 7 SKUs at >22% discount yielded no incremental lift.",
+        "evidence": "Discount saturation curve flattens beyond 18%"
+      },
+      "incsales": {
+        "headline": "Incremental Sales below plan",
+        "body": "₹24.8 Cr vs planned ₹38 Cr. −18.3% gap driven by retailer drop-off + cannibalization.",
+        "evidence": "Sell-out lift +4% vs plan +12%"
+      },
+      "inventory": {
+        "headline": "Inventory at high risk",
+        "body": "Distributor stocks +28% while POS sell-out +4%. Loading detected in May Weeks 2–3 in 2 distributors.",
+        "evidence": "17 days of cover vs target 12 days"
+      },
+      "competitor": {
+        "headline": "Competitor activity high",
+        "body": "\"Spring Saver\" promo by competitor active in Chennai, Coimbatore, Madurai during the same window.",
+        "evidence": "−9 pts share of shelf in 3 South clusters"
+      },
+      "history": {
+        "headline": "8 similar past promotions",
+        "body": "Closest match: Q2 FY24 South MT Push (similarity 88%). That delivered ROI 1.71 vs target 1.85.",
+        "evidence": "Avg ROI of 8 similar promos: 1.62"
+      },
+      "cannib": {
+        "headline": "Cannibalization elevated",
+        "body": "Premium Hair Care SKUs cannibalized Core Hair Care sales. Estimated impact ₹14.2 Cr.",
+        "evidence": "3 SKUs in Hair Care · 2 in Skin Care affected"
+      }
+    }
+  },
+  "orchestrations": {
+    "diagnostic": {
+      "center": {
+        "label": "South MT Push",
+        "sub": "(Apr – Jun 25)"
+      },
+      "contextChips": {
+        "period": "Apr – Jun 2025",
+        "channel": "Modern Trade",
+        "region": "South",
+        "spend": "₹98.6 Cr"
+      },
+      "nodes": [
+        {
+          "key": "spend",
+          "label": "Trade Spend",
+          "metric": "₹98.6 Cr",
+          "delta": "+18%",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "pricing",
+          "pos": {
+            "x": 30,
+            "y": 18
+          }
+        },
+        {
+          "key": "retail",
+          "label": "Retailer Participation",
+          "metric": "72%",
+          "delta": "-8 pp",
+          "trend": "down",
+          "impact": "moderate",
+          "icon": "users",
+          "pos": {
+            "x": 50,
+            "y": 12
+          }
+        },
+        {
+          "key": "discount",
+          "label": "Discount & Price",
+          "metric": "Avg. Disc 18.2%",
+          "delta": "+2.3 pp",
+          "trend": "up",
+          "impact": "risk",
+          "icon": "tag",
+          "pos": {
+            "x": 70,
+            "y": 18
+          }
+        },
+        {
+          "key": "incsales",
+          "label": "Incremental Sales",
+          "metric": "₹24.8 Cr",
+          "delta": "-4.2%",
+          "trend": "down",
+          "impact": "negative",
+          "icon": "trending",
+          "pos": {
+            "x": 18,
+            "y": 50
+          }
+        },
+        {
+          "key": "inventory",
+          "label": "Inventory Position",
+          "metric": "High Risk",
+          "delta": "",
+          "trend": "",
+          "impact": "risk",
+          "icon": "inventory",
+          "pos": {
+            "x": 82,
+            "y": 50
+          }
+        },
+        {
+          "key": "competitor",
+          "label": "Competitor Activity",
+          "metric": "High",
+          "delta": "",
+          "trend": "",
+          "impact": "risk",
+          "icon": "pieChart",
+          "pos": {
+            "x": 30,
+            "y": 82
+          }
+        },
+        {
+          "key": "history",
+          "label": "Promotion History",
+          "metric": "8 Similar Promotions",
+          "delta": "",
+          "trend": "",
+          "impact": "data",
+          "icon": "history",
+          "pos": {
+            "x": 50,
+            "y": 88
+          }
+        },
+        {
+          "key": "cannib",
+          "label": "Cannibalization Impact",
+          "metric": "High",
+          "delta": "",
+          "trend": "",
+          "impact": "risk",
+          "icon": "cannib",
+          "pos": {
+            "x": 70,
+            "y": 82
+          }
+        }
+      ],
+      "accelerators": [
+        {
+          "key": "pva",
+          "name": "Promotion Variance Analysis",
+          "desc": "Analyzing spend vs. expected ROI",
+          "status": "Completed",
+          "icon": "variance",
+          "tone": "success",
+          "node": "spend"
+        },
+        {
+          "key": "rpm",
+          "name": "Retailer Participation Mapping",
+          "desc": "Identifying participation gaps",
+          "status": "Completed",
+          "icon": "retailer",
+          "tone": "success",
+          "node": "retail"
+        },
+        {
+          "key": "dsa",
+          "name": "Discount Saturation Analysis",
+          "desc": "Evaluating discount elasticity",
+          "status": "Completed",
+          "icon": "pricing",
+          "tone": "success",
+          "node": "discount"
+        },
+        {
+          "key": "cd",
+          "name": "Cannibalization Detection",
+          "desc": "Measuring cross-SKU impact",
+          "status": "Completed",
+          "icon": "cannib",
+          "tone": "success",
+          "node": "cannib"
+        },
+        {
+          "key": "isa",
+          "name": "Inventory Stress Analysis",
+          "desc": "Checking stock loading vs. sell-out",
+          "status": "In Progress",
+          "icon": "inventory",
+          "tone": "warning",
+          "node": "inventory"
+        },
+        {
+          "key": "hps",
+          "name": "Historical Promotion Similarity",
+          "desc": "Finding learnings from past promotions",
+          "status": "In Progress",
+          "icon": "history",
+          "tone": "warning",
+          "node": "history"
+        }
+      ],
+      "progress": {
+        "completed": 7,
+        "total": 8,
+        "pct": 88,
+        "insights": 16,
+        "sources": 24,
+        "confidence": 82,
+        "confidenceDelta": "+6 pp"
+      },
+      "nodeDetails": {
+        "spend": {
+          "headline": "Trade Spend ↑ 18% vs plan",
+          "body": "₹98.6 Cr deployed against ₹83.5 Cr plan. Deeper incentives and discounts.",
+          "evidence": "+₹15.1 Cr over plan · concentrated last 4 weeks",
+          "viz": {
+            "type": "bars",
+            "unit": "₹ Cr",
+            "items": [
+              {
+                "label": "Plan",
+                "value": 83.5,
+                "tone": "muted"
+              },
+              {
+                "label": "Actual",
+                "value": 98.6,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "retail": {
+          "headline": "Retailer Participation 72% (−8 pp)",
+          "body": "12 of 38 retailers in South MT discontinued display by Week 4. B/C class most affected.",
+          "evidence": "Plan: 80% · Actual: 72%",
+          "viz": {
+            "type": "bars",
+            "unit": "% participation",
+            "items": [
+              {
+                "label": "Plan",
+                "value": 80,
+                "tone": "muted"
+              },
+              {
+                "label": "Actual",
+                "value": 72,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "discount": {
+          "headline": "Discount past elasticity",
+          "body": "Avg discount 18.2% (+2.3 pp). 7 SKUs at >22% with no incremental lift.",
+          "evidence": "Saturation curve flattens beyond 18%",
+          "viz": {
+            "type": "bars",
+            "unit": "% discount",
+            "items": [
+              {
+                "label": "Elastic cap",
+                "value": 18,
+                "tone": "muted"
+              },
+              {
+                "label": "Avg disc",
+                "value": 18.2,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "incsales": {
+          "headline": "Incremental Sales below plan",
+          "body": "₹24.8 Cr vs ₹38 Cr planned. −18.3% gap from drop-off + cannibalization.",
+          "evidence": "Sell-out lift +4% vs plan +12%",
+          "viz": {
+            "type": "bars",
+            "unit": "₹ Cr",
+            "items": [
+              {
+                "label": "Plan",
+                "value": 38,
+                "tone": "muted"
+              },
+              {
+                "label": "Actual",
+                "value": 24.8,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "inventory": {
+          "headline": "Inventory at high risk",
+          "body": "Stocks +28% while sell-out +4%. Loading detected May Wks 2–3 in 2 distributors.",
+          "evidence": "17 days cover vs target 12",
+          "viz": {
+            "type": "bars",
+            "unit": "days cover",
+            "items": [
+              {
+                "label": "Target",
+                "value": 12,
+                "tone": "muted"
+              },
+              {
+                "label": "Actual",
+                "value": 17,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "competitor": {
+          "headline": "Competitor activity high",
+          "body": "\"Spring Saver\" promo active in Chennai/Coimbatore/Madurai concurrently.",
+          "evidence": "−9 pts share of shelf in 3 clusters",
+          "viz": {
+            "type": "bars",
+            "unit": "pts share of shelf",
+            "items": [
+              {
+                "label": "Before",
+                "value": 42,
+                "tone": "muted"
+              },
+              {
+                "label": "After",
+                "value": 33,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "history": {
+          "headline": "8 similar past promotions",
+          "body": "Closest match: Q2 FY24 South MT Push (88% similar). That delivered ROI 1.71.",
+          "evidence": "Avg ROI of 8 similar: 1.62",
+          "viz": {
+            "type": "bars",
+            "unit": "ROI",
+            "items": [
+              {
+                "label": "Avg of 8",
+                "value": 1.62,
+                "tone": "muted"
+              },
+              {
+                "label": "Closest",
+                "value": 1.71,
+                "tone": "accent"
+              }
+            ]
+          }
+        },
+        "cannib": {
+          "headline": "Cannibalization elevated",
+          "body": "Premium Hair Care cannibalized Core Hair Care. Est. impact ₹14.2 Cr.",
+          "evidence": "3 SKUs in Hair · 2 in Skin affected",
+          "viz": {
+            "type": "bars",
+            "unit": "₹ Cr impact",
+            "items": [
+              {
+                "label": "Hair Care",
+                "value": 9.1,
+                "tone": "accent"
+              },
+              {
+                "label": "Skin Care",
+                "value": 5.1,
+                "tone": "accent2"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "optimization": {
+      "center": {
+        "label": "Q3 Festive Push",
+        "sub": "(Optimization)"
+      },
+      "contextChips": {
+        "period": "Jul – Sep 2025",
+        "channel": "All Channels",
+        "region": "Pan-India",
+        "spend": "₹128 Cr (planned)"
+      },
+      "nodes": [
+        {
+          "key": "spendmix",
+          "label": "Spend Allocation",
+          "metric": "₹128 Cr",
+          "delta": "+5%",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "pricing",
+          "pos": {
+            "x": 30,
+            "y": 18
+          }
+        },
+        {
+          "key": "elasticity",
+          "label": "Discount Elasticity",
+          "metric": "Optimal 14%",
+          "delta": "",
+          "trend": "",
+          "impact": "strong",
+          "icon": "trending",
+          "pos": {
+            "x": 50,
+            "y": 12
+          }
+        },
+        {
+          "key": "channel",
+          "label": "Channel Mix",
+          "metric": "MT 42% · GT 38%",
+          "delta": "Rebal.",
+          "trend": "",
+          "impact": "moderate",
+          "icon": "flow",
+          "pos": {
+            "x": 70,
+            "y": 18
+          }
+        },
+        {
+          "key": "incentive",
+          "label": "Retailer Incentive",
+          "metric": "4.2%",
+          "delta": "+0.7 pp",
+          "trend": "up",
+          "impact": "moderate",
+          "icon": "users",
+          "pos": {
+            "x": 18,
+            "y": 50
+          }
+        },
+        {
+          "key": "timing",
+          "label": "Timing Window",
+          "metric": "6 weeks",
+          "delta": "-1 wk",
+          "trend": "down",
+          "impact": "moderate",
+          "icon": "calendar",
+          "pos": {
+            "x": 82,
+            "y": 50
+          }
+        },
+        {
+          "key": "sku",
+          "label": "SKU Focus",
+          "metric": "Top 20",
+          "delta": "+5 SKUs",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "package",
+          "pos": {
+            "x": 30,
+            "y": 82
+          }
+        },
+        {
+          "key": "roi",
+          "label": "Forecasted ROI",
+          "metric": "2.18",
+          "delta": "+0.65",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "target",
+          "pos": {
+            "x": 50,
+            "y": 88
+          }
+        },
+        {
+          "key": "risk",
+          "label": "Risk Envelope",
+          "metric": "Within",
+          "delta": "Healthy",
+          "trend": "",
+          "impact": "data",
+          "icon": "shield",
+          "pos": {
+            "x": 70,
+            "y": 82
+          }
+        }
+      ],
+      "accelerators": [
+        {
+          "key": "opt",
+          "name": "Spend Allocation Optimizer",
+          "desc": "Finding optimal spend mix across channels",
+          "status": "Completed",
+          "icon": "pricing",
+          "tone": "success",
+          "node": "spendmix"
+        },
+        {
+          "key": "els",
+          "name": "Lever Sensitivity Analysis",
+          "desc": "Testing TPO lever combinations",
+          "status": "Completed",
+          "icon": "flow",
+          "tone": "success",
+          "node": "channel"
+        },
+        {
+          "key": "rrm",
+          "name": "Retailer ROI Mapping",
+          "desc": "Ranking retailers by incremental return",
+          "status": "Completed",
+          "icon": "retailer",
+          "tone": "success",
+          "node": "incentive"
+        },
+        {
+          "key": "dsx",
+          "name": "Discount Elasticity Curve",
+          "desc": "Modeling lift vs discount depth",
+          "status": "Completed",
+          "icon": "trending",
+          "tone": "success",
+          "node": "elasticity"
+        },
+        {
+          "key": "tim",
+          "name": "Timing Optimizer",
+          "desc": "Finding the best promo window",
+          "status": "In Progress",
+          "icon": "calendar",
+          "tone": "warning",
+          "node": "timing"
+        },
+        {
+          "key": "sfx",
+          "name": "SKU Focus Recommender",
+          "desc": "Ranking SKUs by ROI contribution",
+          "status": "In Progress",
+          "icon": "package",
+          "tone": "warning",
+          "node": "sku"
+        }
+      ],
+      "progress": {
+        "completed": 7,
+        "total": 8,
+        "pct": 86,
+        "insights": 14,
+        "sources": 22,
+        "confidence": 88,
+        "confidenceDelta": "+9 pp"
+      },
+      "nodeDetails": {
+        "spendmix": {
+          "headline": "Optimal spend ₹128 Cr",
+          "body": "Recommended: shift 5% from GT to eCom. ROI lift +0.32.",
+          "evidence": "Based on 12 quarters of channel ROI data"
+        },
+        "elasticity": {
+          "headline": "Optimal discount 14%",
+          "body": "Beyond 18% lift plateaus. 14% is sweet spot for category.",
+          "evidence": "Discount saturation curve · 32 SKUs analyzed"
+        },
+        "channel": {
+          "headline": "Rebalance: MT 42 / GT 38 / Ecom 20",
+          "body": "Current is 50/35/15. Move to optimal to recover ₹3.2 Cr.",
+          "evidence": "Historical channel-ROI mapping"
+        },
+        "incentive": {
+          "headline": "Bump retailer incentive +0.7 pp",
+          "body": "+0.7 pp on incentive → +12% participation (modeled).",
+          "evidence": "5-year participation elasticity"
+        },
+        "timing": {
+          "headline": "6-week window optimal",
+          "body": "8 weeks dilutes lift. 6 weeks at festive peak captures 92% of demand.",
+          "evidence": "Demand seasonality model"
+        },
+        "sku": {
+          "headline": "Top 20 SKUs capture 78%",
+          "body": "Focus spend on 20 SKUs vs current 15. +₹4.1 Cr predicted.",
+          "evidence": "SKU contribution analysis"
+        },
+        "roi": {
+          "headline": "Forecasted ROI: 2.18",
+          "body": "Up from baseline 1.53. 87% confidence in forecast.",
+          "evidence": "MMM + historical similarity"
+        },
+        "risk": {
+          "headline": "Within risk envelope",
+          "body": "Budget compliance ✓ · Margin safe · Cannibalization low.",
+          "evidence": "14 policy checks passed"
+        }
+      }
+    },
+    "launch": {
+      "center": {
+        "label": "Q3 Festive eCom",
+        "sub": "(SKU Prioritization)"
+      },
+      "contextChips": {
+        "period": "Oct – Nov 2025",
+        "channel": "eCommerce",
+        "region": "Pan-India",
+        "spend": "₹78 Cr (planned)"
+      },
+      "nodes": [
+        {
+          "key": "demand",
+          "label": "Demand Forecast",
+          "metric": "+34%",
+          "delta": "vs LY",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "trending",
+          "pos": {
+            "x": 30,
+            "y": 18
+          }
+        },
+        {
+          "key": "brand",
+          "label": "Brand Equity",
+          "metric": "Top 5/32",
+          "delta": "2.4x avg",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "sparkles",
+          "pos": {
+            "x": 50,
+            "y": 12
+          }
+        },
+        {
+          "key": "platform",
+          "label": "eCom Platform Fit",
+          "metric": "92%",
+          "delta": "conv.",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "flow",
+          "pos": {
+            "x": 70,
+            "y": 18
+          }
+        },
+        {
+          "key": "inv",
+          "label": "Inventory Readiness",
+          "metric": "5/5 ready",
+          "delta": "7.4 wks",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "inventory",
+          "pos": {
+            "x": 18,
+            "y": 50
+          }
+        },
+        {
+          "key": "compete",
+          "label": "Competitor Watch",
+          "metric": "3 overlaps",
+          "delta": "Warn",
+          "trend": "down",
+          "impact": "risk",
+          "icon": "pieChart",
+          "pos": {
+            "x": 82,
+            "y": 50
+          }
+        },
+        {
+          "key": "margin",
+          "label": "Margin Contribution",
+          "metric": "+18%",
+          "delta": "vs avg",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "pricing",
+          "pos": {
+            "x": 30,
+            "y": 82
+          }
+        },
+        {
+          "key": "funnel",
+          "label": "Conversion Funnel",
+          "metric": "4.2%",
+          "delta": "above",
+          "trend": "up",
+          "impact": "moderate",
+          "icon": "target",
+          "pos": {
+            "x": 50,
+            "y": 88
+          }
+        },
+        {
+          "key": "search",
+          "label": "Search Trends",
+          "metric": "+42%",
+          "delta": "YoY",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "zoomIn",
+          "pos": {
+            "x": 70,
+            "y": 82
+          }
+        }
+      ],
+      "accelerators": [
+        {
+          "key": "df",
+          "name": "Demand Forecasting",
+          "desc": "Projecting demand per SKU using 3-yr seasonality",
+          "status": "Completed",
+          "icon": "trending",
+          "tone": "success",
+          "node": "demand"
+        },
+        {
+          "key": "be",
+          "name": "Brand Equity Scoring",
+          "desc": "Ranking SKUs by brand pull and consumer affinity",
+          "status": "Completed",
+          "icon": "sparkles",
+          "tone": "success",
+          "node": "brand"
+        },
+        {
+          "key": "cm",
+          "name": "Channel Mix Optimization",
+          "desc": "Best platform fit per SKU on Amazon / Flipkart",
+          "status": "Completed",
+          "icon": "flow",
+          "tone": "success",
+          "node": "platform"
+        },
+        {
+          "key": "ic",
+          "name": "Inventory Capacity Planning",
+          "desc": "Supply chain readiness per SKU",
+          "status": "Completed",
+          "icon": "inventory",
+          "tone": "success",
+          "node": "inv"
+        },
+        {
+          "key": "cps",
+          "name": "Competitor Promo Scan",
+          "desc": "Detecting parallel launches in same window",
+          "status": "In Progress",
+          "icon": "pieChart",
+          "tone": "warning",
+          "node": "compete"
+        },
+        {
+          "key": "sdt",
+          "name": "Search & Discovery Trends",
+          "desc": "Search velocity & keyword growth analysis",
+          "status": "In Progress",
+          "icon": "zoomIn",
+          "tone": "warning",
+          "node": "search"
+        }
+      ],
+      "progress": {
+        "completed": 7,
+        "total": 8,
+        "pct": 84,
+        "insights": 18,
+        "sources": 26,
+        "confidence": 87,
+        "confidenceDelta": "+11 pp"
+      },
+      "nodeDetails": {
+        "demand": {
+          "headline": "Demand projected +34% YoY",
+          "body": "Category growth driven by skincare cluster. 6 SKUs above trendline.",
+          "evidence": "3-year seasonality model"
+        },
+        "brand": {
+          "headline": "Top 5 SKUs have 2.4× affinity",
+          "body": "SKU-A21, B14, C08, D33, E12 ranked highest by Kantar.",
+          "evidence": "Kantar brand tracker Q2"
+        },
+        "platform": {
+          "headline": "92% historical conv. on top 5",
+          "body": "Amazon + Flipkart Premium drive best conversion for these SKUs.",
+          "evidence": "24 months Amazon/Flipkart data"
+        },
+        "inv": {
+          "headline": "All 5 SKUs inventory-ready",
+          "body": "6+ weeks of stock cover across all 5. No stockout risk.",
+          "evidence": "SAP + DMS reconciled this morning"
+        },
+        "compete": {
+          "headline": "3 competitor overlaps detected",
+          "body": "HUL Closeup and P&G Olay launching parallel on SKU-B14, D33.",
+          "evidence": "NielsenIQ competitive intelligence"
+        },
+        "margin": {
+          "headline": "Top 5 SKUs +18% margin",
+          "body": "Higher than portfolio avg. Margin uplift on recommendation.",
+          "evidence": "Margin decomposition (SAP)"
+        },
+        "funnel": {
+          "headline": "Funnel conversion 4.2%",
+          "body": "Above benchmark on Amazon (4.8%) and Flipkart (3.6%).",
+          "evidence": "Amazon Search→Cart data"
+        },
+        "search": {
+          "headline": "Search velocity +42% YoY",
+          "body": "Top-5 SKU keywords trending up consistently for 4 weeks.",
+          "evidence": "Google Trends API"
+        }
+      }
+    },
+    "strategic": {
+      "center": {
+        "label": "FY26 Trade Strategy",
+        "sub": "(Portfolio Review)"
+      },
+      "contextChips": {
+        "period": "FY26 (Apr 25 – Mar 26)",
+        "channel": "All Channels",
+        "region": "Pan-India",
+        "spend": "₹680 Cr (annual)"
+      },
+      "nodes": [
+        {
+          "key": "budget",
+          "label": "Budget Allocation",
+          "metric": "₹680 Cr",
+          "delta": "+12%",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "pricing",
+          "pos": {
+            "x": 30,
+            "y": 18
+          }
+        },
+        {
+          "key": "portfolio",
+          "label": "Portfolio Mix",
+          "metric": "5 categ.",
+          "delta": "Rebalance",
+          "trend": "",
+          "impact": "strong",
+          "icon": "layers",
+          "pos": {
+            "x": 50,
+            "y": 12
+          }
+        },
+        {
+          "key": "growth",
+          "label": "Growth Investment",
+          "metric": "₹84 Cr",
+          "delta": "New range",
+          "trend": "up",
+          "impact": "moderate",
+          "icon": "sparkles",
+          "pos": {
+            "x": 70,
+            "y": 18
+          }
+        },
+        {
+          "key": "regional",
+          "label": "Regional Allocation",
+          "metric": "South ↑",
+          "delta": "+5 pp",
+          "trend": "up",
+          "impact": "moderate",
+          "icon": "target",
+          "pos": {
+            "x": 18,
+            "y": 50
+          }
+        },
+        {
+          "key": "market",
+          "label": "Market Share Outlook",
+          "metric": "14.2 → 15.8%",
+          "delta": "+1.6 pp",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "pieChart",
+          "pos": {
+            "x": 82,
+            "y": 50
+          }
+        },
+        {
+          "key": "channelmix",
+          "label": "Channel Strategy",
+          "metric": "eCom +5pp",
+          "delta": "shift",
+          "trend": "up",
+          "impact": "moderate",
+          "icon": "flow",
+          "pos": {
+            "x": 30,
+            "y": 82
+          }
+        },
+        {
+          "key": "compbench",
+          "label": "Competitor Benchmark",
+          "metric": "2nd → 1st",
+          "delta": "project",
+          "trend": "up",
+          "impact": "strong",
+          "icon": "trending",
+          "pos": {
+            "x": 50,
+            "y": 88
+          }
+        },
+        {
+          "key": "governance",
+          "label": "Governance Compliance",
+          "metric": "14/14",
+          "delta": "rules",
+          "trend": "",
+          "impact": "data",
+          "icon": "shield",
+          "pos": {
+            "x": 70,
+            "y": 82
+          }
+        }
+      ],
+      "accelerators": [
+        {
+          "key": "bs",
+          "name": "Budget Scenario Modeller",
+          "desc": "Modeling ±5%, ±10%, ±15% spend scenarios",
+          "status": "Completed",
+          "icon": "pricing",
+          "tone": "success",
+          "node": "budget"
+        },
+        {
+          "key": "pm",
+          "name": "Portfolio Mix Optimizer",
+          "desc": "Finding optimal category/SKU spend mix",
+          "status": "Completed",
+          "icon": "layers",
+          "tone": "success",
+          "node": "portfolio"
+        },
+        {
+          "key": "rh",
+          "name": "Regional Elasticity History",
+          "desc": "5-year regional spend-ROI elasticity",
+          "status": "Completed",
+          "icon": "target",
+          "tone": "success",
+          "node": "regional"
+        },
+        {
+          "key": "cs",
+          "name": "Competitor Share Analysis",
+          "desc": "Share of voice & share of shelf trends",
+          "status": "Completed",
+          "icon": "pieChart",
+          "tone": "success",
+          "node": "market"
+        },
+        {
+          "key": "mg",
+          "name": "Market Growth Projection",
+          "desc": "Category growth forecast for FY26",
+          "status": "In Progress",
+          "icon": "trending",
+          "tone": "warning",
+          "node": "compbench"
+        },
+        {
+          "key": "gc",
+          "name": "Governance & Policy Check",
+          "desc": "Ensuring strategy stays within all rules",
+          "status": "In Progress",
+          "icon": "shield",
+          "tone": "warning",
+          "node": "governance"
+        }
+      ],
+      "progress": {
+        "completed": 7,
+        "total": 8,
+        "pct": 82,
+        "insights": 22,
+        "sources": 31,
+        "confidence": 85,
+        "confidenceDelta": "+8 pp"
+      },
+      "nodeDetails": {
+        "budget": {
+          "headline": "Budget ₹680 Cr (+12% YoY)",
+          "body": "Recommend +12% YoY to support category growth ambition. Net ROI lift +0.18.",
+          "evidence": "5-year spend-ROI elasticity"
+        },
+        "portfolio": {
+          "headline": "Rebalance to 5 priority categs",
+          "body": "Shift 8% spend from declining to growth categories.",
+          "evidence": "Category growth + share analysis"
+        },
+        "growth": {
+          "headline": "Growth bucket: ₹84 Cr",
+          "body": "Allocate to new Skincare and Premium Hair Care launches.",
+          "evidence": "Innovation pipeline + market sizing"
+        },
+        "regional": {
+          "headline": "South share +5 pp",
+          "body": "South has highest spend-ROI elasticity. Shift ₹34 Cr in.",
+          "evidence": "Regional elasticity 5-yr"
+        },
+        "market": {
+          "headline": "Market share 14.2 → 15.8%",
+          "body": "Modeled outcome if recommended strategy adopted.",
+          "evidence": "MMM + share-of-voice model"
+        },
+        "channelmix": {
+          "headline": "eCom +5 pp by year-end",
+          "body": "eCom share moving from 18% to 23% of total spend.",
+          "evidence": "eCom growth trend + competitor moves"
+        },
+        "compbench": {
+          "headline": "Move from #2 to #1 in 3 categs",
+          "body": "Predicted outcome on Hair Care, Skin Care, Oral Care.",
+          "evidence": "Competitor share trajectories"
+        },
+        "governance": {
+          "headline": "All 14 policy checks pass",
+          "body": "Budget · Margin · Trade Policy · Inventory · Risk all green.",
+          "evidence": "Live governance engine"
+        }
+      }
+    }
+  }
+}

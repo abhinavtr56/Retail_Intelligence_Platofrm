@@ -1,0 +1,51 @@
+[
+  {
+    "agent": "Cannibalization Detection",
+    "action": "flagged Premium Hair Care cannibalizing Core Hair Care",
+    "ago": "12 min ago",
+    "severity": "danger",
+    "icon": "cannib"
+  },
+  {
+    "agent": "Retailer Participation Monitor",
+    "action": "detected 2 retailers dropped display (South MT)",
+    "ago": "34 min ago",
+    "severity": "warning",
+    "icon": "retailer"
+  },
+  {
+    "agent": "Inventory Stress Analyzer",
+    "action": "identified stock loading risk in 2 distributors",
+    "ago": "1 hr ago",
+    "severity": "warning",
+    "icon": "inventory"
+  },
+  {
+    "agent": "Data Sync Agent",
+    "action": "refreshed NielsenIQ scanner data (147K rows)",
+    "ago": "2 hr ago",
+    "severity": "info",
+    "icon": "database"
+  },
+  {
+    "agent": "Promotion Variance Agent",
+    "action": "completed analysis of South MT Push (8 accelerators)",
+    "ago": "3 hr ago",
+    "severity": "success",
+    "icon": "checkCircle"
+  },
+  {
+    "agent": "Historical Similarity",
+    "action": "matched current investigation to 8 past promotions",
+    "ago": "4 hr ago",
+    "severity": "info",
+    "icon": "history"
+  },
+  {
+    "agent": "Discount Saturation",
+    "action": "updated saturation curves for 32 SKUs (Q2)",
+    "ago": "6 hr ago",
+    "severity": "info",
+    "icon": "pricing"
+  }
+]

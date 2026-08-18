@@ -1,0 +1,66 @@
+[
+  {
+    "key": "diagnostic",
+    "title": "Diagnostic",
+    "badge": "POST-MORTEM",
+    "tone": "danger",
+    "icon": "investigations",
+    "desc": "Understand WHY a past or in-flight promotion underperformed.",
+    "example": "Why did South Modern Trade Push underperform despite increased trade spend?",
+    "duration": "~5–8 min",
+    "questions": [
+      "Why did South Modern Trade Push underperform despite increased trade spend?",
+      "Why is North General Trade ROI declining over the last 3 promotions?",
+      "What caused the cannibalization spike in Premium Hair Care in Q2?",
+      "Why did Value Pack Bonanza fall 22% below ROI target?"
+    ]
+  },
+  {
+    "key": "optimization",
+    "title": "Optimization",
+    "badge": "IN-FLIGHT",
+    "tone": "violet",
+    "icon": "sparkles",
+    "desc": "Maximize ROI of an active or upcoming promotion through TPO levers.",
+    "example": "How do we maximize ROI of the upcoming Q3 Festive Push?",
+    "duration": "~6–10 min",
+    "questions": [
+      "How do we maximize ROI of the upcoming Q3 Festive Push?",
+      "How to optimize spend across MT / GT / eCom for South region?",
+      "What's the optimal discount depth for Skin Care this quarter?",
+      "How to rebalance retailer incentives to improve participation?"
+    ]
+  },
+  {
+    "key": "launch",
+    "title": "Launch Planning",
+    "badge": "FORWARD-LOOKING",
+    "tone": "success",
+    "icon": "target",
+    "desc": "Plan a new product launch or major promotional campaign.",
+    "example": "Which 5 SKUs should we prioritize for Q3 Festive eCom launch?",
+    "duration": "~7–12 min",
+    "questions": [
+      "Which 5 SKUs should we prioritize for Q3 Festive eCom launch?",
+      "What's the optimal launch window for the Diwali Premium range?",
+      "Which regions to prioritize for the new Skincare launch?",
+      "How much trade spend to allocate to the festive launch?"
+    ]
+  },
+  {
+    "key": "strategic",
+    "title": "Strategic Review",
+    "badge": "LONG-TERM",
+    "tone": "warning",
+    "icon": "pieChart",
+    "desc": "Quarterly or annual trade strategy review with portfolio-level decisions.",
+    "example": "Should we increase Q3 trade spend allocation to South region?",
+    "duration": "~10–15 min",
+    "questions": [
+      "Should we increase Q3 trade spend allocation to South region?",
+      "What's the optimal portfolio mix for FY26?",
+      "Where should we invest growth budget for FY26?",
+      "How to rebalance channel mix for sustainable growth?"
+    ]
+  }
+]

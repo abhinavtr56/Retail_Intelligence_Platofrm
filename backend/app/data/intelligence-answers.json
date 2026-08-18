@@ -1,0 +1,30 @@
+{
+  "diagnostic": {
+    "confidence": 82,
+    "sources": 24,
+    "specialists": 6,
+    "summary": "Synthesized from 6 specialist agents · 24 data sources",
+    "text": "South Modern Trade Push underperformed despite an [n]18% increase in trade spend[/n] because the additional investment was eroded across three converging dimensions.\nFirst, [r]retailer participation fell to 72%[/r], eight points below plan — 12 of 38 South retailers discontinued display by Week 4, pulling visibility out of B and C-class outlets.\nSecond, [r]average discount depth crossed the elasticity threshold at 18.2%[/r], with 7 SKUs running at 22% or higher where additional price cuts no longer generated incremental lift.\nThird, [r]cannibalization within the portfolio cost an estimated ₹14.2 Cr[/r] as Premium Hair Care displaced Core Hair Care sales — and a competitor's parallel \"Spring Saver\" campaign captured [r]9 points of shelf[/r] across Chennai, Coimbatore, and Madurai.\nNet outcome: [r]incremental sales of ₹24.8 Cr against a ₹38 Cr plan[/r] — an 18.3% gap driven not by under-investment, but by saturated levers and lost shelf control."
+  },
+  "optimization": {
+    "confidence": 87,
+    "sources": 22,
+    "specialists": 6,
+    "summary": "Synthesized from 6 specialist agents · 22 data sources",
+    "text": "To maximize ROI on the upcoming Q3 Festive Push, the optimization engine recommends a revised plan that lifts forecasted ROI from [g]1.53 to 2.18[/g] — within budget and policy thresholds.\n[n]Channel mix should rebalance to MT 42 / GT 38 / eCom 20[/n] (from 50 / 35 / 15), recovering [g]₹3.2 Cr[/g] lost to sub-optimal allocation.\n[n]Discount depth should be capped at 14%[/n] — the category sweet spot beyond which incremental lift plateaus.\nSpend should concentrate on the [n]Top 20 SKUs[/n] that capture 78% of contribution, and a [n]0.7 percentage point lift in retailer incentives[/n] is projected to drive [g]+12% participation[/g].\nForecast confidence is [g]87%[/g], with all 14 governance checks passing."
+  },
+  "launch": {
+    "confidence": 87,
+    "sources": 26,
+    "specialists": 6,
+    "summary": "Synthesized from 6 specialist agents · 26 data sources",
+    "text": "For the Q3 Festive eCommerce launch, the SKU prioritization analysis recommends concentrating [n]₹78 Cr behind 5 SKUs out of 32 candidates[/n] — SKU-A21, B14, C08, D33, and E12.\nThese 5 SKUs score [g]2.4× the portfolio average on brand equity[/g], deliver [g]92% historical conversion[/g] on Amazon and Flipkart Premium, carry [g]18% above-portfolio margin[/g], and have full inventory readiness with 6+ weeks of cover.\nCategory demand is forecast [g]+34% YoY[/g], with search velocity up [g]42%[/g] on top-5 keywords.\nOne risk to monitor: [r]HUL Closeup and P&G Olay[/r] are launching parallel SKUs on B14 and D33 — competitive overlap should be actively tracked. Forecast confidence is [g]87%[/g]."
+  },
+  "strategic": {
+    "confidence": 85,
+    "sources": 31,
+    "specialists": 6,
+    "summary": "Synthesized from 6 specialist agents · 31 data sources",
+    "text": "The FY26 portfolio review recommends a [g]12% YoY increase in trade budget to ₹680 Cr[/g], deployed against a rebalanced portfolio mix that lifts projected category share from [g]14.2% to 15.8%[/g].\n[n]Growth investment of ₹84 Cr[/n] funds the new Skincare range. [n]Regional allocation shifts +5 pp toward South[/n] where elasticity is highest, and [n]channel strategy moves +5 pp into eCom[/n] to follow consumer migration.\nThe plan passes [g]all 14 governance and policy checks[/g], with a projected ROI lift of [g]+0.18[/g].\nNet effect: from [g]#2 to #1 category position[/g] by year-end, with margins protected. Forecast confidence is [g]85%[/g]."
+  }
+}

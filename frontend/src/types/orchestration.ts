@@ -1,0 +1,88 @@
+export interface OrchNode {
+  key: string
+  label: string
+  metric: string
+  delta: string
+  trend: 'up' | 'down' | ''
+  impact: 'strong' | 'moderate' | 'negative' | 'risk' | 'data'
+  icon: string
+  pos: { x: number; y: number }
+}
+
+export interface Accelerator {
+  key: string
+  name: string
+  desc: string
+  status: 'Completed' | 'In Progress'
+  icon: string
+  tone: 'success' | 'warning'
+  node?: string
+}
+
+export interface NodeVizItem {
+  label: string
+  value: number
+  tone?: 'muted' | 'accent' | 'accent2'
+}
+
+export interface NodeDetail {
+  headline: string
+  body: string
+  evidence: string
+  viz?: { type: 'bars'; unit: string; items: NodeVizItem[] }
+}
+
+export interface OrchestrationProgress {
+  completed: number
+  total: number
+  pct: number
+  insights: number
+  sources: number
+  confidence: number
+  confidenceDelta: string
+}
+
+export interface Orchestration {
+  center: { label: string; sub: string }
+  contextChips: { period: string; channel: string; region: string; spend: string }
+  nodes: OrchNode[]
+  accelerators: Accelerator[]
+  progress: OrchestrationProgress
+  nodeDetails: Record<string, NodeDetail>
+}
+
+export interface LegendItem {
+  label: string
+  color: string
+  style: 'solid' | 'dashed'
+}
+
+export interface LegacyInvestigation {
+  title: string
+  subtitle: string
+  businessQuestion: string
+  contextChips: { period: string; channel: string; region: string; spend: string }
+  center: { label: string; sub: string }
+  nodes: OrchNode[]
+  accelerators: Accelerator[]
+  progress: OrchestrationProgress
+  legend: LegendItem[]
+  nodeDetails: Record<string, NodeDetail>
+}
+
+export interface InvestigationTypeMeta {
+  key: string
+  title: string
+  badge: string
+  tone: 'danger' | 'violet' | 'success' | 'warning'
+  icon: string
+  desc: string
+  example: string
+  duration: string
+  questions: string[]
+}
+
+export interface InvestigationsData {
+  legacyDefault: LegacyInvestigation
+  orchestrations: Record<string, Orchestration>
+}

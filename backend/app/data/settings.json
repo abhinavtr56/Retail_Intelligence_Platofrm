@@ -1,0 +1,20 @@
+{
+  "profile": {
+    "name": "Sanjay Kumar",
+    "role": "Commercial Analyst",
+    "email": "sanjay.k@company.com",
+    "region": "South",
+    "timezone": "Asia/Kolkata"
+  },
+  "preferences": {
+    "theme": "Light",
+    "density": "Comfortable",
+    "defaultPeriod": "Q2 FY25",
+    "defaultChannel": "All Channels"
+  },
+  "integrations": [
+    "SSO via Microsoft Entra ID",
+    "Slack notifications",
+    "Email digests (daily)"
+  ]
+}

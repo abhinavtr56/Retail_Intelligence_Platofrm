@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Re-engage 2 dropped retailers in South MT",
+    "desc": "More Megastore & Spencer's discontinued display Week 4. Re-engagement could recover ~₹2.0 Cr.",
+    "impact": "+₹2.0 Cr",
+    "icon": "retailer",
+    "tone": "success",
+    "action": "Open Plan"
+  },
+  {
+    "title": "Cap discount depth at 18% on 7 SKUs",
+    "desc": "Current 22–28% on these SKUs yields zero incremental lift. Capping saves ₹4.1 Cr.",
+    "impact": "+₹4.1 Cr",
+    "icon": "pricing",
+    "tone": "success",
+    "action": "Apply Cap"
+  },
+  {
+    "title": "Shift ₹3.4 Cr from Premium Hair Care to Core",
+    "desc": "Premium is cannibalizing Core. Rebalancing recovers ₹3.4 Cr in incremental sales.",
+    "impact": "+₹3.4 Cr",
+    "icon": "cannib",
+    "tone": "success",
+    "action": "Simulate"
+  }
+]

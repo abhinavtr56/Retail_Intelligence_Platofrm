@@ -1,0 +1,166 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+/* ============================================================================
+   Tailwind theme — every value below POINTS AT a token above via var(),
+   it never restates one. Change a color once, in tokens.css, and both the
+   raw CSS and every Tailwind utility (bg-violet, text-ink-muted, …) update
+   together.
+
+   Shadows, easing and the three layout dimensions (sidebar/topbar/rail
+   widths) are deliberately NOT registered here — tokens.css already named
+   them --shadow-{x} and --ease-{x}, which are reserved Tailwind namespaces,
+   so aliasing them here would be self-referential (--shadow-md: var(--shadow-md)
+   resolves to nothing). Use them directly: shadow-[var(--shadow-md)],
+   ease-[var(--ease-spring)], w-[var(--sidebar-w)].
+============================================================================ */
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Brand — kept as brand-* (not violet/blue/indigo) because those bare
+     names collide with Tailwind's own built-in color palette, which
+     silently blocks the bare bg-{name} utility from being generated. */
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-violet-50: var(--brand-violet-50);
+  --color-brand-violet-100: var(--brand-violet-100);
+  --color-brand-violet-600: var(--brand-violet-600);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-50: var(--brand-blue-50);
+  --color-brand-indigo: var(--brand-indigo);
+
+  /* Surfaces */
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-elevated: var(--surface-elevated);
+
+  /* Sidebar */
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-item: var(--sidebar-item);
+  --color-sidebar-item-hover: var(--sidebar-item-hover);
+  --color-sidebar-item-active: var(--sidebar-item-active);
+  --color-sidebar-item-active-bg: var(--sidebar-item-active-bg);
+  --color-sidebar-brand: var(--sidebar-brand);
+  --color-sidebar-brand-sub: var(--sidebar-brand-sub);
+
+  /* Text */
+  --color-ink-primary: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-disabled: var(--text-disabled);
+  --color-ink-inverse: var(--text-inverse);
+
+  /* Borders */
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* Status */
+  --color-status-success: var(--status-success);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+
+  /* Tone */
+  --color-tone-peach: var(--tone-peach);
+  --color-tone-peach-bg: var(--tone-peach-bg);
+
+  /* KPI icon tints */
+  --color-tint-mint: var(--tint-mint);
+  --color-tint-mint-icon: var(--tint-mint-icon);
+  --color-tint-peach: var(--tint-peach);
+  --color-tint-peach-icon: var(--tint-peach-icon);
+  --color-tint-lavender: var(--tint-lavender);
+  --color-tint-lavender-icon: var(--tint-lavender-icon);
+  --color-tint-rose: var(--tint-rose);
+  --color-tint-rose-icon: var(--tint-rose-icon);
+  --color-tint-sky: var(--tint-sky);
+  --color-tint-sky-icon: var(--tint-sky-icon);
+  --color-tint-lemon: var(--tint-lemon);
+  --color-tint-lemon-icon: var(--tint-lemon-icon);
+  --color-tint-teal: var(--tint-teal);
+  --color-tint-teal-icon: var(--tint-teal-icon);
+  --color-tint-coral: var(--tint-coral);
+  --color-tint-coral-icon: var(--tint-coral-icon);
+
+  /* Dark (Engine view legacy) */
+  --color-dark-bg: var(--dark-bg);
+  --color-dark-bg-2: var(--dark-bg-2);
+  --color-dark-card: var(--dark-card);
+  --color-dark-card-hover: var(--dark-card-hover);
+  --color-dark-border: var(--dark-border);
+  --color-dark-border-strong: var(--dark-border-strong);
+  --color-dark-text: var(--dark-text);
+  --color-dark-text-muted: var(--dark-text-muted);
+  --color-dark-text-dim: var(--dark-text-dim);
+
+  /* Radius */
+  --radius-xs: var(--r-xs);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-2xl: var(--r-2xl);
+  --radius-pill: var(--r-pill);
+}
+
+/* ============================================================================
+   Global base — the handful of rules the Tailwind preflight intentionally
+   does not set (it zeroes heading styles, does not touch scrollbars/selection,
+   etc). Ported from base.css; everything preflight already covers (box-sizing,
+   margin resets) was dropped rather than duplicated.
+============================================================================ */
+body {
+  color: var(--text-primary);
+  background: var(--surface-page);
+  font-feature-settings: 'cv02', 'cv03', 'cv11', 'tnum';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 { font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+h1 { font-size: 28px; line-height: 1.25; letter-spacing: -0.02em; }
+h2 { font-size: 22px; line-height: 1.3; }
+h3 { font-size: 18px; line-height: 1.35; }
+h4 { font-size: 15px; line-height: 1.4; }
+
+::selection { background: var(--brand-violet); color: white; }
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #D7DAE2; border-radius: 5px; border: 2px solid var(--surface-page); }
+*::-webkit-scrollbar-thumb:hover { background: #B8BDC9; }
+
+:focus-visible { outline: 2px solid var(--brand-violet); outline-offset: 2px; border-radius: 4px; }
+
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulseDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
+@keyframes spin     { to { transform: rotate(360deg); } }
+@keyframes shimmer  { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+@keyframes liveDot {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+@keyframes npGrow { from { width: 0; } }
+@keyframes aiPulseDot {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+  50%      { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.05); }
+}
+@keyframes aiCursorBlink { to { opacity: 0; } }
+
+.fade-in    { animation: fadeIn 220ms var(--ease-out) both; }
+.fade-in-up { animation: fadeInUp 320ms var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in, .fade-in-up { animation: none; }
+}

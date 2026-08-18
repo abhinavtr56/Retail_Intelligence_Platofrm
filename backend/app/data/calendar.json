@@ -1,0 +1,40 @@
+{
+  "events": [
+    {
+      "date": "2025-06-18",
+      "name": "Mid-quarter trade review",
+      "type": "review",
+      "channel": "All"
+    },
+    {
+      "date": "2025-06-22",
+      "name": "Festive Saver — kick-off",
+      "type": "launch",
+      "channel": "GT"
+    },
+    {
+      "date": "2025-06-25",
+      "name": "Summer Refresh Promo extension",
+      "type": "extension",
+      "channel": "MT"
+    },
+    {
+      "date": "2025-06-28",
+      "name": "NielsenIQ data refresh",
+      "type": "data",
+      "channel": "All"
+    },
+    {
+      "date": "2025-07-02",
+      "name": "Value Pack Bonanza — closure",
+      "type": "closure",
+      "channel": "Ecom"
+    },
+    {
+      "date": "2025-07-05",
+      "name": "Q2 ROI committee review",
+      "type": "review",
+      "channel": "All"
+    }
+  ]
+}

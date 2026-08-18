@@ -1,0 +1,60 @@
+{
+  "navMain": [
+    {
+      "key": "command",
+      "label": "Command Center",
+      "icon": "grid",
+      "route": "#/command"
+    },
+    {
+      "key": "investigations",
+      "label": "Investigations",
+      "icon": "investigations",
+      "route": "#/investigations"
+    },
+    {
+      "key": "intelligence",
+      "label": "Promotion Intelligence",
+      "icon": "sparkles",
+      "route": "#/intelligence"
+    },
+    {
+      "key": "simulation",
+      "label": "Simulation Studio",
+      "icon": "flow",
+      "route": "#/simulation"
+    },
+    {
+      "key": "decision",
+      "label": "Decision Center",
+      "icon": "checkCircle",
+      "route": "#/decision"
+    }
+  ],
+  "navSecondary": [
+    {
+      "key": "calendar",
+      "label": "Calendar",
+      "icon": "calendar",
+      "route": "#/calendar"
+    },
+    {
+      "key": "reports",
+      "label": "Reports",
+      "icon": "file",
+      "route": "#/reports"
+    },
+    {
+      "key": "connections",
+      "label": "Data Connections",
+      "icon": "database",
+      "route": "#/connections"
+    },
+    {
+      "key": "settings",
+      "label": "Settings",
+      "icon": "settings",
+      "route": "#/settings"
+    }
+  ]
+}

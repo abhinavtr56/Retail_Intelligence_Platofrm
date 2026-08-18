@@ -1,0 +1,108 @@
+/* ============================================================================
+   TIQ design tokens — ported VERBATIM from the vanilla app css/tokens.css.
+   Do not hand-edit values here without updating the original alongside it
+   until the vanilla app is retired (Phase 7). This file is the single
+   source of truth for color/radius/shadow — tailwind.css below only
+   *references* these variables, it never redefines a value.
+============================================================================ */
+:root {
+  /* ===== Brand / Accent (matching reference images) ===== */
+  --brand-violet:     #6B47FF;
+  --brand-violet-600: #5938DC;
+  --brand-violet-50:  #EFEAFF;
+  --brand-violet-100: #DDD1FF;
+  --brand-blue:       #4F7CFF;
+  --brand-blue-50:    #EEF3FF;
+  --brand-indigo:     #3B4FE0;
+
+  /* ===== Surfaces (light theme) ===== */
+  --surface-page:     #F6F4FB;
+  --surface-card:     #FFFFFF;
+  --surface-muted:    #F1F2F7;
+  --surface-hover:    #F5F4F9;
+  --surface-elevated: #FFFFFF;
+
+  /* ===== Sidebar (DARK navy from reference) ===== */
+  --sidebar-bg:            #0E1422;
+  --sidebar-border:        rgba(255, 255, 255, 0.06);
+  --sidebar-item:          #9CA3B8;
+  --sidebar-item-hover:    #FFFFFF;
+  --sidebar-item-active:   #FFFFFF;
+  --sidebar-item-active-bg: rgba(107, 71, 255, 0.18);
+  --sidebar-brand:         #FFFFFF;
+  --sidebar-brand-sub:     #7D8499;
+
+  /* ===== Text ===== */
+  --text-primary:   #1A1F2E;
+  --text-secondary: #4B5563;
+  --text-muted:     #6B7280;
+  --text-disabled:  #9CA3AF;
+  --text-inverse:   #FFFFFF;
+
+  /* ===== Borders ===== */
+  --border-subtle:  #ECEEF3;
+  --border-default: #E2E5EC;
+  --border-strong:  #CDD1DB;
+
+  /* ===== Status (calibrated to match the reference greens/reds/ambers) ===== */
+  --status-success:    #16A34A;
+  --status-success-bg: #DCFCE7;
+  --status-warning:    #F59E0B;
+  --status-warning-bg: #FEF3C7;
+  --status-danger:     #DC2626;
+  --status-danger-bg:  #FEE2E2;
+  --status-info:       #3B82F6;
+  --status-info-bg:    #DBEAFE;
+
+  /* Peach / coral for medium impact pills in reference image 3 */
+  --tone-peach:    #F97316;
+  --tone-peach-bg: #FFEDD5;
+
+  /* ===== Pastel icon tints for KPI containers (Image 1) ===== */
+  --tint-mint:      #D6F5E6;  --tint-mint-icon:     #10B981;
+  --tint-peach:     #FFE4D1;  --tint-peach-icon:    #F97316;
+  --tint-lavender:  #E9DFFF;  --tint-lavender-icon: #6B47FF;
+  --tint-rose:      #FFE0E8;  --tint-rose-icon:     #EC4899;
+  --tint-sky:       #DCEEFF;  --tint-sky-icon:      #3B82F6;
+  --tint-lemon:     #FFF4CF;  --tint-lemon-icon:    #EAB308;
+  --tint-teal:      #CCEFE9;  --tint-teal-icon:     #14B8A6;
+  --tint-coral:     #FFD9D4;  --tint-coral-icon:    #F43F5E;
+
+  /* ===== Dark theme (Engine view legacy) ===== */
+  --dark-bg:         #0A0F1C;
+  --dark-bg-2:       #0F1525;
+  --dark-card:       #141B2E;
+  --dark-card-hover: #1A2238;
+  --dark-border:     #232B44;
+  --dark-border-strong: #2D375A;
+  --dark-text:       #E4E7F0;
+  --dark-text-muted: #8A93AB;
+  --dark-text-dim:   #5B647A;
+
+  /* ===== Effects ===== */
+  --shadow-xs:    0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-sm:    0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-md:    0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.04);
+  --shadow-lg:    0 12px 24px -6px rgba(16, 24, 40, 0.12), 0 4px 8px -2px rgba(16, 24, 40, 0.06);
+  --shadow-violet: 0 8px 24px -8px rgba(107, 71, 255, 0.45);
+  --shadow-card-soft: 0 1px 3px rgba(15, 22, 41, 0.04), 0 4px 16px -4px rgba(15, 22, 41, 0.06);
+
+  /* ===== Radii ===== */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-2xl: 22px;
+  --r-pill: 999px;
+
+  /* ===== Layout ===== */
+  --sidebar-w: 240px;
+  --topbar-h:  62px;
+  --right-rail-w: 320px;
+
+  /* ===== Easing ===== */
+  --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+}

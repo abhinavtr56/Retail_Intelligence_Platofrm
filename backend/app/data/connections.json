@@ -1,0 +1,66 @@
+[
+  {
+    "name": "SAP S/4HANA",
+    "desc": "Sales, pricing, claims",
+    "status": "Connected",
+    "rows": "2.4M",
+    "freshness": "2 min ago",
+    "logo": "sap"
+  },
+  {
+    "name": "NielsenIQ",
+    "desc": "Market & scanner data",
+    "status": "Connected",
+    "rows": "1.1M",
+    "freshness": "14 min ago",
+    "logo": "nielsen"
+  },
+  {
+    "name": "DMS",
+    "desc": "Distributor management system",
+    "status": "Connected",
+    "rows": "892K",
+    "freshness": "8 min ago",
+    "logo": "dms"
+  },
+  {
+    "name": "Retail Execution App",
+    "desc": "Store & execution data",
+    "status": "Connected",
+    "rows": "234K",
+    "freshness": "38 min ago",
+    "logo": "retail"
+  },
+  {
+    "name": "Excel / Shared Drives",
+    "desc": "Promotion files",
+    "status": "Connected",
+    "rows": "48K",
+    "freshness": "2 hrs ago",
+    "logo": "excel"
+  },
+  {
+    "name": "Promo Calendar",
+    "desc": "Campaign & events",
+    "status": "Connected",
+    "rows": "3.2K",
+    "freshness": "6 hrs ago",
+    "logo": "promo"
+  },
+  {
+    "name": "Power BI",
+    "desc": "BI dashboards & reports",
+    "status": "Available",
+    "rows": null,
+    "freshness": null,
+    "logo": "powerbi"
+  },
+  {
+    "name": "Snowflake",
+    "desc": "Cloud data warehouse",
+    "status": "Available",
+    "rows": null,
+    "freshness": null,
+    "logo": "snowflake"
+  }
+]
