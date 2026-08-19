@@ -129,7 +129,7 @@ export function CommandCenter() {
               <p className="mt-1.5 text-sm text-ink-muted">Loading the latest promotion performance…</p>
             </div>
           </div>
-          <div className="mt-4">
+          <div className="mt-[18px]">
             <TpoKpiGrid>
               {KPI_ORDER.map((key, i) => (
                 <KpiSkeleton key={key} delayMs={i * 50} />
@@ -188,7 +188,7 @@ export function CommandCenter() {
       </div>
 
       {isEmpty ? (
-        <Card className="mt-4">
+        <Card className="mt-[18px]">
           <CcEmptyState
             hint="Try removing a filter, or clear them all to return to the full scope."
             onClear={reset}
@@ -197,7 +197,7 @@ export function CommandCenter() {
       ) : (
       <>
       <Stale when={refreshing}>
-      <div className="mt-4">
+      <div className="mt-[18px]">
         <TpoKpiGrid>
           {KPI_ORDER.map((key, i) => {
             const card: KpiCard | undefined = kpis.data.kpis[key]
@@ -232,7 +232,7 @@ export function CommandCenter() {
         />
       )}
 
-      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
         <Card>
           <CardHeader
             title={
@@ -295,7 +295,7 @@ export function CommandCenter() {
               ) : null
             }
           />
-          <CardBody className="px-4 py-1.5">
+          <CardBody className="px-5 py-1.5">
             {alerts.data && alerts.data.alerts.length > 0 ? (
               <RiskList
                 items={alerts.data.alerts.map((a) => ({
@@ -317,7 +317,7 @@ export function CommandCenter() {
         </Card>
       </div>
 
-      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
         <Card>
           <CardHeader
             title="Top Underperforming Promotions"
@@ -404,7 +404,7 @@ export function CommandCenter() {
         <OfferSection />
         <RetailerSection />
       </div>
-      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1100px]:grid-cols-1">
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1100px]:grid-cols-1">
         <ProductSection />
         <PromotionTypeSection />
       </div>

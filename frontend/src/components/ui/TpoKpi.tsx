@@ -16,11 +16,12 @@ const TINTS: Record<string, { bg: string; fg: string }> = {
 }
 
 // Six columns, not five: the Command Center carries six KPI cards (Cannibalization
-// Rate joined the original five). Only the column count changed — the tile itself,
-// its spacing and its breakpoints are untouched.
+// Rate joined the original five). Only the column count changed — the tile itself
+// and its breakpoints are untouched. The grid carries no bottom margin: the page
+// owns the vertical rhythm between bands, so every gap is stated in one place.
 export function TpoKpiGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mb-5 grid grid-cols-6 gap-4 max-[1500px]:grid-cols-3 max-[900px]:grid-cols-2">{children}</div>
+    <div className="grid grid-cols-6 gap-4 max-[1500px]:grid-cols-3 max-[900px]:grid-cols-2">{children}</div>
   )
 }
 

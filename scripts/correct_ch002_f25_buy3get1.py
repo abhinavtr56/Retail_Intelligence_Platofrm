@@ -1,4 +1,15 @@
-"""Cost the CH002 F25 Buy3Get1 free goods, which the generator never charged for.
+"""SUPERSEDED by scripts/fix_promotion_economics.py -- DO NOT RUN.
+
+This applied 0.1925 (3% overhead + 25% free goods valued at 65% COGS) to CH002
+alone. The correction is now global across all five channels and values the free
+goods at LIST price -- 0.03 + 0.25 = 0.28 -- consistent with how Trade Spend
+values a price discount everywhere else. Kept for the audit trail and for the
+four-option comparison recorded below. Its 3%-rate guard means a re-run against
+the corrected file aborts rather than double-applying.
+
+Original header follows.
+
+Cost the CH002 F25 Buy3Get1 free goods, which the generator never charged for.
 
 WHY
 ---

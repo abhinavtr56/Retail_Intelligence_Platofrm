@@ -29,7 +29,7 @@ export function AlertBanner({
   return (
     <div
       onClick={onClick}
-      className={`fade-in mb-5 flex cursor-pointer items-center gap-4 rounded-[var(--r-lg)] border border-[#FBC3BD] bg-[#FEEEEC] p-[18px_24px] transition-shadow duration-500 ${
+      className={`fade-in my-[18px] flex cursor-pointer items-center gap-4 rounded-[var(--r-lg)] border border-[#FBC3BD] bg-[#FEEEEC] p-[18px_24px] transition-shadow duration-500 ${
         flash ? 'shadow-[0_0_0_6px_rgba(239,68,68,0.2)]' : 'shadow-[0_0_0_0_rgba(239,68,68,0)]'
       }`}
     >

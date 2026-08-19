@@ -203,7 +203,7 @@ export function FilterBar({
 
         <CurrencyToggle currency={currency} onChange={setCurrency} />
 
-        <IconButton icon="refresh" title="Refresh data" spinning={refreshing} disabled={refreshing} onClick={onRefresh} />
+        <IconButton icon="refresh" className="!h-9 !w-9" title="Refresh data" spinning={refreshing} disabled={refreshing} onClick={onRefresh} />
       </div>
 
       {expanded && (
@@ -264,7 +264,7 @@ export function FilterBar({
 function CurrencyToggle({ currency, onChange }: { currency: Currency; onChange: (c: Currency) => void }) {
   return (
     <div
-      className="inline-flex overflow-hidden rounded-[var(--r-md)] border border-border-subtle bg-surface-card p-0.5"
+      className="inline-flex h-9 items-center overflow-hidden rounded-[var(--r-md)] border border-border-subtle bg-surface-card p-0.5"
       role="radiogroup"
       aria-label="Display currency"
     >

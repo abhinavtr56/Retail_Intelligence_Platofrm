@@ -22,8 +22,12 @@ export function CardHeader({
   className?: string
 }) {
   return (
+    // min-h pins every card's divider to the same line. Without it a header
+    // whose actions slot holds a 30px control (e.g. the trend card's
+    // granularity dropdown) sits ~6px lower than one holding plain text, so
+    // two cards side by side start their content at different heights.
     <div
-      className={`flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4 ${className}`}
+      className={`flex min-h-[63px] items-center justify-between gap-3 border-b border-border-subtle px-5 py-4 ${className}`}
     >
       <div>
         <h3 className="text-[15px] font-bold">{title}</h3>

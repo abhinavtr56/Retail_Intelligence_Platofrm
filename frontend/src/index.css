@@ -191,10 +191,17 @@ h4 { font-size: 15px; line-height: 1.4; }
 /* Ambient lighting: two very low-alpha radial washes behind the page content,
    echoing the previous Command Center's "lights" without neon. Purely
    decorative, so it is aria-hidden at the markup level and sits behind
-   everything via a negative z-index. */
+   everything via a negative z-index.
+
+   The right edge is pinned to 0, not -5%: this box's containing block is the
+   initial containing block (no positioned ancestor), so a negative `right`
+   pushed it 5% of the viewport past the right edge and that overhang WAS the
+   page's only source of horizontal scroll, at every breakpoint. A negative
+   `left` costs nothing — overflow to the left of the origin is not scrollable
+   in LTR — so the wash keeps its left bleed. */
 .cc-ambient {
   position: absolute;
-  inset: -10% -5% auto -5%;
+  inset: -10% 0 auto -5%;
   height: 420px;
   z-index: -1;
   pointer-events: none;
