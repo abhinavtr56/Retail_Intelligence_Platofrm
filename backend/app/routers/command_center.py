@@ -94,11 +94,17 @@ def top_promotions(state: Filters, currency: Currency = "INR", limit: int = 10) 
     return service.top_promotions(state, currency, limit)
 
 
+#: Built from the service's own whitelists so the route and the implementation
+#: cannot drift — adding a dimension there is enough to expose it here.
+_BY_PATTERN = "^(" + "|".join(service.BREAKDOWN_DIMENSIONS) + ")$"
+_METRIC_PATTERN = "^(" + "|".join(service.BREAKDOWN_METRICS) + ")$"
+
+
 @router.get("/breakdown")
 def breakdown(
     state: Filters,
-    by: Annotated[str, Query(pattern="^(channel|retailer|product|category|brand|promotion|promotion_type|region|state|city)$")],
-    metric: Annotated[str, Query(pattern="^(incremental_sales|trade_spend|incremental_units|roi)$")] = "incremental_sales",
+    by: Annotated[str, Query(pattern=_BY_PATTERN)],
+    metric: Annotated[str, Query(pattern=_METRIC_PATTERN)] = "incremental_sales",
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
     currency: Currency = "INR",
 ) -> dict[str, Any]:

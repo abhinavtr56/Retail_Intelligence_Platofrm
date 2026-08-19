@@ -47,11 +47,23 @@ export function PanelSkeleton({ height = 220 }: { height?: number }) {
 
 /** Wraps a region that is refetching. Keeps the content visible but visibly
  *  provisional, rather than blanking the dashboard on every filter click. */
-export function Stale({ when, children }: { when: boolean; children: ReactNode }) {
+export function Stale({
+  when,
+  children,
+  className = '',
+}: {
+  when: boolean
+  children: ReactNode
+  /** Extra classes on the wrapper. A card that fills a stretched grid cell
+   *  needs this element to participate in the flex column rather than collapse
+   *  to its content height. Defaults to nothing, so every other caller renders
+   *  exactly as before. */
+  className?: string
+}) {
   return (
     <div
       aria-busy={when}
-      className={when ? 'pointer-events-none opacity-50 transition-opacity duration-200' : 'transition-opacity duration-200'}
+      className={`transition-opacity duration-200 ${when ? 'pointer-events-none opacity-50' : ''} ${className}`}
     >
       {children}
     </div>

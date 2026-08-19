@@ -642,7 +642,19 @@ BREAKDOWN_DIMENSIONS: dict[str, str] = {
     "category": "categories",
     "brand": "brands",
     "promotion": "offers",
+    # The MECHANIC: dim_promotion.Promotion_Name ("5% Discount", "20%
+    # Discount", "Buy3Get1"), as opposed to "promotion", which is the
+    # individual offer. Deliberately absent from every option list because it
+    # is NOT unique per promotion — six seasonal offers share one mechanic —
+    # so `breakdown` derives its group values from the offers in scope rather
+    # than reading this key. Whitelist entry only: no new arithmetic, and every
+    # KPI is still produced by app/tpo/aggregate.py unchanged.
+    "promotion_mechanic": "offers",
     "promotion_type": "promotion_types",
+    # Distributor lives on the store, so it takes the same generic re-filter
+    # path as region/state/city. Whitelist entry only — no new arithmetic, and
+    # every KPI below is still produced by app/tpo/aggregate.py unchanged.
+    "distributor": "distributors",
     "region": "regions",
     "state": "states",
     "city": "cities",
@@ -667,6 +679,18 @@ def _group_label(store, dimension: str, code: str) -> str:
         # Promotion_Description via Promotion.label — the one shared source.
         # Never deduplicated by Promotion_Name.
         return offer_label(promotion) or code
+    if dimension == "promotion_mechanic":
+        # The code IS Promotion_Name. Qualify it with the Promotion_Type every
+        # promotion carrying that mechanic shares, so "20% Discount" reads as
+        # the seasonal mechanic it is. Qualified only when the type is
+        # unambiguous; a mechanic spanning two types keeps its bare name rather
+        # than claiming one of them.
+        types = {
+            promotion.type
+            for promotion in store.dims.promotions.values()
+            if promotion.name.strip() == code and promotion.type
+        }
+        return f"{code} ({types.pop()})" if len(types) == 1 else code
     return code
 
 
@@ -684,7 +708,9 @@ def _group_label(store, dimension: str, code: str) -> str:
 #: Retailer/region/state/city are NOT here: stores are pooled when WeekRows are
 #: built, so their values are no longer recoverable from a row and a real filter
 #: pass is required.
-_WEEKROW_DIMENSIONS = ("channel", "product", "promotion", "promotion_type", "brand", "category")
+_WEEKROW_DIMENSIONS = (
+    "channel", "product", "promotion", "promotion_mechanic", "promotion_type", "brand", "category",
+)
 
 
 def _partition(
@@ -709,12 +735,15 @@ def _partition(
             return product.category if product else None
         if by == "promotion":
             return row.promotion_id if row.is_promoted else None
+        if by == "promotion_mechanic":
+            promotion = store.dims.promotions.get(row.promotion_id)
+            return promotion.name.strip() if promotion and row.is_promoted else None
         if by == "promotion_type":
             promotion = store.dims.promotions.get(row.promotion_id)
             return promotion.type if promotion and row.is_promoted else None
         return None
 
-    offer_dimension = by in ("promotion", "promotion_type")
+    offer_dimension = by in ("promotion", "promotion_mechanic", "promotion_type")
     selection: dict[str, list[A.WeekRow]] = defaultdict(list)
     volumes: dict[str, list[A.WeekRow]] = defaultdict(list)
     baseline_rows = [r for r in volume if not r.is_promoted] if offer_dimension else []
@@ -761,8 +790,25 @@ def breakdown(
     currency = F.normalise_currency(currency)
     store = get_store()
 
-    raw = options_for(state)[BREAKDOWN_DIMENSIONS[by]]
-    codes = [entry["code"] if isinstance(entry, dict) else str(entry) for entry in raw]
+    mechanic_members: dict[str, list[str]] = {}
+    if by == "promotion_mechanic":
+        # Derived from the offers the CURRENT scope holds, so the mechanic list
+        # narrows with the filters exactly as every other dimension does. Order
+        # is first-seen; `groups.sort` below decides the ranking regardless.
+        #
+        # `mechanic_members` records which Promotion_Ids each mechanic is made
+        # of. A caller that needs to SCOPE a query to one mechanic — the
+        # Channel card's discount selector — passes those ids to the existing
+        # `promotion` filter, instead of carrying its own hardcoded map of
+        # which offers belong to which mechanic.
+        for entry in options_for(state)["offers"]:
+            promotion = store.dims.promotions.get(entry["code"])
+            if promotion and promotion.name:
+                mechanic_members.setdefault(promotion.name.strip(), []).append(entry["code"])
+        codes = list(mechanic_members)
+    else:
+        raw = options_for(state)[BREAKDOWN_DIMENSIONS[by]]
+        codes = [entry["code"] if isinstance(entry, dict) else str(entry) for entry in raw]
 
     base_rows = rows_for(state)
     base_volume = baseline_rows_for(state)
@@ -795,6 +841,13 @@ def breakdown(
             "pei": A.calculate_pei(rows, volume),
             "cannibalization": A.calculate_cannibalization(volume),
         })
+
+    # The Promotion_Ids behind each mechanic, so a caller can re-scope to one
+    # mechanic through the existing `promotion` filter. Present only for this
+    # dimension; every other breakdown group is unchanged.
+    if by == "promotion_mechanic":
+        for group in groups:
+            group["members"] = mechanic_members.get(group["code"], [])
 
     # Share is of Trade Spend, the one additive money measure.
     total_spend = sum(g["trade_spend"] or 0.0 for g in groups)

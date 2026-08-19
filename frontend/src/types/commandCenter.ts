@@ -167,6 +167,10 @@ export interface PromotionMixResponse {
 export interface BreakdownGroup {
   code: string
   label: string
+  /** Only on `by=promotion_mechanic`: the Promotion_Ids this mechanic is made
+   *  of, so a caller can re-scope to one mechanic through the existing
+   *  `promotion` filter rather than keeping its own offer-to-mechanic map. */
+  members?: string[]
   trade_spend: number
   trade_spend_display: string
   incremental_units: number | null
@@ -183,7 +187,7 @@ export interface BreakdownGroup {
 
 export type BreakdownDimension =
   | 'channel' | 'retailer' | 'product' | 'category' | 'brand'
-  | 'promotion' | 'promotion_type' | 'region' | 'state' | 'city'
+  | 'promotion' | 'promotion_mechanic' | 'promotion_type' | 'distributor' | 'region' | 'state' | 'city'
 
 export type BreakdownMetric = 'incremental_sales' | 'trade_spend' | 'incremental_units' | 'roi'
 
@@ -195,5 +199,28 @@ export interface BreakdownResponse {
    *  rather than implying the ranking is the whole population. */
   truncated: boolean
   total_groups: number
+  meta: Meta
+}
+
+/** GET /command-center/top-promotions — best-performing promotion EVENTS
+ *  (promotion x product x channel x week), already ranked ROI descending by
+ *  the backend and carrying only values the frozen engine produced. */
+export interface TopPromotionRow {
+  promotion: string
+  product: string
+  channel: string
+  period: string
+  roi_pct: number
+  roi_display: string
+  vs_target_pp: number
+  trade_spend: number
+  trade_spend_display: string
+  incremental_sales: number
+  incremental_sales_display: string
+  status: string
+}
+
+export interface TopPromotionsResponse {
+  rows: TopPromotionRow[]
   meta: Meta
 }

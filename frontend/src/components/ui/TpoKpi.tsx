@@ -1,6 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../../icons'
+import { InfoBlock, InfoPopover } from './InfoPopover'
 
 // Ported from css/tpo.css .tpo-kpi-grid / .tpo-kpi* — the icon-leading KPI tile used
 // across the 5 main pages (Command Center, Investigations, Intelligence, Simulation,
@@ -31,113 +30,24 @@ export interface KpiInfo {
   meaning: string
 }
 
-/** The ⓘ beside a KPI title: what it is, how it is computed, why it matters.
- *
- *  Opens on hover and on click (click so it is reachable by keyboard and on
- *  touch). Deliberately a popover rather than permanent card text — the card
- *  layout is unchanged and the formula only appears when asked for. */
+/** The KPI card's ⓘ. Formula only — the definition, not documentation.
+ *  Rendered through the shared InfoPopover so it is identical in size,
+ *  placement and styling to every other info button on the page. */
 function InfoDot({ info, unit }: { info: KpiInfo; unit?: string }) {
-  const [open, setOpen] = useState(false)
-  const [pinned, setPinned] = useState(false)
-  const [coords, setCoords] = useState({ left: 0, top: 0, above: false })
-  const ref = useRef<HTMLSpanElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  const WIDTH = 268
-
-  // Position against the viewport, not the card. A tooltip anchored inside the
-  // tile gets clipped by the KPI grid at the row edges, and the right-hand
-  // cards would push it off-screen entirely.
-  useLayoutEffect(() => {
-    if (!open || !ref.current) return
-    const r = ref.current.getBoundingClientRect()
-    const height = panelRef.current?.offsetHeight ?? 200
-    const above = r.bottom + height + 12 > window.innerHeight && r.top > height + 12
-    setCoords({
-      left: Math.max(8, Math.min(r.left + r.width / 2 - WIDTH / 2, window.innerWidth - WIDTH - 8)),
-      top: above ? r.top - height - 8 : r.bottom + 8,
-      above,
-    })
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node) && !panelRef.current?.contains(e.target as Node)) {
-        setPinned(false)
-        setOpen(false)
-      }
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setPinned(false)
-        setOpen(false)
-        ref.current?.querySelector('button')?.focus()
-      }
-    }
-    document.addEventListener('mousedown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
   const unitLabel =
-    unit === 'currency' ? 'Currency (base INR; converted for display only)'
-    : unit === 'percent' ? 'Percent (never currency-converted)'
-    : unit === 'score' ? 'Index, 0-100 (never currency-converted)'
+    unit === 'currency' ? 'Currency · base INR'
+    : unit === 'percent' ? 'Percent'
+    : unit === 'score' ? 'Index 0-100'
     : undefined
 
   return (
-    <span ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        aria-label={`About ${info.name}`}
-        aria-expanded={open}
-        className="grid h-3.5 w-3.5 cursor-pointer place-items-center rounded-full text-ink-muted opacity-60 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-brand-violet [&_svg]:h-3.5 [&_svg]:w-3.5"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => !pinned && setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => !pinned && setOpen(false)}
-        onClick={(e) => {
-          e.stopPropagation()
-          setPinned((p) => !p)
-          setOpen(true)
-        }}
-      >
-        <Icon name="info" />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={panelRef}
-            role="tooltip"
-            className="dd-enter fixed z-[9999] rounded-[var(--r-md)] border border-border-default bg-surface-card p-3 text-left shadow-[var(--shadow-lg)]"
-            style={{ left: coords.left, top: coords.top, width: WIDTH }}
-          >
-            <div className="text-[12.5px] font-bold text-ink-primary">{info.name}</div>
-
-            <div className="mt-2 text-[10.5px] font-semibold uppercase tracking-wide text-ink-muted">Measures</div>
-            <div className="mt-0.5 text-[11.5px] leading-snug text-ink-secondary">{info.meaning}</div>
-
-            <div className="mt-2 text-[10.5px] font-semibold uppercase tracking-wide text-ink-muted">Formula</div>
-            <div className="mt-0.5 rounded-[var(--r-sm)] bg-ink-primary/[0.04] px-2 py-1.5 text-[11.5px] leading-snug text-ink-secondary [font-variant-numeric:tabular-nums]">
-              {info.formula}
-            </div>
-
-            {unitLabel && (
-              <>
-                <div className="mt-2 text-[10.5px] font-semibold uppercase tracking-wide text-ink-muted">Unit</div>
-                <div className="mt-0.5 text-[11.5px] leading-snug text-ink-secondary">{unitLabel}</div>
-              </>
-            )}
-          </div>,
-          document.body,
-        )}
-    </span>
+    <InfoPopover label={`About ${info.name}`} title={info.name}>
+      <InfoBlock label="Formula">{info.formula}</InfoBlock>
+      {unitLabel && <div className="mt-1.5 text-[10.5px] text-ink-muted">{unitLabel}</div>}
+    </InfoPopover>
   )
 }
+
 
 export function TpoKpiTile({
   label,
@@ -174,22 +84,38 @@ export function TpoKpiTile({
   const tone = isGood === null ? 'text-ink-muted' : isGood ? 'text-status-success' : 'text-status-danger'
 
   return (
+    // `[animation-fill-mode:backwards]` is load-bearing. `fade-in-up` ships as
+    // `both`, which keeps its final `translateY(0)` applied forever — and an
+    // animation's transform beats a hover rule, so the lift below would
+    // silently never happen. `backwards` still applies the first keyframe
+    // BEFORE the animation (so the entrance is unchanged) but releases the
+    // element afterwards.
+    //
+    // Only transform and shadow move, so hovering can never change the card's
+    // box or shift the grid. The transform is behind `motion-safe`, leaving
+    // just the shadow under prefers-reduced-motion.
     <div
-      className="fade-in-up flex items-center gap-3 rounded-[var(--r-lg)] border border-border-subtle bg-surface-card p-[16px_18px] shadow-[var(--shadow-card-soft)]"
+      className="fade-in-up group/kpi relative flex items-center gap-3 rounded-[var(--r-lg)] border border-border-subtle bg-surface-card p-[16px_18px] shadow-[var(--shadow-card-soft)] transition-[transform,box-shadow,border-color] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] [animation-fill-mode:backwards] hover:border-border-default hover:shadow-[0_6px_16px_rgba(0,0,0,0.12)] motion-safe:hover:-translate-y-[3px] motion-safe:hover:scale-[1.005]"
       style={{ animationDelay: `${delayMs}ms` }}
     >
+      {/* Top-right, and out of the label's flex row so a long label can use the
+          full width before truncating. */}
+      {info && (
+        <span className="absolute right-2.5 top-2.5 z-10">
+          <InfoDot info={info} unit={unit} />
+        </span>
+      )}
       <div
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl [&_svg]:h-5 [&_svg]:w-5"
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-xl transition-transform duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-safe:group-hover/kpi:scale-[1.04] [&_svg]:h-5 [&_svg]:w-5"
         style={{ background: t.bg, color: t.fg }}
       >
         <Icon name={icon} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 text-xs font-medium leading-tight text-ink-muted">
+        <div className="flex items-center gap-1 pr-5 text-xs font-medium leading-tight text-ink-muted transition-colors duration-[220ms] group-hover/kpi:text-brand-violet">
           <span className="truncate">{label}</span>
-          {info && <InfoDot info={info} unit={unit} />}
         </div>
-        <div className="mt-2.5 text-[21px] font-bold leading-[1.15] tracking-[-0.015em] text-ink-primary [font-variant-numeric:tabular-nums]">
+        <div className="mt-2.5 text-[21px] font-bold leading-[1.15] tracking-[-0.015em] text-ink-primary opacity-90 transition-opacity duration-[220ms] group-hover/kpi:opacity-100 [font-variant-numeric:tabular-nums]">
           {value}
         </div>
         <div className="mt-2.5 inline-flex items-center gap-1 text-[11.5px] text-ink-muted [&_svg]:h-3 [&_svg]:w-3">

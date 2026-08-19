@@ -13,8 +13,12 @@ export function RankedBar({
   groups,
   rate,
   symbol,
+  rowTooltip,
 }: {
   groups: BreakdownGroup[]
+  /** Optional hover text for a whole row. Omitted by every caller that does
+   *  not need it, so their rows behave exactly as before. */
+  rowTooltip?: (group: BreakdownGroup) => string
   /** Display-currency multiplier from `meta.exchange_rate` — the one rate the
    *  backend defines. Never a second conversion mechanism. */
   rate: number
@@ -42,7 +46,7 @@ export function RankedBar({
   return (
     <div className="flex flex-col gap-2.5">
       {groups.map((g) => (
-        <div key={g.code} className="group">
+        <div key={g.code} className="group" title={rowTooltip?.(g)}>
           <div className="flex items-baseline justify-between gap-3 text-[11.5px]">
             <span className="truncate font-semibold text-ink-primary" title={g.label}>
               {g.label}

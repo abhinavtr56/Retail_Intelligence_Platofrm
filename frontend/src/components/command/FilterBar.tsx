@@ -137,13 +137,10 @@ export function FilterBar({
 
   if (!options) return null
 
-  const years: Option[] = options.years.map((y) => ({
-    code: String(y),
-    // F24 / F25 are CALENDAR years 2024 / 2025 — a display label over `year`.
-    // April–March fiscal semantics are deliberately not implemented; the
-    // current dim_date has no fiscal-year field. See the store's doc comment.
-    name: options.year_labels[String(y)] ?? String(y),
-  }))
+  // Calendar years. The API also ships F24/F25 display labels in
+  // `year_labels`; the Command Center deliberately does not use them — see
+  // lib/labels.ts for why the rest of the page rewrites that shorthand.
+  const years: Option[] = options.years.map((y) => ({ code: String(y), name: String(y) }))
 
   const setList = (key: ListFilterKey, value: string | null) => set(key, value ? [value] : [])
 
@@ -152,9 +149,7 @@ export function FilterBar({
       key !== 'year' && (Array.isArray(value) ? value.length > 0 : value !== null),
   ).length
 
-  const yearLabel = filters.year
-    ? (options.year_labels[String(filters.year)] ?? String(filters.year))
-    : 'All Years'
+  const yearLabel = filters.year ? String(filters.year) : 'All Years'
 
   return (
     <>
