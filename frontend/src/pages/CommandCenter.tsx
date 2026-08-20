@@ -46,6 +46,8 @@ import {
   useUnderperforming,
 } from '../hooks/useCommandCenter'
 import { useCommandFilters } from '../store/commandFilters'
+import { useActiveInvestigationStore } from '../store/activeInvestigation'
+import type { RiskAlert, UnderperformingRow } from '../types/commandCenter'
 import type { KpiCard } from '../types/commandCenter'
 
 const GRANULARITIES = [
@@ -106,6 +108,10 @@ export function CommandCenter() {
   const initialise = useCommandFilters((s) => s.initialise)
   const initialised = useCommandFilters((s) => s.initialised)
   const reset = useCommandFilters((s) => s.reset)
+  // Read-only, for the RCA hand-off below. The Command Center's own filter
+  // state is never written from here — the hand-off copies it.
+  const filters = useCommandFilters((s) => s.filters)
+  const startFromCommandCenter = useActiveInvestigationStore((s) => s.startFromCommandCenter)
 
   const options = useFilterOptions()
   const kpis = useKpis()
@@ -211,6 +217,47 @@ export function CommandCenter() {
   // genuine result.
   const isEmpty = meta.row_count === 0
 
+  /** THE COMMAND CENTER -> RCA HAND-OFF (B3.2).
+   *
+   *  These three call sites already held the clicked entity and threw it away,
+   *  navigating with nothing. They now hand over the Command Center's own
+   *  validated FilterState, narrowed only by identifiers the source ACTUALLY
+   *  provides.
+   *
+   *  A risk alert carries a real `promotion_id`, so the scope is narrowed by
+   *  it. Its channel and product arrive as display NAMES ("Modern Trade", not
+   *  "CH002") and the underperforming table carries no identifier at all, so
+   *  those travel as labels and narrow nothing. Turning a name back into a
+   *  code by guessing would select different rows from the ones the user
+   *  clicked.
+   *
+   *  Nothing here recomputes anything, and the Command Center's own filter
+   *  state is not mutated — the hand-off is a copy.
+   */
+  const handOffAlert = (alert: RiskAlert) => {
+    startFromCommandCenter({
+      origin: 'risk_alert',
+      label: alert.title,
+      filters: { ...filters, promotion: [alert.promotion_id] },
+      identifiers: { promotion_id: alert.promotion_id },
+      labels: { product: alert.product, channel: alert.channel, week: alert.week },
+    })
+    navigate('/investigations')
+  }
+
+  const handOffPromotion = (row: UnderperformingRow) => {
+    startFromCommandCenter({
+      origin: 'underperforming',
+      label: row.promotion,
+      // No identifier is available on this row, so the scope is the user's
+      // current selection, unnarrowed. Reported honestly rather than guessed.
+      filters,
+      identifiers: {},
+      labels: { product: row.product, channel: row.channel, period: row.period },
+    })
+    navigate('/investigations')
+  }
+
   return (
     <AppShell activeKey="command" crumbs={crumbs}>
       {/* Decorative ambient wash behind the header — the "lights" feel, kept to
@@ -272,7 +319,7 @@ export function CommandCenter() {
           title={headline.title}
           desc={`${headline.description} ${headline.at_stake_display} at stake.`}
           ctaTo="/investigations"
-          onClick={() => navigate('/investigations')}
+          onClick={() => handOffAlert(headline)}
         />
       )}
 
@@ -380,7 +427,7 @@ export function CommandCenter() {
               data={alerts.data}
               onSelect={(a) => {
                 show(`Opening "${a.title}" investigation...`, { duration: 1500 })
-                window.setTimeout(() => navigate('/investigations'), 700)
+                window.setTimeout(() => handOffAlert(a), 700)
               }}
             />
           ) : (
@@ -433,7 +480,7 @@ export function CommandCenter() {
                     key={`${p.promotion}-${p.period}-${p.product}-${i}`}
                     onClick={() => {
                       show(`Drilling into "${p.promotion}"...`, { duration: 1500 })
-                      window.setTimeout(() => navigate('/investigations'), 700)
+                      window.setTimeout(() => handOffPromotion(p), 700)
                     }}
                   >
                     <Td emphasis className="max-w-[150px] truncate" title={p.promotion}>

@@ -66,7 +66,7 @@ export function Investigations() {
   const [building, setBuilding] = useState(false)
   const [revealedKeys, setRevealedKeys] = useState<Set<string> | undefined>(undefined)
   const [accelState, setAccelState] = useState<Record<string, AccelState> | undefined>(undefined)
-  const [liveProgress, setLiveProgress] = useState<{ pct: number; insights: number; sub: string; confidence: number } | null>(null)
+  const [liveProgress, setLiveProgress] = useState<{ pct: number; insights: number; sub: string } | null>(null)
   const timers = useRef<number[]>([])
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t))
@@ -107,7 +107,7 @@ export function Investigations() {
     const initialState: Record<string, AccelState> = {}
     orch.accelerators.forEach((a) => (initialState[a.key] = 'queued'))
     setAccelState(initialState)
-    setLiveProgress({ pct: 0, insights: 0, sub: 'TIQ is orchestrating specialist agents…', confidence: 0 })
+    setLiveProgress({ pct: 0, insights: 0, sub: 'TIQ is orchestrating specialist agents…' })
 
     baseline.forEach((n, i) => {
       after(400 + i * 450, () => {
@@ -133,8 +133,7 @@ export function Investigations() {
         const done = i + 1
         const pct = Math.round((done / total) * 100)
         const insights = Math.round((orch.progress.insights * done) / total)
-        const confidence = Math.round((orch.progress.confidence * done) / total)
-        setLiveProgress({ pct, insights, sub: `${done} of ${total} accelerators completed`, confidence })
+        setLiveProgress({ pct, insights, sub: `${done} of ${total} accelerators completed` })
       })
     })
 
@@ -145,10 +144,10 @@ export function Investigations() {
         pct: 100,
         insights: orch.progress.insights,
         sub: `${total} of ${total} accelerators completed`,
-        confidence: orch.progress.confidence,
       })
       live.reset()
-      show(`Investigation complete — ${orch.progress.insights} insights identified · ${orch.progress.confidence}% confidence`, {
+      // B9: the toast used to append "· 82% confidence". Nothing computes one.
+      show(`Investigation complete — ${orch.progress.insights} insights identified`, {
         duration: 3500,
       })
     })
@@ -190,7 +189,6 @@ export function Investigations() {
     pct: orch.progress.pct,
     insights: orch.progress.insights,
     sub: `${orch.progress.completed} of ${orch.progress.total} accelerators completed`,
-    confidence: orch.progress.confidence,
   }
 
   return (
@@ -244,7 +242,9 @@ export function Investigations() {
                 body: 'Send a read-only link with current filters and findings.',
                 primaryText: 'Copy Link & Share',
                 icon: 'arrowUpRight',
-                onConfirm: () => show('Link copied · Shared with Trade Team', { duration: 3000 }),
+                // B8: this announced a share that never happened. Nothing is
+                // sent from here and no link is copied.
+                onConfirm: () => show('Sharing is not yet available', { duration: 3000 }),
               })
             }
           />
@@ -255,7 +255,7 @@ export function Investigations() {
               { label: 'Duplicate investigation' },
               { label: 'Archive' },
             ]}
-            onSelect={(val) => show(`${val} — done`)}
+            onSelect={(val) => show(`${val} is not yet available`)}
             trigger={<IconButton icon="more" title="More" />}
           />
         </div>
@@ -343,8 +343,6 @@ export function Investigations() {
         sub={progress.sub}
         insights={progress.insights}
         sources={orch.progress.sources}
-        confidence={progress.confidence}
-        confidenceDelta={orch.progress.confidenceDelta}
       />
 
       {popover && (

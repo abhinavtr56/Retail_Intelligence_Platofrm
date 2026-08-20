@@ -1,8 +1,5 @@
 {
   "profile": {
-    "name": "Sanjay Kumar",
-    "role": "Commercial Analyst",
-    "email": "sanjay.k@company.com",
     "region": "South",
     "timezone": "Asia/Kolkata"
   },
@@ -13,8 +10,8 @@
     "defaultChannel": "All Channels"
   },
   "integrations": [
-    "SSO via Microsoft Entra ID",
+    "Single sign-on",
     "Slack notifications",
-    "Email digests (daily)"
+    "Email digests"
   ]
 }

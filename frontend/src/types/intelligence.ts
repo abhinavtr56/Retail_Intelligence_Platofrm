@@ -94,7 +94,8 @@ export interface IntelligencePageData {
 }
 
 export interface IntelligenceAnswer {
-  confidence: number
+  // B9 removed `confidence`. The synthesis carried an authored 82-87%; no
+  // engine in this project produces a confidence figure.
   sources: number
   specialists: number
   summary: string

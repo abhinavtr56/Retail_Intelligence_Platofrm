@@ -12,3 +12,6 @@ backend/*.egg-info/
 # Editors / OS
 .DS_Store
 *.log
+
+# B10 store (SQLite)
+backend/.store/

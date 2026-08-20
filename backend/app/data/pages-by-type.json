@@ -286,7 +286,7 @@
             "aggDelta": "+3.6 pts"
           },
           {
-            "metric": "Target Achievement Probability",
+            "metric": "Not available",
             "cur": "74%",
             "opt": "92%",
             "optDelta": "+18 pts",
@@ -294,7 +294,7 @@
             "aggDelta": "+19 pts"
           },
           {
-            "metric": "Sell-through Forecast (Units Cr)",
+            "metric": "Not available",
             "cur": "3.42 Cr",
             "opt": "4.18 Cr",
             "optDelta": "+22.2%",
@@ -311,13 +311,13 @@
       "recommendation": {
         "scenarioKey": "s2",
         "title": "Scenario 2 (Optimized Plan)",
-        "body": "Best balance of ROI improvement, risk profile and target achievement probability."
+        "body": "Best balance of ROI improvement and risk profile."
       }
     },
     "decision": {
       "recommendedPlan": {
         "scenarioName": "Scenario 2 (Optimized Plan)",
-        "summary": "Best balance of ROI improvement, risk profile and target achievement probability."
+        "summary": "Best balance of ROI improvement and risk profile."
       },
       "strategy": [
         {
@@ -383,13 +383,13 @@
           "trend": "up"
         },
         {
-          "label": "Target Achievement Probability",
+          "label": "Not available",
           "value": "75%",
           "delta": "+1 pt",
           "trend": "up"
         },
         {
-          "label": "Sell-through Forecast (Uplift)",
+          "label": "Not available",
           "value": "+4.7%",
           "delta": "+4.7%",
           "trend": "up"
@@ -402,7 +402,7 @@
           "tone": "success"
         }
       ],
-      "impactNote": "This plan maximizes ROI while keeping risks within acceptable thresholds and achieving higher target probability.",
+      "impactNote": "No approved governance thresholds are defined in this project, so this plan is not judged against one.",
       "scenarioSummary": [
         {
           "metric": "Incremental Revenue (₹ Cr)",
@@ -426,7 +426,7 @@
           "s3": "+1.2"
         },
         {
-          "metric": "Target Achievement Probability",
+          "metric": "Not available",
           "icon": "target",
           "s1": "74%",
           "s2": "75%",
@@ -490,7 +490,7 @@
           "type": "negative"
         },
         {
-          "label": "Optimized Forecast",
+          "label": "Optimized Plan",
           "value": 306,
           "type": "total"
         }
@@ -736,7 +736,7 @@
             "aggDelta": "+3.0 pts"
           },
           {
-            "metric": "Target Achievement Probability",
+            "metric": "Not available",
             "cur": "68%",
             "opt": "94%",
             "optDelta": "+26 pts",
@@ -744,7 +744,7 @@
             "aggDelta": "+20 pts"
           },
           {
-            "metric": "Sell-through Forecast (Units Cr)",
+            "metric": "Not available",
             "cur": "2.92 Cr",
             "opt": "4.62 Cr",
             "optDelta": "+58.2%",
@@ -761,13 +761,13 @@
       "recommendation": {
         "scenarioKey": "s2",
         "title": "Scenario 2 (Optimized Plan)",
-        "body": "Captures 95% of theoretical optimization upside while staying within governance envelope."
+        "body": "Captures 95% of theoretical optimization upside."
       }
     },
     "decision": {
       "recommendedPlan": {
         "scenarioName": "Scenario 2 (Optimized Plan)",
-        "summary": "AI-optimized lever mix. Captures 95% of upside while staying within all governance thresholds."
+        "summary": "AI-optimized lever mix. Captures 95% of upside."
       },
       "strategy": [
         {
@@ -833,13 +833,13 @@
           "trend": "up"
         },
         {
-          "label": "Target Achievement Probability",
+          "label": "Not available",
           "value": "94%",
           "delta": "+26 pts",
           "trend": "up"
         },
         {
-          "label": "Sell-through Forecast (Uplift)",
+          "label": "Not available",
           "value": "+58.2%",
           "delta": "+12 pts",
           "trend": "up"
@@ -876,7 +876,7 @@
           "s3": "+1.8"
         },
         {
-          "metric": "Target Achievement Probability",
+          "metric": "Not available",
           "icon": "target",
           "s1": "68%",
           "s2": "94%",
@@ -902,7 +902,7 @@
   "launch": {
     "intelligence": {
       "title": "Launch Performance Intelligence",
-      "subtitle": "SKU Prioritization & Launch Forecast · Launch Planning mode",
+      "subtitle": "SKU Prioritization & Launch Plan · Launch Planning mode",
       "waterfall": [
         {
           "label": "Category Base",
@@ -940,15 +940,15 @@
           "type": "negative"
         },
         {
-          "label": "Launch Forecast",
+          "label": "Launch Plan",
           "value": 210,
           "type": "total"
         }
       ],
-      "waterfallNote": "Forecast +148% over category base. Top-5 SKU selection captures 73% of demand. Competitor overlap on 2 SKUs is the main risk.",
+      "waterfallNote": "Plan +148% over category base. Top-5 SKU selection captures 73% of demand. Competitor overlap on 2 SKUs is the main risk.",
       "keyInsights": [
         {
-          "title": "Top 5 SKUs capture 73% of forecasted lift",
+          "title": "Top 5 SKUs capture 73% of modelled lift",
           "desc": "SKU-A21, B14, C08, D33, E12 — 2.4x brand affinity vs portfolio avg",
           "impact": "High Impact",
           "trend": "up",
@@ -1063,7 +1063,7 @@
           140,
           156
         ],
-        "note": "Launch forecast tracks 10% above baseline expectation. Top-5 SKU focus is the differentiator."
+        "note": "Launch plan tracks 10% above baseline expectation. Top-5 SKU focus is the differentiator."
       },
       "regionVariance": [
         {
@@ -1186,7 +1186,7 @@
             "aggDelta": "+1.1 pts"
           },
           {
-            "metric": "Forecast Confidence",
+            "metric": "Not available",
             "cur": "76%",
             "opt": "87%",
             "optDelta": "+11 pts",
@@ -1239,7 +1239,7 @@
         {
           "label": "Launch Discount",
           "value": "18%",
-          "sub": "Within elasticity",
+          "sub": "No approved discount cap is defined",
           "icon": "tag"
         },
         {
@@ -1281,7 +1281,7 @@
           "trend": "up"
         },
         {
-          "label": "Forecast Confidence",
+          "label": "Not available",
           "value": "87%",
           "delta": "+11 pts",
           "trend": "up"
@@ -1382,7 +1382,7 @@
           "type": "negative"
         },
         {
-          "label": "FY26 Strategy Forecast",
+          "label": "FY26 Strategy Plan",
           "value": 738,
           "type": "total"
         }
@@ -1616,7 +1616,7 @@
             "aggDelta": "+1.9 pts"
           },
           {
-            "metric": "Target Achievement Probability",
+            "metric": "Not available",
             "cur": "64%",
             "opt": "88%",
             "optDelta": "+24 pts",
@@ -1683,7 +1683,7 @@
         {
           "label": "Avg Discount Depth",
           "value": "20%",
-          "sub": "Within elasticity envelope",
+          "sub": "No approved discount cap is defined",
           "icon": "tag"
         },
         {
@@ -1755,7 +1755,7 @@
           "s3": "16.1%"
         },
         {
-          "metric": "Target Achievement Probability",
+          "metric": "Not available",
           "icon": "target",
           "s1": "64%",
           "s2": "88%",

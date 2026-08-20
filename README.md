@@ -39,6 +39,28 @@ no Vite dev server.
 - `scripts/` — the one-time `convert-data.mjs` that generated `backend/app/data/*.json`
   from the vanilla app's `js/data.js`
 
-Not yet done: a real database, real authentication (login is a client-side
-stand-in, matching the vanilla app), and full TypeScript strictness on a few
-JSON-shaped `any`s. See `DEV.md` for specifics.
+Not yet done: real authentication (login is a client-side stand-in, matching
+the vanilla app) and full TypeScript strictness on a few JSON-shaped `any`s.
+See `DEV.md` for specifics. Saved scenarios and decisions now persist to SQLite
+(`backend/.store/tiq.db`, override with `TPO_STORE_PATH`); the JSON files under
+`app/data/` are still read-only page content.
+
+## Deployment safety — read before hosting this
+
+**Every API route is unauthenticated, including the two that write.** There is
+no identity provider, no session, no token and no route guard anywhere in the
+application, so anyone who can reach the process can:
+
+- store a scenario or a decision (`POST /api/store/scenarios`, `POST /api/store/decisions`),
+- append versions to records they did not create,
+- read every stored decision (`GET /api/store/decisions`).
+
+Nothing in the store is private and nothing is attributable: every record
+carries `owner: null`, because there is no verified actor to attribute it to.
+Adding access control on top of the current sign-in — which accepts any email
+with any password and checks neither — would be an enforcement claim with
+nothing behind it, so it has deliberately not been added.
+
+**This is fine on a single-user localhost deployment and is not fine on a
+shared or public one.** Until authentication exists, host it behind something
+that authenticates, or don't expose it.

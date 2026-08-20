@@ -2,12 +2,26 @@ import { AppShell } from '../components/layout/AppShell'
 import { Button, Card, CardHeader, Pill } from '../components/ui'
 import { Icon } from '../icons'
 import { useSettings } from '../hooks/useMisc'
-import { useUser } from '../hooks/useNav'
+import { usePortalUserStore } from '../store/portalUser'
 
-// Ported from js/pages/settings.js.
+/** Ported from js/pages/settings.js.
+ *
+ *  B9 — TWO CORRECTIONS.
+ *
+ *  IDENTITY. This card used to print "Sanjay Kumar · Commercial Analyst ·
+ *  sanjay.k@company.com" from settings.json, beside the initials of whoever
+ *  had actually signed in — two different people on one card. The only
+ *  identity this application can honestly show is the one the visitor typed
+ *  at sign-in, so that is what it shows now, labelled for what it is. A role
+ *  is not shown at all: there is no authorization model to source one from.
+ *
+ *  INTEGRATIONS. The three rows used to carry a green tick and an "Active"
+ *  pill. None of them exists — there is no identity provider, no Slack
+ *  connection and no mail sender anywhere in this project. They are listed as
+ *  Not connected. */
 export function Settings() {
   const { data: D, isLoading } = useSettings()
-  const { data: user } = useUser()
+  const user = usePortalUserStore((s) => s.user)
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Settings' }]
 
   if (isLoading || !D) {
@@ -31,16 +45,20 @@ export function Settings() {
           <div className="p-5">
             <div className="mb-3.5 flex items-center gap-3.5 border-b border-border-subtle pb-4">
               <div className="grid h-[54px] w-[54px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7C5CFF,#4F7CFF)] text-lg font-extrabold text-white">
-                {user?.initials}
+                {user.initials}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-base font-extrabold text-ink-primary">{D.profile.name}</div>
-                <div className="text-sm text-ink-muted">
-                  {D.profile.role} · {D.profile.email}
+                <div className="text-base font-extrabold text-ink-primary">{user.name}</div>
+                <div className="truncate text-sm text-ink-muted">
+                  {user.email || 'No email recorded'}
+                </div>
+                <div className="mt-0.5 text-[11px] text-ink-muted">
+                  Signed in locally — this application has no identity provider, so nothing
+                  here is verified.
                 </div>
               </div>
-              <Button variant="secondary" size="sm">
-                <Icon name="edit" /> Edit
+              <Button variant="secondary" size="sm" disabled title="Editing a profile is not yet available">
+                <Icon name="edit" /> Edit — not yet available
               </Button>
             </div>
             <div className="flex flex-col">
@@ -81,15 +99,19 @@ export function Settings() {
                 key={i}
                 className={`flex items-center gap-2.5 py-3 text-[13px] ${idx < arr.length - 1 ? 'border-b border-border-subtle' : ''}`}
               >
-                <span className="grid place-items-center text-status-success [&_svg]:h-[18px] [&_svg]:w-[18px]">
-                  <Icon name="checkCircle" />
+                <span className="grid place-items-center text-ink-muted [&_svg]:h-[18px] [&_svg]:w-[18px]">
+                  <Icon name="x" />
                 </span>
-                <span className="font-semibold text-ink-primary">{i}</span>
-                <Pill tone="success" dot className="ml-auto">
-                  Active
+                <span className="font-semibold text-ink-secondary">{i}</span>
+                <Pill tone="neutral" className="ml-auto">
+                  Not connected
                 </Pill>
               </div>
             ))}
+            <div className="mt-2 border-t border-border-subtle pt-3 text-[11.5px] leading-[1.5] text-ink-muted">
+              None of these is connected. Sign-in is a local stand-in with no identity
+              provider behind it, and this application sends no notification of any kind.
+            </div>
           </div>
         </Card>
       </div>

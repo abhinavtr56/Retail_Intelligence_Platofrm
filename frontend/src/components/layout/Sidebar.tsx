@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useNav, useUser } from '../../hooks/useNav'
+import { useNav } from '../../hooks/useNav'
+import { usePortalUserStore } from '../../store/portalUser'
 import { Icon, type IconName } from '../../icons'
 
 // Ported from js/components/sidebar.js + css/layout.css .sidebar*.
@@ -15,7 +16,13 @@ const toPath = (route: string) => (route.startsWith('#') ? route.slice(1) : rout
 // (sticky, always visible, part of the grid).
 export function Sidebar({ activeKey, open, onClose }: { activeKey?: string; open: boolean; onClose: () => void }) {
   const { data: nav } = useNav()
-  const { data: user } = useUser()
+  // B12: the signed-in persona, not user.json's hard-coded "Sanjay Kumar ·
+  // Commercial Analyst". The chrome used to name a different person from the
+  // one who signed in, and to print a ROLE this project has no authorization
+  // model behind — B9 removed both from Settings for the same reason. This is
+  // presentation only: no identity is created, and the name shown is still the
+  // unverified one the visitor typed at sign-in.
+  const user = usePortalUserStore((s) => s.user)
 
   return (
     <>
@@ -47,14 +54,14 @@ export function Sidebar({ activeKey, open, onClose }: { activeKey?: string; open
         <div className="border-t border-white/[0.06] p-3">
           <div
             className="flex cursor-pointer items-center gap-2.5 rounded-[var(--r-md)] p-2 transition-colors duration-150 hover:bg-white/[0.05]"
-            title={user?.name}
+            title={user.name}
           >
             <div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white">
-              {user?.initials}
+              {user.initials}
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[13px] font-semibold text-sidebar-brand">{user?.name}</span>
-              <span className="truncate text-[11px] text-sidebar-brand-sub">{user?.role}</span>
+              <span className="truncate text-[13px] font-semibold text-sidebar-brand">{user.name}</span>
+              <span className="truncate text-[11px] text-sidebar-brand-sub">Signed in locally</span>
             </div>
             <Icon name="chevronDown" className="ml-auto h-3.5 w-3.5 text-sidebar-brand-sub" />
           </div>

@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons'
 import { IconButton } from '../ui'
 import { useToast } from '../ui'
-import { useUser } from '../../hooks/useNav'
+import { usePortalUserStore } from '../../store/portalUser'
 
 export interface Crumb {
   label: string
@@ -12,7 +12,8 @@ export interface Crumb {
 // Ported from js/components/topbar.js + css/layout.css .topbar*. `onMenuClick` only
 // renders (and only matters) below `lg`, where Sidebar is an off-canvas drawer.
 export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuClick?: () => void }) {
-  const { data: user } = useUser()
+  // B12: see Sidebar — the signed-in persona, not the authored one.
+  const user = usePortalUserStore((s) => s.user)
   const { show } = useToast()
   const navigate = useNavigate()
 
@@ -64,9 +65,9 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
         <IconButton icon="settings" title="Settings" onClick={() => navigate('/settings')} />
         <div
           className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"
-          title={user?.name}
+          title={`${user.name} — signed in locally, not verified`}
         >
-          {user?.initials}
+          {user.initials}
         </div>
       </div>
     </header>

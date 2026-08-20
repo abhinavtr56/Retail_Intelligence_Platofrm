@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AppShell } from '../components/layout/AppShell'
-import { Button, IconButton, Dropdown, LiveStatus, useLiveStatus, useToast, useConfirm, Tabs } from '../components/ui'
+import { Button, IconButton, Dropdown, LiveStatus, useLiveStatus, useToast, Tabs } from '../components/ui'
 import { Icon } from '../icons'
 import { useInvestigationTypes } from '../hooks/useInvestigations'
 import { useIntelligencePage, useIntelligenceAnswer } from '../hooks/useIntelligence'
@@ -30,7 +30,6 @@ export function Intelligence() {
   const { data: answer } = useIntelligenceAnswer(activeType)
   const { data: focus } = useFocus()
   const { show } = useToast()
-  const confirm = useConfirm()
   const live = useLiveStatus()
 
   const typeMeta = types?.find((t) => t.key === activeType) ?? types?.[0]
@@ -88,24 +87,17 @@ export function Intelligence() {
               </Button>
             }
           />
-          <Button
-            variant="secondary"
-            onClick={() =>
-              confirm({
-                title: 'Export Intelligence Report',
-                body: 'Generate a PDF with the current tab content, charts and insights.',
-                icon: 'download',
-                primaryText: 'Generate PDF',
-                onConfirm: () => show('Report exported · Sent to your downloads', { duration: 3000 }),
-              })
-            }
-          >
-            <Icon name="download" /> Export
+          {/* B8: this button used to announce "Report exported - Sent to your
+              downloads" and generate nothing. There is no report renderer for
+              this page, so it says what is true instead. The one real export in
+              the product is Decision Center's briefing. */}
+          <Button variant="secondary" disabled title="Report export is not yet available">
+            <Icon name="download" /> Export — not yet available
           </Button>
           <Dropdown
             selected=""
             options={[{ label: 'Share with team' }, { label: 'Schedule refresh' }, { label: 'Print' }]}
-            onSelect={(val) => show(`${val} — done`)}
+            onSelect={(val) => show(`${val} is not yet available`)}
             trigger={<IconButton icon="more" />}
           />
         </div>

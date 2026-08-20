@@ -27,12 +27,15 @@ export function AiAnswerCard({ question, answer, streamKey }: { question: string
           <h3 className="text-[15px] font-bold">Investigation Synthesis</h3>
           <div className="mt-0.5 text-xs text-ink-muted">{question}</div>
         </div>
+        {/* B9 removed the "{confidence}% confidence" badge that stood here.
+            It printed an authored 82-87%; nothing in this project computes a
+            confidence figure. The synthesis line beside it describes how the
+            answer was assembled, which is a property of the run. */}
         <div className="flex flex-wrap items-center gap-3.5 text-xs text-ink-muted">
           <span className="inline-flex items-center gap-1.5 text-ink-secondary">
             <span className="inline-block h-[7px] w-[7px] animate-[aiPulseDot_1.8s_ease-in-out_infinite] rounded-full bg-status-success shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />
-            <strong className="font-bold text-status-success">{answer.confidence}%</strong> confidence
+            {answer.summary}
           </span>
-          <span>{answer.summary}</span>
         </div>
       </div>
 

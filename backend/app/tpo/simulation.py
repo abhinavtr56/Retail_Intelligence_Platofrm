@@ -40,8 +40,11 @@ from typing import Any, Sequence
 from app.tpo import aggregate as A
 from app.tpo import config
 from app.tpo import formatting as F
+from app.tpo import response
+from app.tpo import scenarios
 from app.tpo import service
 from app.tpo.filters import FilterState, baseline_rows_for, rows_for
+from app.tpo.loader import get_store
 
 #: The phase this service implements, carried in every response so a client
 #: can never mistake a measured baseline for a modelled scenario.
@@ -177,27 +180,32 @@ class ScopeMeasurement:
     promoted_weeks: int
     median_promotion_weeks: int
     average_discount_pct: float | None
+    #: Promotion_Ids present on the promoted rows, in dataset order.
+    promotion_ids: tuple[str, ...]
+    #: Promotion_Id -> distinct business weeks it traded in, within this scope.
+    weeks_by_promotion: dict[str, int]
+    #: ("2025-W14", "2025-W17") over the promoted rows, or None.
+    week_span: tuple[str, str] | None
 
 
 def _measure(rows: Sequence[A.WeekRow]) -> ScopeMeasurement:
     """Descriptive statistics of the selection.
 
     NOT KPIs -- nothing here is a business metric and nothing here is used to
-    compute one. They exist so that a lever can be anchored on something real
-    instead of on a number somebody typed into a JSON file.
+    compute one. They exist so a lever and a Current Plan field can be anchored
+    on something real instead of on a number somebody typed into a JSON file.
 
-    Average discount depth is the share of gross revenue given away on
-    promoted rows. `WeekRow` carries the two halves the loader already split:
-    Base Revenue is `actual_revenue + discount_value` by construction.
+    THREE DIFFERENT WEEK COUNTS live here, because they answer three different
+    questions and confusing them puts a wrong number on a control:
 
-    Two different week counts, because they answer different questions and
-    confusing them puts a wrong number on a control. `promoted_weeks` is how
-    many weeks of the scope contained ANY promotion -- 52 for a channel over a
-    full year, which is a statement about the scope, not about a promotion.
-    `median_promotion_weeks` is the typical span of ONE promotion in the scope,
-    which is what a duration lever is actually about: the year-round PR001-003
-    mechanics run for ~52 weeks and the seasonal offers for a handful, so the
-    median is the honest single figure to anchor on.
+      * `promoted_weeks` -- weeks of the scope containing ANY promotion. 52 for
+        a channel over a full year. A statement about the SCOPE.
+      * `weeks_by_promotion[pid]` -- the span of ONE promotion. This, and only
+        this, is a promotion duration.
+      * `median_promotion_weeks` -- the middle of those spans. Retained because
+        Phase A's response contract carries it, and USED NOWHERE: it is a
+        summary across promotions, and Part B1 §5 is explicit that it must not
+        stand in for the duration of an identified promotion.
     """
     promoted = A.promotion_rows(rows)
     gross = sum(r.actual_revenue + r.discount_value for r in promoted)
@@ -208,14 +216,240 @@ def _measure(rows: Sequence[A.WeekRow]) -> ScopeMeasurement:
     for row in promoted:
         weeks_per_promotion[row.promotion_id].add(row.week_key)
     spans = sorted(len(weeks) for weeks in weeks_per_promotion.values())
+    all_weeks = sorted({r.week_key for r in promoted})
 
     return ScopeMeasurement(
         row_count=len(rows),
         promoted_row_count=len(promoted),
-        promoted_weeks=len({r.week_key for r in promoted}),
+        promoted_weeks=len(all_weeks),
         median_promotion_weeks=int(median(spans)) if spans else 0,
         average_discount_pct=None if depth is None else round(depth * 100, 1),
+        promotion_ids=tuple(sorted(weeks_per_promotion)),
+        weeks_by_promotion={pid: len(weeks) for pid, weeks in weeks_per_promotion.items()},
+        week_span=(all_weeks[0], all_weeks[-1]) if all_weeks else None,
     )
+
+
+# --- the simulation context ------------------------------------------------
+#
+# "What are we simulating?" answered from the ONE FilterState. No second
+# filtering system, no second idea of scope: these are the same 14 dimensions
+# app/tpo/filters.py defines, read back with their display names.
+
+#: Dimension -> (singular label, what "unconstrained" honestly reads as).
+#: `primary` dimensions are always shown, constrained or not, so the context
+#: panel answers the question even when nothing is selected. The rest appear
+#: only when they are actually constraining something.
+_CONTEXT_DIMENSIONS: tuple[tuple[str, str, str, bool], ...] = (
+    ("channel", "Channel", "All channels", True),
+    ("region", "Region", "All regions", True),
+    ("brand", "Brand", "All brands", True),
+    ("product", "Product", "All products", True),
+    ("promotion", "Promotion", "All promotions", True),
+    ("retailer", "Retailer", "All retailers", False),
+    ("state", "State", "All states", False),
+    ("city", "City", "All cities", False),
+    ("tier", "Tier", "All tiers", False),
+    ("distributor", "Distributor", "All distributors", False),
+    ("category", "Category", "All categories", False),
+    ("promotion_type", "Promotion Type", "All promotion types", False),
+)
+
+
+def _context(state: FilterState, measurement: ScopeMeasurement) -> dict[str, Any]:
+    """The resolved scope, with codes turned into the names people use.
+
+    Labels come from `service._group_label`, the same function the Command
+    Center's breakdown charts label their groups with, so "CH002" reads as
+    "Modern Trade" in both places or in neither.
+    """
+    store = get_store()
+    applied = state.applied()
+
+    dimensions = []
+    for key, label, all_label, primary in _CONTEXT_DIMENSIONS:
+        codes = sorted(getattr(state, key) or ())
+        values = [{"code": code, "name": service._group_label(store, key, code)} for code in codes]
+        dimensions.append(
+            {
+                "key": key,
+                "label": label,
+                "constrained": bool(codes),
+                "primary": primary,
+                "values": values,
+                # What the panel prints: the selected names, or the honest
+                # "All channels" -- never an invented default.
+                "summary": ", ".join(v["name"] for v in values) if values else all_label,
+            }
+        )
+
+    return {
+        "period": F.period_label(state.year, state.month),
+        "period_label": F.fiscal_label(state.year),
+        "year": state.year,
+        "month": state.month,
+        "dimensions": dimensions,
+        "filters_applied": applied,
+        "row_count": measurement.row_count,
+        "promoted_row_count": measurement.promoted_row_count,
+    }
+
+
+# --- the Current Plan ------------------------------------------------------
+
+
+def _observed(
+    key: str,
+    label: str,
+    value: Any,
+    display_value: str | None,
+    derivation: str,
+    unavailable_reason: str | None = None,
+) -> dict[str, Any]:
+    """One observed field. Either a value WITH the derivation that produced it,
+    or no value with the reason it could not be derived. Never a value whose
+    provenance is unstated."""
+    available = unavailable_reason is None and value is not None
+    return {
+        "key": key,
+        "label": label,
+        "value": value if available else None,
+        "display_value": display_value if available else None,
+        "available": available,
+        "unavailable_reason": unavailable_reason,
+        "derivation": derivation if available else None,
+    }
+
+
+#: Deliberately does NOT claim the spans differ -- that is not checked, and an
+#: unverified claim in an explanation is the same defect as an unverified
+#: number in a KPI. It states only what is known: there is more than one.
+_MULTIPLE_PROMOTIONS = (
+    "{count} promotions traded in this scope, so there is no single promotion "
+    "duration to read. Filter to one promotion to see its span."
+)
+
+
+def current_plan(
+    state: FilterState,
+    measurement: ScopeMeasurement,
+    kpis: dict[str, Any],
+    currency: str,
+) -> dict[str, Any]:
+    """What the data says is happening now, for this scope.
+
+    THE MEASURED BASELINE, not a scenario. Every field is derived from
+    fact_sales or from the validated KPI engine, and every field states how.
+    Where a field cannot be derived honestly it is returned unavailable with
+    the reason -- there is no fallback value anywhere in this function.
+    """
+    store = get_store()
+    promotion_ids = measurement.promotion_ids
+    single = promotion_ids[0] if len(promotion_ids) == 1 else None
+
+    # --- observed promotion
+    labels = [service._group_label(store, "promotion", pid) for pid in promotion_ids]
+    if not promotion_ids:
+        promotion = _observed(
+            "promotion", "Promotion", None, None, "",
+            unavailable_reason="Nothing in this scope was promoted.",
+        )
+    else:
+        promotion = _observed(
+            "promotion",
+            "Promotion",
+            list(promotion_ids),
+            labels[0] if single else f"{len(labels)} promotions",
+            "Distinct Promotion_Ids on the promoted rows in scope, named through "
+            "dim_promotion (Promotion_Description).",
+        )
+
+    # --- observed period
+    span = measurement.week_span
+    period = _observed(
+        "period",
+        "Period",
+        list(span) if span else None,
+        f"{span[0]} to {span[1]}" if span else None,
+        "First and last business week carrying a promoted row in this scope. The "
+        "week is the one dim_date gives for the row's (Year, Week); fact_sales.Month "
+        "is never read.",
+        unavailable_reason=None if span else "Nothing in this scope was promoted.",
+    )
+
+    # --- observed discount depth
+    #
+    # DERIVED FROM PRICES, NOT FROM THE PROMOTION'S NAME. dim_promotion calls
+    # PR002 "10% Discount", but that is a label on a mechanic, not a
+    # measurement of what was given away: the realised depth depends on which
+    # SKUs traded and at what prices, and the project's own economics scripts
+    # re-expressed Buy3Get1 as a price discount. So the depth is read off the
+    # revenue columns the loader already split.
+    depth = measurement.average_discount_pct
+    discount_derivation = (
+        "Sum(Base Revenue - Actual Revenue) / Sum(Base Revenue) across the "
+        f"{measurement.promoted_row_count:,} promoted rows in scope, read from "
+        "fact_sales prices. Not taken from the promotion's name or type."
+    )
+    if not single and len(promotion_ids) > 1:
+        discount_derivation += (
+            f" Blended across the {len(promotion_ids)} promotions in scope, weighted by revenue."
+        )
+    discount = _observed(
+        "discount_pct",
+        "Discount Depth",
+        depth,
+        F.percent(depth),
+        discount_derivation,
+        unavailable_reason=None if depth is not None else "Nothing in this scope was promoted.",
+    )
+
+    # --- observed duration
+    #
+    # A duration belongs to A PROMOTION. With several in scope there is no
+    # single answer, and the median of their spans is a summary statistic
+    # rather than anybody's plan -- so the field is unavailable and says why.
+    if single:
+        weeks = measurement.weeks_by_promotion[single]
+        duration = _observed(
+            "duration_weeks",
+            "Promotion Duration",
+            float(weeks),
+            f"{weeks} weeks",
+            f"Distinct business weeks in which {labels[0]} carried a promoted row "
+            "in this scope.",
+        )
+    else:
+        duration = _observed(
+            "duration_weeks", "Promotion Duration", None, None, "",
+            unavailable_reason=(
+                _MULTIPLE_PROMOTIONS.format(count=len(promotion_ids))
+                if promotion_ids
+                else "Nothing in this scope was promoted."
+            ),
+        )
+
+    # --- observed trade spend, straight from the Phase A KPI foundation
+    spend_kpi = kpis["trade_spend"]
+    spend = _observed(
+        "spend_amount",
+        "Trade Spend",
+        spend_kpi["value"],
+        spend_kpi["display_value"],
+        f"The validated Trade Spend KPI for this scope: {spend_kpi['formula']}.",
+        unavailable_reason=None if spend_kpi["available"] else spend_kpi["unavailable_reason"],
+    )
+
+    return {
+        "status": "measured",
+        "single_promotion": single,
+        "fields": [promotion, period, discount, duration, spend],
+        "levers": {
+            "discount_pct": discount["value"],
+            "duration_weeks": duration["value"],
+            "spend_amount": spend["value"],
+        },
+    }
 
 
 # --- levers ----------------------------------------------------------------
@@ -270,7 +504,7 @@ def _lever(key: str, anchor: float | None, basis: str, currency: str) -> dict[st
         # A rupee-granular handle across a range of hundreds of millions is not
         # a control. One hundred positions across whatever range was offered.
         step = max(1.0, round((high - low) / 100))
-    return {
+    definition = {
         "key": key,
         "label": label,
         "unit": unit,
@@ -284,6 +518,29 @@ def _lever(key: str, anchor: float | None, basis: str, currency: str) -> dict[st
         "decimals": decimals,
         "basis": basis,
     }
+    if key == "discount_pct":
+        # THE APPROVED TREATMENT POINTS, from app/tpo/response.py.
+        #
+        # A scenario may only be run at one of these five depths -- B2.2's
+        # /simulate rejects anything else -- so the control that picks a
+        # scenario discount has to offer exactly them. Sending the list from
+        # here means the frontend does not write down a copy of the approved
+        # rules, which is the same reason B2.1 moved them out of a script.
+        #
+        # NOTE the relationship to `value` above: that is the scope's MEASURED
+        # depth, which is a revenue-weighted blend and frequently not an
+        # approved point at all (21.1% for CH002 F25). It stays as the Current
+        # Plan's observed reading; it is not a selectable treatment.
+        definition["approved_points"] = [
+            {
+                "discount_pct": rule.discount_pct,
+                "treatment": rule.treatment,
+                "uplift_low": rule.uplift_low,
+                "uplift_high": rule.uplift_high,
+            }
+            for rule in response.all_treatments()
+        ]
+    return definition
 
 
 _NO_PROMOTIONS = (
@@ -293,42 +550,33 @@ _NO_PROMOTIONS = (
 
 
 def _levers(
-    measurement: ScopeMeasurement,
-    trade_spend: float | None,
+    plan: dict[str, Any],
     submitted: dict[str, float | None] | None,
     currency: str,
 ) -> dict[str, Any]:
     """The lever block: what was submitted, and what the controls should offer.
 
+    EVERY ANCHOR IS THE CURRENT PLAN'S OBSERVED VALUE. A lever the Current Plan
+    could not observe is not offered -- the duration lever disappears when
+    several promotions are in scope, because there is no single duration to
+    move away from. The reason travels with it, so the control explains its own
+    absence instead of quietly defaulting to something plausible.
+
     `applied` is a field rather than a comment because a client must be able to
     tell a measured baseline from a modelled scenario without reading this
     docstring.
     """
-    discount = measurement.average_discount_pct
-    weeks = measurement.median_promotion_weeks
+    observed = {field["key"]: field for field in plan["fields"]}
     definitions = [
         _lever(
-            "discount_pct",
-            discount,
-            f"Measured average discount depth for this scope: {F.percent(discount)}"
-            if discount is not None
-            else _NO_PROMOTIONS,
+            key,
+            observed[key]["value"],
+            f"Current Plan {observed[key]['label']}: {observed[key]['display_value']}"
+            if observed[key]["available"]
+            else (observed[key]["unavailable_reason"] or _NO_PROMOTIONS),
             currency,
-        ),
-        _lever(
-            "duration_weeks",
-            float(weeks) if weeks else None,
-            f"Median weeks per promotion in this scope: {weeks}" if weeks else _NO_PROMOTIONS,
-            currency,
-        ),
-        _lever(
-            "spend_amount",
-            trade_spend,
-            f"Measured Trade Spend for this scope: {F.money(trade_spend, currency)}"
-            if trade_spend is not None
-            else "No Trade Spend in this selection to anchor this lever on.",
-            currency,
-        ),
+        )
+        for key in _LEVER_META
     ]
     return {
         "submitted": submitted,
@@ -357,6 +605,18 @@ def run(
     rows = rows_for(state)
     measurement = _measure(rows)
     kpis = _kpis(state, currency)
+    plan = current_plan(state, measurement, kpis, currency)
+
+    # The measured KPI bundle belongs to the Current Plan and to nothing else.
+    # `scenarios.build` hands it to that scenario alone; the guard re-checks on
+    # the way out, on the real payload rather than only in a test.
+    # The measured scenario always carries the KPI bundle, even for a scope
+    # that selected nothing -- in that case every value inside it is null with
+    # a reason, which IS the measurement. Handing it None instead would make an
+    # empty scope indistinguishable from an unrun scenario, and those are
+    # different facts.
+    scenario_set = scenarios.build(plan["levers"], kpis)
+    scenarios.assert_no_fabricated_results(scenario_set)
 
     return {
         "scenario": {
@@ -367,6 +627,9 @@ def run(
             "phase": PHASE,
             "modelled": False,
         },
+        "context": _context(state, measurement),
+        "current_plan": plan,
+        "scenarios": scenario_set,
         "scope": {
             "period": F.period_label(state.year, state.month),
             "period_label": F.fiscal_label(state.year),
@@ -377,7 +640,7 @@ def run(
             "median_promotion_weeks": measurement.median_promotion_weeks,
             "has_data": measurement.row_count > 0,
         },
-        "levers": _levers(measurement, kpis["trade_spend"]["value"], levers, currency),
+        "levers": _levers(plan, levers, currency),
         "kpis": kpis,
         "meta": {
             "currency": currency,

@@ -85,6 +85,59 @@ def target_incremental_sales(trade_spend: float) -> float:
     return round(trade_spend * (1 + PROMOTION_TARGET_ROI_PCT / 100), 2)
 
 
+# --- approved promotion treatment rules ------------------------------------
+#
+# RELOCATED VERBATIM from scripts/audit_roi_realism.py, which now imports them
+# back from here. Values, units and arithmetic are unchanged; the move exists
+# so that application code has a source of truth that is not a script.
+#
+# WHAT THESE ARE, EXACTLY. They are the promotion rules this project's dataset
+# was generated under, and every one of them has been verified to hold in the
+# live file: the audit reports measured uplifts of 18.2 / 30.3 / 43.8 / 60.5 /
+# 69.1 percent, each inside its own band. They are NOT an elasticity estimated
+# from observed variation, NOT a model fit, and NOT a forecast. Anything built
+# on them must say so -- see response.PROVENANCE.
+
+#: The promotional overhead every promoted row in the fact file carries, as a
+#: share of Base_Revenue. The same 0.03 the economics scripts book.
+PROMOTION_COST_RATE: float = 0.03
+
+#: Treatment -> (discount d, uplift band low, uplift band high), all as
+#: FRACTIONS, not percentages. PR001-PR003 are the year-round mechanics;
+#: PS001 is the 2024 seasonal 20% price cut and PB001 the 2025 seasonal
+#: Buy3Get1, which `scripts/audit_roi_realism.treatment_of` maps the dated
+#: seasonal ids onto.
+TREATMENT_RULES: dict[str, tuple[float, float, float]] = {
+    "PR001": (0.05, 0.15, 0.20),
+    "PR002": (0.10, 0.25, 0.35),
+    "PR003": (0.15, 0.40, 0.50),
+    "PS001": (0.20, 0.55, 0.65),
+    "PB001": (0.25, 0.60, 0.72),
+}
+
+
+def breakeven_uplift(d: float, c: float = PROMOTION_COST_RATE) -> float:
+    """u* such that ROI == 0.
+
+    DERIVED, NOT FITTED. With Base_Quantity == Actual_Quantity == b(1+u), a
+    price discount d and a promotion cost rate c on Base_Revenue:
+
+        Incremental Sales = b.u.P.(1-d)
+        Trade Spend       = b.(1+u).P.(d+c)
+        ROI               = u(1-d) / ((1+u)(d+c)) - 1
+
+        ROI = 0  <=>  u* = (d + c) / (1 - c - 2d)
+
+    Relocated unchanged from scripts/audit_roi_realism.py, including its
+    domain: the denominator goes non-positive once 2d + c >= 1, i.e. beyond a
+    48.5% discount at the standard cost rate. No guard is added here, because
+    adding one would change the behaviour of a function this move is only
+    supposed to relocate. The approved treatments top out at d = 0.25, well
+    inside the domain, and app/tpo/response.py admits nothing else.
+    """
+    return (d + c) / (1 - c - 2 * d)
+
+
 # --- currency --------------------------------------------------------------
 
 #: Base currency of every stored figure and every KPI calculation. Nothing

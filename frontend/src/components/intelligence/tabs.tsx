@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Card, CardHeader, CardBody, Button, IconButton, Input, Pill, Table, Th, Td, Tr, useToast } from '../ui'
+import { Card, CardHeader, CardBody, Button, IconButton, Input, Pill, Table, Th, Td, Tr } from '../ui'
 import { Icon, type IconName } from '../../icons'
 import { Waterfall } from '../charts'
 import { SaturationChart } from './SaturationChart'
@@ -337,13 +337,12 @@ export function RegionsTab({ D }: { D: IntelligencePageData }) {
 
 // ============== TAB 6: SKU LEVEL ==============
 export function SkuLevelTab({ D }: { D: IntelligencePageData }) {
-  const { show } = useToast()
   const flagTone = (flag: string) =>
     flag === 'Top performer' ? 'success' : flag === 'On Track' ? 'info' : flag === 'Cannibalized' ? 'danger' : 'warning'
 
   return (
     <Card className="fade-in">
-      <CardHeader title="SKU-Level Performance" actions={<Button variant="secondary" size="sm" onClick={() => show('SKU export queued')}><Icon name="download" /> Export</Button>} />
+      <CardHeader title="SKU-Level Performance" actions={<Button variant="secondary" size="sm" disabled title="SKU export is not yet available"><Icon name="download" /> Export — not yet available</Button>} />
       <div className="overflow-x-auto">
         <Table>
           <thead>

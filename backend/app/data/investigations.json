@@ -174,9 +174,7 @@
       "total": 8,
       "pct": 88,
       "insights": 16,
-      "sources": 24,
-      "confidence": 82,
-      "confidenceDelta": "+6 pp"
+      "sources": 24
     },
     "legend": [
       {
@@ -427,9 +425,7 @@
         "total": 8,
         "pct": 88,
         "insights": 16,
-        "sources": 24,
-        "confidence": 82,
-        "confidenceDelta": "+6 pp"
+        "sources": 24
       },
       "nodeDetails": {
         "spend": {
@@ -694,7 +690,7 @@
         },
         {
           "key": "roi",
-          "label": "Forecasted ROI",
+          "label": "Modelled ROI",
           "metric": "2.18",
           "delta": "+0.65",
           "trend": "up",
@@ -707,9 +703,9 @@
         },
         {
           "key": "risk",
-          "label": "Risk Envelope",
-          "metric": "Within",
-          "delta": "Healthy",
+          "label": "Risk & Governance",
+          "metric": "Not defined",
+          "delta": "",
           "trend": "",
           "impact": "data",
           "icon": "shield",
@@ -780,9 +776,7 @@
         "total": 8,
         "pct": 86,
         "insights": 14,
-        "sources": 22,
-        "confidence": 88,
-        "confidenceDelta": "+9 pp"
+        "sources": 22
       },
       "nodeDetails": {
         "spendmix": {
@@ -812,18 +806,18 @@
         },
         "sku": {
           "headline": "Top 20 SKUs capture 78%",
-          "body": "Focus spend on 20 SKUs vs current 15. +₹4.1 Cr predicted.",
+          "body": "Focus spend on 20 SKUs vs current 15 (+₹4.1 Cr).",
           "evidence": "SKU contribution analysis"
         },
         "roi": {
-          "headline": "Forecasted ROI: 2.18",
-          "body": "Up from baseline 1.53. 87% confidence in forecast.",
-          "evidence": "MMM + historical similarity"
+          "headline": "Modelled ROI: 2.18",
+          "body": "Up from baseline 1.53. This is not a forecast and carries no confidence figure.",
+          "evidence": "Historical similarity"
         },
         "risk": {
-          "headline": "Within risk envelope",
-          "body": "Budget compliance ✓ · Margin safe · Cannibalization low.",
-          "evidence": "14 policy checks passed"
+          "headline": "Governance thresholds are not defined",
+          "body": "No approved governance thresholds are defined in this project, so no compliance position can be stated here.",
+          "evidence": "The undefined boundaries are listed against a simulated scenario in Simulation Studio's Risk & Governance panel."
         }
       }
     },
@@ -841,7 +835,7 @@
       "nodes": [
         {
           "key": "demand",
-          "label": "Demand Forecast",
+          "label": "Demand Signals",
           "metric": "+34%",
           "delta": "vs LY",
           "trend": "up",
@@ -947,8 +941,8 @@
       "accelerators": [
         {
           "key": "df",
-          "name": "Demand Forecasting",
-          "desc": "Projecting demand per SKU using 3-yr seasonality",
+          "name": "Demand Signal Analysis",
+          "desc": "Reading demand signals per SKU from 3-year seasonality",
           "status": "Completed",
           "icon": "trending",
           "tone": "success",
@@ -1005,15 +999,13 @@
         "total": 8,
         "pct": 84,
         "insights": 18,
-        "sources": 26,
-        "confidence": 87,
-        "confidenceDelta": "+11 pp"
+        "sources": 26
       },
       "nodeDetails": {
         "demand": {
-          "headline": "Demand projected +34% YoY",
+          "headline": "Demand signal +34% YoY",
           "body": "Category growth driven by skincare cluster. 6 SKUs above trendline.",
-          "evidence": "3-year seasonality model"
+          "evidence": "3-year seasonality"
         },
         "brand": {
           "headline": "Top 5 SKUs have 2.4× affinity",
@@ -1067,8 +1059,8 @@
         {
           "key": "budget",
           "label": "Budget Allocation",
-          "metric": "₹680 Cr",
-          "delta": "+12%",
+          "metric": "Not defined",
+          "delta": "",
           "trend": "up",
           "impact": "strong",
           "icon": "pricing",
@@ -1157,9 +1149,9 @@
         },
         {
           "key": "governance",
-          "label": "Governance Compliance",
-          "metric": "14/14",
-          "delta": "rules",
+          "label": "Governance",
+          "metric": "Not defined",
+          "delta": "",
           "trend": "",
           "impact": "data",
           "icon": "shield",
@@ -1208,8 +1200,8 @@
         },
         {
           "key": "mg",
-          "name": "Market Growth Projection",
-          "desc": "Category growth forecast for FY26",
+          "name": "Market Growth Analysis",
+          "desc": "Category growth analysis for FY26",
           "status": "In Progress",
           "icon": "trending",
           "tone": "warning",
@@ -1217,8 +1209,8 @@
         },
         {
           "key": "gc",
-          "name": "Governance & Policy Check",
-          "desc": "Ensuring strategy stays within all rules",
+          "name": "Governance Review",
+          "desc": "Naming the governance boundaries this project has not defined",
           "status": "In Progress",
           "icon": "shield",
           "tone": "warning",
@@ -1230,15 +1222,13 @@
         "total": 8,
         "pct": 82,
         "insights": 22,
-        "sources": 31,
-        "confidence": 85,
-        "confidenceDelta": "+8 pp"
+        "sources": 31
       },
       "nodeDetails": {
         "budget": {
-          "headline": "Budget ₹680 Cr (+12% YoY)",
-          "body": "Recommend +12% YoY to support category growth ambition. Net ROI lift +0.18.",
-          "evidence": "5-year spend-ROI elasticity"
+          "headline": "Budget ceiling is not defined",
+          "body": "No approved maximum trade spend exists in this project, so no budget position can be stated.",
+          "evidence": "The undefined boundaries are listed against a simulated scenario in Simulation Studio's Risk & Governance panel."
         },
         "portfolio": {
           "headline": "Rebalance to 5 priority categs",
@@ -1257,8 +1247,8 @@
         },
         "market": {
           "headline": "Market share 14.2 → 15.8%",
-          "body": "Modeled outcome if recommended strategy adopted.",
-          "evidence": "MMM + share-of-voice model"
+          "body": "Illustrative outcome if the recommended strategy were adopted.",
+          "evidence": "Share-of-voice analysis"
         },
         "channelmix": {
           "headline": "eCom +5 pp by year-end",
@@ -1267,13 +1257,13 @@
         },
         "compbench": {
           "headline": "Move from #2 to #1 in 3 categs",
-          "body": "Predicted outcome on Hair Care, Skin Care, Oral Care.",
+          "body": "Illustrative outcome on Hair Care, Skin Care, Oral Care.",
           "evidence": "Competitor share trajectories"
         },
         "governance": {
-          "headline": "All 14 policy checks pass",
-          "body": "Budget · Margin · Trade Policy · Inventory · Risk all green.",
-          "evidence": "Live governance engine"
+          "headline": "Governance thresholds are not defined",
+          "body": "No approved governance thresholds are defined in this project, so no compliance position can be stated here.",
+          "evidence": "No governance or policy checks are defined in this project."
         }
       }
     }

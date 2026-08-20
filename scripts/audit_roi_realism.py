@@ -40,25 +40,18 @@ FACT = config.DATA_DIR / config.FACT_FILE
 NO_PROMOTION = "-1"
 CHANNELS = ["CH001", "CH002", "CH003", "CH004", "CH005"]
 
-PROMOTION_COST_RATE = 0.03
-TREATMENT_RULES = {
-    "PR001": (0.05, 0.15, 0.20),
-    "PR002": (0.10, 0.25, 0.35),
-    "PR003": (0.15, 0.40, 0.50),
-    "PS001": (0.20, 0.55, 0.65),
-    "PB001": (0.25, 0.60, 0.72),
-}
+#: The approved rules and the break-even algebra now live in app/tpo/config.py
+#: so that application code has a source of truth that is not a script. Values
+#: and arithmetic are unchanged by the move; this script reads them back.
+PROMOTION_COST_RATE = config.PROMOTION_COST_RATE
+TREATMENT_RULES = config.TREATMENT_RULES
+breakeven_uplift = config.breakeven_uplift
 
 
 def treatment_of(pid: str) -> str:
     if pid == NO_PROMOTION or pid.startswith("PR"):
         return pid
     return "PS001" if pid.endswith("24") else "PB001"
-
-
-def breakeven_uplift(d: float, c: float = PROMOTION_COST_RATE) -> float:
-    """u* such that ROI == 0. See the module docstring."""
-    return (d + c) / (1 - c - 2 * d)
 
 
 def roi_for(state: FilterState) -> float | None:

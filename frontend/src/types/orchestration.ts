@@ -38,8 +38,10 @@ export interface OrchestrationProgress {
   pct: number
   insights: number
   sources: number
-  confidence: number
-  confidenceDelta: string
+  // B9 removed `confidence` and `confidenceDelta`. No engine in this project
+  // produces a confidence figure — B6 assesses governance and reports what is
+  // undefined, and B5's weekly view is explicitly not a forecast. The fields
+  // are gone from the type as well as the data so nothing can re-read them.
 }
 
 export interface Orchestration {
