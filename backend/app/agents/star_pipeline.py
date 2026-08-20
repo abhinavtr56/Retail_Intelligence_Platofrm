@@ -21,16 +21,12 @@ from app.agents.pipeline import (
     MAX_SPECIALISTS,
     SYNTHESIS_SCHEMA,
     SYNTHESIS_SYSTEM,
-    VALID_ICONS,
     assemble_orchestration,
 )
-from app.agents.star_tools import (
-    BREAKDOWN_DIMENSIONS,
-    BREAKDOWN_METRICS,
-    run_analysis,
-    schema_summary,
-    segment_kpis,
-)
+from app.agents.roster import BY_KEY as ROSTER_BY_KEY
+from app.agents.roster import KEYS as ROSTER_KEYS
+from app.agents.roster import roster_catalogue
+from app.agents.star_tools import schema_summary, segment_kpis
 
 INVESTIGATION_TYPES = ["diagnostic", "optimization", "launch", "strategic"]
 
@@ -67,27 +63,20 @@ STAR_PLAN_SCHEMA = {
         "global_filters": FILTER_OBJECT,
         "specialists": {
             "type": "array",
+            "description": "Which specialists to assign, in the order they should be read.",
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["key", "name", "desc", "by", "metric", "scope", "filters", "icon"],
+                "required": ["specialist", "assignment"],
                 "properties": {
-                    "key": {"type": "string", "description": "short slug, e.g. 'mechanic_roi'"},
-                    "name": {"type": "string", "description": "Title case, e.g. 'Mechanic Effectiveness'"},
-                    "desc": {"type": "string", "description": "One short line on what it examines"},
-                    "by": {"type": "string", "enum": list(BREAKDOWN_DIMENSIONS)},
-                    "metric": {"type": "string", "enum": list(BREAKDOWN_METRICS)},
-                    "scope": {
+                    "specialist": {"type": "string", "enum": list(ROSTER_KEYS)},
+                    "assignment": {
                         "type": "string",
-                        "enum": ["segment", "overall"],
                         "description": (
-                            "'segment' applies the global filters (the segment under "
-                            "investigation). 'overall' ignores them and analyses the whole "
-                            "business, for comparison."
+                            "One sentence telling this specialist what to look for in THIS "
+                            "investigation — the part of the question it owns."
                         ),
                     },
-                    "filters": FILTER_OBJECT,
-                    "icon": {"type": "string", "enum": VALID_ICONS},
                 },
             },
         },
@@ -102,38 +91,45 @@ Given a business question, you must:
 2. Set `global_filters` to the scope the question implies (a year, a channel,
    a region). Use ONLY codes/values present in the schema summary. Set every
    field you are not constraining to null.
-3. Choose up to %d specialist analyses. Each is one breakdown dimension (`by`),
-   ranked by one `metric`, optionally narrowed by its own `filters`.
+3. Assign the specialists who should investigate it.
 
-CHOOSING ANALYSES — the part that decides whether this investigation is useful:
+You do NOT invent analyses. You ASSIGN work to a standing team of specialists,
+each of whom owns one link in the promotion-ROI causal chain and pulls their own
+data. Your skill is choosing which lenses this question actually needs, and
+telling each specialist what to look for.
 
-Promotion problems are usually INTERACTIONS. A mechanic that loses money only
-in one channel, or a region that fails only on seasonal offers, looks perfectly
-average in any single dimension's totals. If every specialist just breaks the
-whole dataset down by one column, you will report noise and miss the cause.
+YOUR TEAM:
+%s
 
-So:
-  - When the question names a segment (a channel, a region, a retailer, a
-    combination), put it in `global_filters` and give MOST specialists
-    scope="segment", varying the `by` dimension between them. That is how you
-    find the interaction.
-  - Give AT LEAST ONE specialist scope="overall". It runs the same kind of
-    breakdown across the whole business, so the segment's numbers can be judged
-    against the norm rather than in isolation. Without it nobody can tell
-    whether a bad-looking figure is actually unusual.
-  - Vary the metric. `roi` finds efficiency problems, `trade_spend` finds where
-    the money actually went, `incremental_sales` finds what it returned.
-  - NEVER give two specialists the same `by` AND the same `scope`. Each one
-    costs a model call, and two identical breakdowns produce two copies of the
-    same finding. Every specialist must be able to discover something the
-    others cannot.
+HOW TO ASSIGN — this decides whether the investigation is a real RCA:
 
-Useful dimensions: promotion_mechanic (the offer type: "20%% Discount",
-"Buy3Get1"), promotion (the individual offer), channel, region, retailer,
-category, brand, promotion_type, state, city, product, distributor.
+  - Pick %d or fewer. Prefer a CHAIN over a crowd: one that establishes whether
+    the problem is real, one or two that localise it, one that names specifics,
+    one that quantifies what is at stake. Four well-chosen beats six overlapping.
+  - ALWAYS include `benchmark` on a diagnostic question. Without it nobody can
+    tell whether a bad-looking number is actually unusual, and every other
+    finding risks being over-read.
+  - Choose lenses that can DISAGREE with each other. If `mechanic_efficiency`
+    blames the offer design and `geography` finds it only breaks at one
+    retailer, that tension is the most informative thing the investigation can
+    produce. Picking four lenses that all point the same way tells you nothing.
+  - Match the lens to the question. "Why did ROI fall" wants benchmark +
+    mechanic_efficiency + spend_allocation. "Where is money leaking" wants
+    offer_forensics + risk_exposure. "Is our lift real" wants cannibalization.
+    "Did it fade" wants temporal.
+  - `assignment` must be specific to THIS question, naming what that specialist
+    should look for. Not "analyse mechanics" but "check whether Buy3Get1 fails
+    only in the South or everywhere".
+
+Set `global_filters` to the scope the question implies, using ONLY values from
+the schema summary. Every specialist analyses that scope, and those that need a
+comparison pull the whole-business baseline themselves.
 
 Archetypes: diagnostic (why did X happen), optimization (how do we improve X),
-launch (new product/SKU decisions), strategic (portfolio/long-term mix).""" % MAX_SPECIALISTS
+launch (new product/SKU decisions), strategic (portfolio/long-term mix).""" % (
+    roster_catalogue(),
+    MAX_SPECIALISTS,
+)
 
 STAR_SPECIALIST_SYSTEM = """You are a specialist analyst on a trade promotion intelligence platform.
 
@@ -218,50 +214,57 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
 
     global_filters = clean_filters(plan.get("global_filters"))
     specialists: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
-    for spec in (plan.get("specialists") or [])[:MAX_SPECIALISTS]:
-        if spec.get("by") not in BREAKDOWN_DIMENSIONS:
+    seen: set[str] = set()
+    for assigned in (plan.get("specialists") or [])[:MAX_SPECIALISTS]:
+        key = assigned.get("specialist")
+        spec = ROSTER_BY_KEY.get(key)
+        if spec is None or key in seen:  # unknown or duplicate assignment
             continue
-        scope = spec.get("scope") or "segment"
-        # scope="segment" refines the global scope, so a year set once at the
-        # top still applies. scope="overall" deliberately drops it — that's the
-        # only way a specialist can look outside the segment for comparison.
-        own = clean_filters(spec.get("filters"))
-        spec["_filters"] = {**global_filters, **own} if scope == "segment" else own
-        spec["_scope"] = scope
-        # Two specialists with the same dimension AND scope would return the
-        # same table and bill twice for one finding.
-        signature = (spec["by"], scope)
-        if signature in seen:
-            continue
-        seen.add(signature)
-        specialists.append(spec)
+        seen.add(key)
+        specialists.append({"spec": spec, "assignment": assigned.get("assignment", "")})
 
-    if not specialists:  # planner produced nothing usable — still say something
+    if not specialists:  # planner produced nothing usable — still run a real RCA
         specialists = [
-            {
-                "key": "channel_roi",
-                "name": "Channel ROI Analysis",
-                "desc": "ROI by channel",
-                "by": "channel",
-                "metric": "roi",
-                "icon": "retailer",
-                "_filters": global_filters,
-                "_scope": "segment",
-            }
+            {"spec": ROSTER_BY_KEY["benchmark"], "assignment": "Establish whether this segment is abnormal."},
+            {"spec": ROSTER_BY_KEY["mechanic_efficiency"], "assignment": "Find which mechanics underperform."},
+            {"spec": ROSTER_BY_KEY["spend_allocation"], "assignment": "Find where the budget concentrated."},
         ]
 
     scoped_totals = segment_kpis(global_filters) if global_filters else overall
-    await emit("planned", {"plan": plan, "specialists": specialists, "totals": scoped_totals})
+    await emit(
+        "planned",
+        {
+            "plan": plan,
+            # Specialist is a frozen dataclass holding a callable — flatten to
+            # the plain fields the run record and the UI actually need.
+            "specialists": [
+                {
+                    "key": a["spec"].key,
+                    "name": a["spec"].name,
+                    "desc": a["spec"].desc,
+                    "icon": a["spec"].icon,
+                    "assignment": a.get("assignment", ""),
+                }
+                for a in specialists
+            ],
+            "totals": scoped_totals,
+        },
+    )
 
-    # ---- 2/3. Analyse + specialists in parallel ----------------------------
-    async def run_specialist(spec: dict[str, Any]) -> dict[str, Any]:
-        await emit("specialist_started", {"key": spec["key"]})
-        data = run_analysis(spec["_filters"], spec["by"], spec.get("metric", "incremental_sales"))
-        if data.get("error"):
+    # ---- 2/3. Each specialist pulls its own data, in parallel --------------
+    async def run_specialist(assigned: dict[str, Any]) -> dict[str, Any]:
+        spec = assigned["spec"]
+        await emit("specialist_started", {"key": spec.key})
+        try:
+            data = spec.fetch(global_filters)
+            error = None
+        except Exception as e:  # one lens failing must not sink the whole RCA
+            data, error = {}, f"{type(e).__name__}: {e}"
+
+        if error:
             result = {
-                "headline": f"{spec['name']} unavailable",
-                "body": f"This analysis could not run: {data['error']}.",
+                "headline": f"{spec.name} unavailable",
+                "body": f"This analysis could not run: {error}.",
                 "evidence": "",
                 "metric": "n/a",
                 "delta": "",
@@ -272,40 +275,38 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
             }
         else:
             result = await complete_json(
-                STAR_SPECIALIST_SYSTEM,
+                f"{STAR_SPECIALIST_SYSTEM}\n\nYOUR SPECIALISM — {spec.name}:\n{spec.focus}",
                 (
-                    f"QUESTION: {question}\n\n"
-                    f"YOUR ANALYSIS: {spec['name']} — {spec.get('desc', '')}\n\n"
-                    f"BREAKDOWN:\n{json.dumps(data, indent=1)}"
+                    f"QUESTION UNDER INVESTIGATION: {question}\n\n"
+                    f"YOUR ASSIGNMENT: {assigned.get('assignment') or spec.role}\n\n"
+                    f"SCOPE: {json.dumps(global_filters) if global_filters else 'whole business'}\n\n"
+                    f"YOUR DATA:\n{json.dumps(data, indent=1, default=str)}"
                 ),
                 FINDING_SCHEMA,
                 "specialist_finding",
                 temperature=0.2,
             )
-        # Spec fields are applied AFTER the model's result on purpose: both
-        # carry a `metric` key, and they mean different things — the spec's is
-        # the breakdown metric ("roi"), the model's is the headline figure for
-        # the graph node ("13.4%"). Merging the other way silently destroyed
-        # the former. Keep both, under distinct names.
+        # Roster fields are applied AFTER the model's result: both carry a
+        # `metric` key meaning different things (the model's is the headline
+        # figure for the graph node). Merging the other way lost one silently.
         finding = {
             **result,
-            "key": spec["key"],
-            "name": spec["name"],
-            "desc": spec.get("desc", ""),
-            "icon": spec.get("icon", "variance"),
-            "by": spec["by"],
-            "breakdown_metric": spec.get("metric"),
-            "scope": spec["_scope"],
-            "analysis": spec["by"],
-            "_filters": spec["_filters"],
+            "key": spec.key,
+            "name": spec.name,
+            "desc": spec.desc,
+            "icon": spec.icon,
+            "role": spec.role,
+            "assignment": assigned.get("assignment", ""),
+            "analysis": spec.key,
+            "_filters": global_filters,
             "analysis_data": data,
         }
-        await emit("specialist_done", {"key": spec["key"], "finding": finding})
+        await emit("specialist_done", {"key": spec.key, "finding": finding})
         return finding
 
     results = await asyncio.gather(*(run_specialist(s) for s in specialists), return_exceptions=True)
     findings = [f for f in results if isinstance(f, dict)]
-    failed = [(s["key"], repr(e)) for s, e in zip(specialists, results) if isinstance(e, Exception)]
+    failed = [(s["spec"].key, repr(e)) for s, e in zip(specialists, results) if isinstance(e, Exception)]
     if not findings:
         raise RuntimeError(f"All specialists failed: {failed}")
 
@@ -318,8 +319,8 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
             f"KPIS FOR THAT SCOPE: {json.dumps(scoped_totals)}\n\n"
             f"SPECIALIST FINDINGS:\n"
             + "\n\n".join(
-                f"[{f['name']}] (confidence {f['confidence']}, impact {f['impact']}, "
-                f"scope {json.dumps(f.get('_filters') or {})})\n"
+                f"[{f['name']}] (confidence {f['confidence']}, impact {f['impact']})\n"
+                f"  Lens: {f['role']}\n"
                 f"  {f['headline']}\n  {f['body']}\n  Evidence: {f['evidence']}"
                 for f in findings
             )
