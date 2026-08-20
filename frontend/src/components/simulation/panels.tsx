@@ -1,236 +1,146 @@
-import { useEffect, useState } from 'react'
 import { Icon } from '../../icons'
-import { Pill, Table, Th, Td } from '../ui'
-import { Donut } from '../charts'
-import type { Scenario } from '../../types/simulation'
+import { InfoPopover, Table, Th, Td } from '../ui'
+import type { SimulationKpi, SimulationKpiKey, SimulationRunResponse } from '../../types/simulation'
 
-const IMPACT_FMT: Record<string, (v: number) => string> = {
-  revenue: (v) => `₹${Math.round(v)} Cr`,
-  roi: (v) => v.toFixed(2),
-  margin: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)} pts`,
-  prob: (v) => `${Math.round(v)}%`,
-  sellthrough: (v) => `${v.toFixed(2)} Cr`,
-}
-const IMPACT_ROWS: { label: string; key: keyof Scenario['impact'] }[] = [
-  { label: 'Incremental Revenue (₹ Cr)', key: 'revenue' },
-  { label: 'Promotion ROI', key: 'roi' },
-  { label: 'Margin Impact (pts)', key: 'margin' },
-  { label: 'Target Achievement Probability', key: 'prob' },
-  { label: 'Sell-through Forecast (Units Cr)', key: 'sellthrough' },
+/** The order the seven figures are read in: what was invested, what it moved,
+ *  what it returned, what it cost elsewhere. */
+const KPI_ORDER: SimulationKpiKey[] = [
+  'trade_spend',
+  'incremental_units',
+  'incremental_sales',
+  'roi_percent',
+  'margin_percent',
+  'cannibalization',
+  'pei',
 ]
 
-// Ported from js/pages/simulation.js's `renderImpactTable`.
-export function ImpactTable({ visible, baseline, compareMode }: { visible: Scenario[]; baseline: Scenario; compareMode: boolean }) {
+/** Projected Business Impact, Phase A: the scope's MEASURED performance.
+ *
+ *  Every row is a value the validated KPI engine produced — the same number
+ *  the Command Center's card shows for the same selection. A KPI the selection
+ *  cannot support renders its reason, never a zero.
+ *
+ *  There is one column because there is one result. A second column would have
+ *  to differ from the first, and nothing in Phase A can make it differ
+ *  honestly: the levers are not modelled yet, so two scenarios over the same
+ *  scope are the same measurement twice.
+ */
+export function KpiTable({ kpis, targetRoiPct }: { kpis: Record<SimulationKpiKey, SimulationKpi>; targetRoiPct: number }) {
   return (
     <Table>
       <thead>
         <tr>
-          <Th />
-          {visible.map((s) => (
-            <Th key={s.key} className={s.recommended ? '!bg-status-success-bg' : ''}>
-              {s.recommended && (
-                <div className="mb-1 flex items-center gap-1 text-[9px] font-extrabold text-status-success [&_svg]:h-2.5 [&_svg]:w-2.5">
-                  <Icon name="sparkles" /> RECOMMENDED
-                </div>
-              )}
-              <div className="normal-case leading-[1.3] text-ink-primary">
-                {s.recommended ? <strong>{s.name}</strong> : s.name}
-                <br />
-                <span className="text-xs font-normal text-ink-muted">{s.sub}</span>
-              </div>
-            </Th>
-          ))}
+          <Th>Metric</Th>
+          <Th className="text-right">Measured</Th>
         </tr>
       </thead>
       <tbody>
-        {IMPACT_ROWS.map((r) => (
-          <tr key={r.key}>
-            <Td>{r.label}</Td>
-            {visible.map((s) => {
-              const v = s.impact[r.key]
-              const baseV = baseline.impact[r.key]
-              let delta = ''
-              if (compareMode && s.key !== 's1') {
-                if (r.key === 'margin') delta = `${v - baseV >= 0 ? '+' : ''}${(v - baseV).toFixed(1)} pts`
-                else if (r.key === 'prob') delta = `${v - baseV >= 0 ? '+' : ''}${Math.round(v - baseV)} pts`
-                else delta = `${(v / baseV - 1) * 100 >= 0 ? '+' : ''}${((v / baseV - 1) * 100).toFixed(1)}%`
-              }
-              const isDown = delta.startsWith('-')
-              return (
-                <Td key={s.key} className={s.recommended ? 'bg-[rgba(16,185,129,0.06)] font-bold' : ''}>
-                  <div>{IMPACT_FMT[r.key](v)}</div>
-                  {delta && (
-                    <div className={`mt-0.5 text-[11px] font-bold ${isDown ? 'text-status-danger' : 'text-status-success'}`}>
-                      {isDown ? '↓' : '↑'} {delta.replace(/^-/, '')}
+        {KPI_ORDER.map((key) => {
+          const kpi = kpis[key]
+          if (!kpi) return null
+          return (
+            <tr key={key}>
+              <Td>
+                <div className="flex items-center gap-1.5">
+                  <span>{kpi.label}</span>
+                  <InfoPopover label={`About ${kpi.label}`} title={kpi.label}>
+                    <div className="text-[12.5px] leading-[1.55] text-ink-secondary">
+                      <div className="font-semibold text-ink-primary">Formula</div>
+                      <div className="mt-0.5">{kpi.formula}</div>
+                      {key === 'roi_percent' && (
+                        <div className="mt-2 text-ink-muted">Target: {targetRoiPct.toFixed(0)}%</div>
+                      )}
                     </div>
-                  )}
-                </Td>
-              )
-            })}
-          </tr>
-        ))}
+                  </InfoPopover>
+                </div>
+              </Td>
+              <Td className="text-right">
+                {kpi.available ? (
+                  <span className="text-[15px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+                    {kpi.display_value}
+                  </span>
+                ) : (
+                  <span
+                    className="cursor-help text-sm text-ink-muted"
+                    title={kpi.unavailable_reason ?? undefined}
+                  >
+                    —
+                  </span>
+                )}
+                {!kpi.available && kpi.unavailable_reason && (
+                  <div className="mt-0.5 max-w-[320px] text-[11px] leading-[1.45] text-ink-muted">
+                    {kpi.unavailable_reason}
+                  </div>
+                )}
+              </Td>
+            </tr>
+          )
+        })}
       </tbody>
     </Table>
   )
 }
 
-// Ported from `renderRiskList` + css/tpo.css .sim-risk-*.
-export function SimRiskList({ risk }: { risk: Scenario['risk'] }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    const t = window.setTimeout(() => setMounted(true), 60)
-    return () => window.clearTimeout(t)
-  }, [risk])
-
-  const toneColor = { success: 'var(--status-success)', warning: 'var(--status-warning)', danger: 'var(--status-danger)' }
-  const toneBg = { success: 'var(--status-success-bg)', warning: 'var(--status-warning-bg)', danger: 'var(--status-danger-bg)' }
+/** What was actually measured — the scope the numbers above describe.
+ *
+ *  Replaces the promotion/period dropdowns, which were hardcoded strings that
+ *  changed nothing when selected. Scope comes from the Command Center's filter
+ *  selection, and this panel reports what the backend resolved it to.
+ */
+export function ScopeSummary({ scope }: { scope: SimulationRunResponse['scope'] }) {
+  const applied = Object.entries(scope.filters_applied).filter(([key]) => key !== 'year' && key !== 'month')
 
   return (
-    <div className="flex flex-col">
-      {risk.map((r) => (
-        <div key={r.key} className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-b-0">
-          <div
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg [&_svg]:h-4 [&_svg]:w-4"
-            style={{ background: toneBg[r.tone], color: toneColor[r.tone] }}
-          >
-            <Icon name={r.icon as Parameters<typeof Icon>[0]['name']} />
+    <div className="flex flex-col gap-2.5">
+      <Row label="Period" value={scope.period} />
+      <Row label="Rows in scope" value={scope.row_count.toLocaleString()} />
+      <Row label="Promoted rows" value={scope.promoted_row_count.toLocaleString()} />
+      <Row label="Weeks with promotions" value={String(scope.promoted_weeks)} />
+      <div className="border-t border-border-subtle pt-2.5">
+        <div className="text-[11px] font-semibold text-ink-muted">Filters applied</div>
+        {applied.length === 0 ? (
+          <div className="mt-1 text-[12px] text-ink-secondary">None — the full dataset for this period.</div>
+        ) : (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {applied.map(([key, value]) => (
+              <span
+                key={key}
+                className="rounded-[var(--r-pill)] bg-surface-muted px-2 py-1 text-[11px] font-medium text-ink-secondary"
+              >
+                {key}: {Array.isArray(value) ? value.join(', ') : String(value)}
+              </span>
+            ))}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[12.5px] font-bold text-ink-primary">{r.label}</div>
-            <div className="mb-1 text-[11px] text-ink-muted">{r.sub}</div>
-            <div className="h-1 overflow-hidden rounded bg-surface-muted">
-              <div
-                className="h-full rounded transition-[width] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-                style={{ width: mounted ? `${r.pct}%` : '0%', background: r.tone === 'danger' ? toneColor.danger : toneColor[r.tone] }}
-              />
-            </div>
-          </div>
-          <span className="shrink-0 text-[11px] font-bold" style={{ color: toneColor[r.tone] }}>
-            {r.status}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Ported from `renderConfidence`.
-export function ConfidenceRow({ visible, activeKey }: { visible: Scenario[]; activeKey: string }) {
-  return (
-    <div className="flex items-center justify-around">
-      {visible.map((s) => (
-        <div key={s.key} className="flex flex-col items-center gap-1">
-          <div className="relative">
-            <Donut value={s.confidence} size={72} stroke={8} fill={s.dotColor} track="#E5E7EB" />
-            <div className="absolute inset-0 grid place-items-center text-sm font-extrabold text-ink-primary">{s.confidence}%</div>
-          </div>
-          <div className="text-[11px] font-semibold text-ink-secondary">{s.name}</div>
-          {s.key === activeKey && (
-            <Pill tone="success" className="mt-1">
-              Active
-            </Pill>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Ported from `renderReco`.
-export function RecoCard({ rec }: { rec: Scenario }) {
-  return (
-    <div>
-      <div className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.06em] text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
-        <Icon name="sparkles" /> TIQ Recommends
-      </div>
-      <div className="mt-1.5 text-sm font-bold text-ink-primary">{rec.name}</div>
-      <div className="mt-1 text-[12.5px] leading-[1.5] text-ink-secondary">
-        Best balance of ROI uplift ({rec.impact.roi.toFixed(2)}), margin safety ({rec.impact.margin >= 0 ? '+' : ''}
-        {rec.impact.margin.toFixed(1)} pts) and {Math.round(rec.impact.prob)}% target achievement probability.
+        )}
       </div>
     </div>
   )
 }
 
-// Ported from `renderStats`.
-export function StatsRow({ visible }: { visible: Scenario[] }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-[18px]">
-      <div className="flex flex-col border-b border-border-subtle py-2.5">
-        <div className="text-[11px] font-semibold text-ink-muted">Break-even Week</div>
-        <div className="mt-1 flex gap-3.5">
-          {visible.map((s) => (
-            <span key={s.key} className="text-base font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
-              {s.breakeven}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col py-2.5">
-        <div className="text-[11px] font-semibold text-ink-muted">Peak ROI</div>
-        <div className="mt-1 flex gap-3.5">
-          {visible.map((s) => (
-            <span key={s.key} className="text-base font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
-              {s.peakROI}
-            </span>
-          ))}
-        </div>
-      </div>
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="text-[11px] font-semibold text-ink-muted">{label}</span>
+      <span className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">{value}</span>
     </div>
   )
 }
 
-// Ported from `renderComparison`.
-export function ComparisonTable({ scenarios }: { scenarios: Scenario[] }) {
+/** The empty-scope case: a real state, not a permanent spinner and not a
+ *  screen full of zeroes. */
+export function NoDataPanel() {
   return (
-    <Table>
-      <thead>
-        <tr>
-          <Th>Scenario</Th>
-          <Th>
-            Incremental Revenue
-            <br />
-            <span className="text-xs font-normal normal-case text-ink-muted">(₹ Cr)</span>
-          </Th>
-          <Th>Promotion ROI</Th>
-          <Th>
-            Margin Impact
-            <br />
-            <span className="text-xs font-normal normal-case text-ink-muted">(pts)</span>
-          </Th>
-          <Th>Trade Spend (₹ Cr)</Th>
-          <Th>
-            Cannibalization Impact
-            <br />
-            <span className="text-xs font-normal normal-case text-ink-muted">(₹ Cr)</span>
-          </Th>
-          <Th>Target Achievement Probability</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {scenarios.map((s) => (
-          <tr key={s.key} className={s.recommended ? 'bg-status-success-bg [&_td]:font-bold' : ''}>
-            <Td>
-              <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: s.dotColor }} />
-              {s.name}
-              {s.recommended && (
-                <Pill tone="success" className="ml-2">
-                  Recommended
-                </Pill>
-              )}
-            </Td>
-            <Td>{Math.round(s.impact.revenue)}</Td>
-            <Td>{s.impact.roi.toFixed(2)}</Td>
-            <Td>
-              {s.impact.margin >= 0 ? '+' : ''}
-              {s.impact.margin.toFixed(1)}
-            </Td>
-            <Td>{s.levers.spend.toFixed(1)}</Td>
-            <Td>{s.impact.cannib.toFixed(1)}</Td>
-            <Td>{Math.round(s.impact.prob)}%</Td>
-          </tr>
-        ))}
-      </tbody>
-    </Table>
+    <div className="grid min-h-[220px] place-items-center px-6 py-10 text-center">
+      <div>
+        <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
+          <Icon name="info" />
+        </div>
+        <div className="text-sm font-bold text-ink-primary">No rows in this scope</div>
+        <div className="mt-1 text-[12.5px] text-ink-secondary">
+          The current filter selection matches no sales rows, so there is nothing to measure. Widen the
+          selection in the Command Center.
+        </div>
+      </div>
+    </div>
   )
 }
