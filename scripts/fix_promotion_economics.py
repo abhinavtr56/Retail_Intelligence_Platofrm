@@ -114,6 +114,22 @@ DEFAULT_BUY3GET1_RATE = PROMOTION_COST_RATE + FREE_GOODS_SHARE
 #: dim_promotion_final.csv: PS001 and every PB*24 seasonal id is "20% Discount".
 SEASONAL_DISCOUNT = 0.20
 
+#: DATASET FINGERPRINTS, not business rules. These count how many rows the
+#: diagnosed defect touches; the script aborts if the input does not match, so
+#: it can never be applied to a dataset it was not diagnosed against.
+#:
+#: Updated when the promotion-assignment date-parsing bug was fixed in the
+#: TPO_FINAL generators (dim_date was parsed month-first, filing weeks under
+#: the wrong month). Correcting the assignment moved which rows carry which
+#: promotion, so both counts moved with it. NO formula, rate or business rule
+#: changed -- only these two totals.
+#:
+#:   Defect A  (CH002 2024 seasonal at list price) : 2,430 -> 2,250
+#:   Defect B  (Buy3Get1 rows, all channels)       : 6,930 -> 6,390
+EXPECTED_DEFECT_A_ROWS = 2250
+EXPECTED_DEFECT_B_ROWS = 6390
+
+
 CH002 = "CH002"
 
 
@@ -173,10 +189,10 @@ def verify_input(rows: list[dict]) -> list[str]:
         if len(failures) > 20:
             break
 
-    if defect_a != 2430:
-        failures.append(f"expected 2,430 Defect A rows, found {defect_a:,}")
-    if defect_b != 6930:
-        failures.append(f"expected 6,930 Buy3Get1 rows, found {defect_b:,}")
+    if defect_a != EXPECTED_DEFECT_A_ROWS:
+        failures.append(f"expected {EXPECTED_DEFECT_A_ROWS:,} Defect A rows, found {defect_a:,}")
+    if defect_b != EXPECTED_DEFECT_B_ROWS:
+        failures.append(f"expected {EXPECTED_DEFECT_B_ROWS:,} Buy3Get1 rows, found {defect_b:,}")
     return failures
 
 

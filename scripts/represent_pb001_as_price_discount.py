@@ -53,6 +53,11 @@ PROMOTION_COST_RATE = 0.03
 #: What fix_promotion_economics.py wrote, and what this pass expects to find.
 CURRENT_BUY3GET1_RATE = 0.28
 
+#: Dataset fingerprint, not a business rule -- see the same note in
+#: fix_promotion_economics.py. 6,930 -> 6,390 after the generator's date-parsing
+#: fix moved which rows carry Buy3Get1.
+EXPECTED_BUY3GET1_ROWS = 6390
+
 
 def is_buy3get1(promotion_id: str) -> bool:
     return promotion_id.startswith("PB") and promotion_id.endswith("25")
@@ -88,8 +93,8 @@ def main() -> int:
             problems.append(f"row {i}: Promotion_Cost is not the expected 28% of Base_Revenue")
         if len(problems) > 10:
             break
-    if targets != 6930:
-        problems.append(f"expected 6,930 Buy3Get1 rows, found {targets:,}")
+    if targets != EXPECTED_BUY3GET1_ROWS:
+        problems.append(f"expected {EXPECTED_BUY3GET1_ROWS:,} Buy3Get1 rows, found {targets:,}")
     if problems:
         print("ABORT: input is not the representation this pass expects:", file=sys.stderr)
         for p in problems[:10]:

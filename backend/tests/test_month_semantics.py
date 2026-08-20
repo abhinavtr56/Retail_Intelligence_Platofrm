@@ -234,22 +234,41 @@ def test_weekly_trend_is_untouched_by_month(store, perturbed):
 # --- the fix does what it was for -------------------------------------------
 
 
-def test_march_ch002_p11_250ml_has_a_baseline():
-    """The regression that motivated the change.
+def test_march_ch002_p11_250ml_month_scope_has_no_in_scope_control():
+    """KNOWN AND ACCEPTED LIMITATION — baseline scope, not a data defect.
 
-    Under `fact_sales.Month` this selection held 60 promoted rows and ZERO
-    non-promoted rows, so `_volume()` correctly refused to invent a baseline
-    and dropped the product entirely — incremental undefined.
+    This test previously asserted the opposite. It passed only because the
+    promotion assignment was wrong: the TPO_FINAL generators parsed dim_date
+    month-first (`pd.to_datetime(..., format="mixed")` with no `dayfirst=True`),
+    which scattered CH002's seasonal events across the year and left accidental
+    non-promoted gaps inside a month. Correcting the generators restored the
+    documented behaviour — a MONTHLY channel runs one treatment across EVERY
+    business week of the month, on a disjoint product subset.
+
+    So inside a month-filtered scope a promoted SKU now has zero non-promoted
+    observations, `_volume()` correctly refuses to invent a baseline, and
+    Incremental Sales is 0 (ROI -100%) for 37 of the 120 channel-months, all in
+    CH002 and CH005. The DATA is right; the baseline definition simply has no
+    in-scope control to measure against. Accepted by the project owner rather
+    than widening baseline scope, which is frozen.
+
+    Drop the month filter and the same data is healthy — asserted below.
     """
-    state = FilterState.build(year=2025, month=3, channel=["CH002"], product=["P11-250ml"])
-    volume = A._volume(baseline_rows_for(state))
+    scoped = FilterState.build(year=2025, month=3, channel=["CH002"], product=["P11-250ml"])
+    volume = A._volume(baseline_rows_for(scoped))
 
-    product = next((p for p in volume.products if p.product_id == "P11-250ml"), None)
-    assert product is not None, "P11-250ml has no baseline in March 2025"
+    # Promoted all five March weeks, so no control inside the month.
+    assert volume.products == ()
+    assert any(s["product_id"] == "P11-250ml" for s in volume.skipped)
+
+    # Without the month filter the product measures normally.
+    year_scope = FilterState.build(year=2025, channel=["CH002"], product=["P11-250ml"])
+    annual = A._volume(baseline_rows_for(year_scope))
+    product = next((p for p in annual.products if p.product_id == "P11-250ml"), None)
+    assert product is not None, "P11-250ml has no baseline even at year scope"
     assert product.non_promoted_rows > 0
     assert product.promoted_rows > 0
     assert product.baseline_average > 0
-    assert product.incremental_quantity != 0
 
 
 def test_months_sum_to_the_year_in_rows(store):

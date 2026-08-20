@@ -44,9 +44,10 @@ from app.routers import (  # noqa: E402
     misc,
     nav,
     pages,
+    promotion_calendar,
 )
 
-for r in (nav, command, command_center, investigations, pages, misc, connectors):
+for r in (nav, command, command_center, investigations, pages, misc, connectors, promotion_calendar):
     app.include_router(r.router)
 
 

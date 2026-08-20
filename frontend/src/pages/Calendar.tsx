@@ -1,129 +1,231 @@
+import { useMemo, useState } from 'react'
 import { AppShell } from '../components/layout/AppShell'
-import { Button, Card, CardHeader, CardBody, IconButton } from '../components/ui'
+import { Button, Card, CardBody, CardHeader, Dropdown, InfoPopover } from '../components/ui'
 import { Icon } from '../icons'
-import { useCalendar } from '../hooks/useMisc'
-import type { CalendarEvent } from '../types/calendar'
+import { LEGEND, LegendSwatch, PromotionMatrix } from '../components/calendar/PromotionMatrix'
+import { PromotionDetailPanel } from '../components/calendar/PromotionDetailPanel'
+import { UpcomingEventsPanel } from '../components/calendar/UpcomingEventsPanel'
+import { usePromotionCell, usePromotionMatrix, useUpcoming } from '../hooks/usePromotionCalendar'
 
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const TYPE_COLOR: Record<CalendarEvent['type'], string> = {
-  review: 'var(--status-info)',
-  launch: 'var(--status-success)',
-  extension: 'var(--status-warning)',
-  closure: 'var(--text-muted)',
-  data: 'var(--brand-violet)',
-}
+/** Monthly Promotion Calendar.
+ *
+ *      YEAR -> 12 MONTHS -> 5 CHANNELS -> PROMOTION -> PROMOTED PRODUCTS
+ *
+ *  A trade-promotion plan, not a diary: the primary view is a Channel x Month
+ *  matrix for one year, never a grid of days. The year is the top-level
+ *  control, so the question "which plan am I looking at?" is answered before
+ *  anything else on the page.
+ *
+ *  All promotion metadata comes from `/api/promotion-calendar`, which resolves
+ *  it from dim_promotion_final.csv. This page holds no promotion names, ids,
+ *  product lists or counts of its own. */
 
-// Ported from js/pages/calendar.js — a 28-day mini grid starting 2025-06-16, with
-// events plotted from real data, plus an upcoming-events list.
+const ALL_CHANNELS = 'All Channels'
+
 export function Calendar() {
-  const { data: D, isLoading } = useCalendar()
-  const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Calendar' }]
+  const [year, setYear] = useState(2025)
+  const [channel, setChannel] = useState<string | null>(null)
+  const [selected, setSelected] = useState<{ month: number; channel: string } | null>(null)
+  // Owned here, not in the panel: expanding Upcoming re-weights it against the
+  // Promotion Details panel sharing the same column.
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false)
 
-  if (isLoading || !D) {
-    return (
-      <AppShell activeKey="calendar" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Calendar…</div>
-      </AppShell>
-    )
-  }
+  const channels = useMemo(() => (channel ? [channel] : []), [channel])
+  const matrix = usePromotionMatrix(year, channels)
+  const detail = usePromotionCell(selected ? { ...selected, year } : null)
+  // The feed is relative to the month being viewed: nothing selected means the
+  // whole year is still ahead, so `after_month` is 0.
+  const upcoming = useUpcoming(year, selected?.month ?? 0, channels)
 
-  const startDay = new Date('2025-06-16T00:00:00')
-  const cells = Array.from({ length: 28 }, (_, i) => {
-    const d = new Date(startDay)
-    d.setDate(startDay.getDate() + i)
-    const iso = d.toISOString().slice(0, 10)
-    return { day: d.getDate(), events: D.events.filter((e) => e.date === iso) }
-  })
+  const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Calendar' }, { label: 'Promotion Calendar' }]
+
+  // Channel options come from the matrix payload, so the dropdown can never
+  // offer a channel the calendar does not carry.
+  const channelOptions = useMemo(() => {
+    // The full roster, never the filtered rows — otherwise picking CH001
+    // leaves CH002-CH005 unreachable without clearing the filter first.
+    const rows = matrix.data?.all_channels ?? []
+    return [{ label: ALL_CHANNELS }, ...rows.map((c) => ({ label: `${c.channel_id} — ${c.name}` }))]
+  }, [matrix.data])
+
+  const channelLabel = channel
+    ? (channelOptions.find((o) => o.label.startsWith(channel))?.label ?? channel)
+    : ALL_CHANNELS
+
+  const years = matrix.data?.years ?? [year]
+
+  const monthName = selected ? (matrix.data?.months[selected.month - 1]?.name ?? '') : null
+  const channelScope = channel
+    ? `${channel} · ${matrix.data?.all_channels.find((c) => c.channel_id === channel)?.name ?? ''}`
+    : 'All channels'
+  const upcomingContext = monthName
+    ? `After ${monthName} ${year} · ${channelScope}`
+    : `${year} · ${channelScope}`
 
   return (
     <AppShell activeKey="calendar" crumbs={crumbs}>
-      <div className="fade-in mb-5 flex items-end justify-between gap-4">
+      <div className="fade-in mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1>Promotion Calendar</h1>
-          <p className="mt-1.5 text-sm text-ink-muted">Plan, track and align promotional activity across regions and channels</p>
+          <h1>Monthly Promotion Calendar</h1>
+          <p className="mt-1.5 text-sm text-ink-muted">
+            View monthly promotional activities, events and promoted products across channels
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary">
-            <Icon name="calendar" /> June – July 2025 <Icon name="chevronDown" />
-          </Button>
-          <Button variant="primary">
-            <Icon name="plus" /> Add Event
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Dropdown
+            selected={channelLabel}
+            options={channelOptions}
+            onSelect={(picked) => {
+              setChannel(picked === ALL_CHANNELS ? null : picked.slice(0, 5))
+              setSelected(null)
+            }}
+            trigger={
+              <Button variant="secondary" className="cursor-pointer">
+                <Icon name="filter" />
+                <span>{channelLabel}</span>
+                <Icon name="chevronDown" />
+              </Button>
+            }
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-[1.8fr_1fr] gap-4 max-[1280px]:grid-cols-1">
-        <Card className="fade-in">
+      {/* The matrix sets the row height; the right column stretches to it and
+          absorbs any overflow with internal scrolling, so the page never grows
+          taller than the calendar itself. Below 1180px the two stack and each
+          panel falls back to its own height. */}
+      <div className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1fr)_336px] min-[1180px]:items-stretch">
+        <Card className="fade-in flex min-w-0 flex-col">
           <CardHeader
-            title="June – July 2025"
+            title={
+              <span className="flex items-center gap-1.5">
+                {year} Promotion Plan
+                <InfoPopover label="About the promotion calendar" title="What this shows">
+                  <p className="mt-1.5 text-[11px] leading-snug text-ink-secondary">
+                    Every promotion running in each channel, by month. The month comes from the
+                    promotion's business week via the date dimension, not from a transaction date.
+                    Weekly channels summarise several promotions per cell — open one to see the weeks.
+                  </p>
+                </InfoPopover>
+              </span>
+            }
             actions={
-              <div className="flex items-center gap-1.5">
-                <IconButton icon="chevronLeft" />
-                <IconButton icon="chevronRight" />
+              <div
+                className="inline-flex h-[26px] items-stretch overflow-hidden rounded-[var(--r-md)] border border-border-subtle"
+                role="radiogroup"
+                aria-label="Calendar year"
+              >
+                {years.map((y) => (
+                  <button
+                    key={y}
+                    type="button"
+                    role="radio"
+                    aria-checked={y === year}
+                    onClick={() => {
+                      setYear(y)
+                      setSelected(null)
+                    }}
+                    className={`cursor-pointer px-3 text-[12px] font-bold tabular-nums transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+                      y === year
+                        ? 'bg-brand-violet text-white'
+                        : 'text-ink-secondary hover:bg-brand-violet/[0.08] hover:text-brand-violet'
+                    }`}
+                  >
+                    {y}
+                  </button>
+                ))}
               </div>
             }
           />
-          <CardBody>
-            <div className="mb-2 grid grid-cols-7 gap-1 px-1 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="text-center">
-                  {w}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {cells.map((cell, i) => (
-                <div
-                  key={i}
-                  className={`flex min-h-[92px] flex-col gap-1 rounded-[var(--r-md)] border p-[6px_8px] ${
-                    cell.events.length ? 'border-brand-violet-50 bg-[linear-gradient(180deg,var(--brand-violet-50),var(--surface-card)_40%)]' : 'border-border-subtle bg-surface-card'
-                  }`}
-                >
-                  <div className="text-[11px] font-bold text-ink-secondary">{cell.day}</div>
-                  {cell.events.map((ev) => {
-                    const color = TYPE_COLOR[ev.type]
-                    return (
-                      <div
-                        key={ev.name}
-                        className="rounded-[4px] p-[4px_6px] text-[10.5px] font-semibold leading-[1.3]"
-                        style={{ background: `${color}22`, color, borderLeft: `3px solid ${color}` }}
-                      >
-                        {ev.name}
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
 
-        <Card className="fade-in">
-          <CardHeader title="Upcoming Events" />
-          <div className="px-4.5 py-1.5">
-            {D.events.slice(0, 6).map((e) => {
-              const color = TYPE_COLOR[e.type]
-              const d = new Date(e.date)
-              return (
-                <div key={e.name} className="grid grid-cols-[48px_1fr] items-center gap-3 border-b border-border-subtle py-3 last:border-b-0">
-                  <div className="rounded-[var(--r-sm)] bg-brand-violet-50 p-1.5 text-center">
-                    <div className="text-base font-extrabold text-brand-violet [font-variant-numeric:tabular-nums]">{d.getDate()}</div>
-                    <div className="text-[9px] font-bold uppercase text-brand-violet">{d.toLocaleString('en-US', { month: 'short' })}</div>
-                  </div>
-                  <div>
-                    <div className="text-[13px] font-bold text-ink-primary">{e.name}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="rounded-[var(--r-pill)] px-2 py-0.5 text-[11px] font-semibold capitalize" style={{ background: `${color}22`, color }}>
-                        {e.type}
-                      </span>
-                      <span className="text-xs text-ink-muted">Channel: {e.channel}</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border-subtle px-5 py-2.5">
+            {LEGEND.map((entry) => (
+              <span key={entry.kind} className="inline-flex items-center gap-1.5 text-[11px] text-ink-secondary">
+                <LegendSwatch kind={entry.kind} />
+                {entry.label}
+              </span>
+            ))}
+          </div>
+
+          <CardBody className="!p-2">
+            {matrix.isLoading && !matrix.data ? (
+              <div className="grid min-h-[320px] place-items-center text-sm text-ink-muted">
+                Loading promotion plan…
+              </div>
+            ) : matrix.error ? (
+              <div className="grid min-h-[320px] place-items-center gap-2 text-center text-sm text-ink-muted">
+                <span>Could not load the promotion calendar.</span>
+                <Button variant="secondary" onClick={() => void matrix.refetch()}>
+                  <Icon name="refresh" /> Retry
+                </Button>
+              </div>
+            ) : matrix.data ? (
+              <PromotionMatrix
+                data={matrix.data}
+                selected={selected}
+                onSelect={(month, channelId) =>
+                  setSelected((prev) =>
+                    prev && prev.month === month && prev.channel === channelId
+                      ? null
+                      : { month, channel: channelId },
+                  )
+                }
+              />
+            ) : null}
+          </CardBody>
+
+          <div className="flex items-start gap-2 border-t border-border-subtle px-5 py-3 text-[11.5px] text-ink-muted">
+            <span className="mt-px text-status-info [&_svg]:h-3.5 [&_svg]:w-3.5">
+              <Icon name="info" />
+            </span>
+            <span>
+              Weekly channels (CH001, CH004) may run several promotions in one month — the cell is a
+              summary. Click any month to see its promotions, and the weekly breakdown where it applies.
+            </span>
           </div>
         </Card>
+
+        {/* The row height must come from the CALENDAR alone. A grid item is
+            sized by its own content even with min-h-0, so the right column's
+            long lists would otherwise stretch the row — and the calendar with
+            it. Taking the content out of flow with absolute positioning makes
+            this item contribute nothing to the row height, then fill exactly
+            what the calendar sets. Below 1180px it returns to normal flow and
+            the panels stack at their own heights. */}
+        <div className="min-[1180px]:relative">
+          <div className="flex min-h-0 flex-col gap-4 min-[1180px]:absolute min-[1180px]:inset-0">
+          {/* Details takes the larger share while it is open; expanding
+              Upcoming flips the weighting. With nothing selected, Upcoming is
+              the only child and fills the column on its own. */}
+          {selected && (
+            <Card
+              className={`fade-in flex min-h-0 flex-col overflow-hidden ${
+                upcomingExpanded ? 'min-[1180px]:flex-[1]' : 'min-[1180px]:flex-[1.35]'
+              }`}
+            >
+              <PromotionDetailPanel
+                detail={detail.data}
+                loading={detail.isLoading}
+                onClose={() => setSelected(null)}
+              />
+            </Card>
+          )}
+          <Card
+            className={`fade-in flex min-h-0 flex-col overflow-hidden ${
+              selected && !upcomingExpanded ? 'min-[1180px]:flex-[1]' : 'min-[1180px]:flex-[1.6]'
+            }`}
+          >
+            <UpcomingEventsPanel
+              events={upcoming.data?.events ?? []}
+              total={upcoming.data?.total ?? 0}
+              contextLabel={upcomingContext}
+              loading={upcoming.isLoading}
+              expanded={upcomingExpanded}
+              onToggleExpanded={() => setUpcomingExpanded((v) => !v)}
+            />
+          </Card>
+          </div>
+        </div>
       </div>
     </AppShell>
   )
