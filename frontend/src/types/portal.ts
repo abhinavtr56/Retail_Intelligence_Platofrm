@@ -27,4 +27,11 @@ export interface PortalUser {
   name: string
   initials: string
   email: string
+  role?: string
+}
+
+// POST /auth/login's response — mirrors backend/app/routers/auth.py's LoginResponse.
+export interface LoginResult {
+  user: PortalUser
+  isNewAccount: boolean
 }

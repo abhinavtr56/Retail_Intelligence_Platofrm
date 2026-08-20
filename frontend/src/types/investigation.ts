@@ -9,3 +9,18 @@ export const INVESTIGATION_TYPES: readonly InvestigationType[] = [
   "launch",
   "strategic",
 ];
+
+// One entry in the shared, backend-persisted "recent investigations" list —
+// mirrors backend/app/investigation_history.py's stored shape.
+export interface RecentInvestigation {
+  type: InvestigationType;
+  question: string;
+  at: number;
+}
+
+// POST /investigations/query's response — classification result plus the
+// history it was just recorded into, so callers don't need a second
+// round-trip to refresh their "recent" list.
+export interface InvestigationQueryResult extends RecentInvestigation {
+  history: RecentInvestigation[];
+}

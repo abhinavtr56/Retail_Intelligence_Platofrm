@@ -8,6 +8,20 @@ backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.egg-info/
+# Runtime-written, not seed data — see app/investigation_history.py
+backend/app/data/investigation-history.json
+# Runtime-written; also holds password hashes — see app/auth_store.py
+backend/app/data/auth-users.json
+backend/app/data/auth-sessions.json
+# User-uploaded data + cached profiles — see app/dataset_store.py
+backend/app/data/uploads/
+# Agent run results — runtime state, see app/investigation_runs.py
+backend/app/data/investigation-runs.json
+# Secrets (OPENAI_API_KEY) — never commit
+backend/.env
+
+# Planning docs — kept local, not part of the codebase
+*.xlsx
 
 # Editors / OS
 .DS_Store

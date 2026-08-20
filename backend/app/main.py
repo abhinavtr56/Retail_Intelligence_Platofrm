@@ -20,9 +20,13 @@ app = FastAPI(title="TIQ API", version="0.1.0")
 # harmless in prod, where the frontend is served by this same process (see below)
 # and CORS isn't in play at all. Vite falls back to the next free port if 5173 is
 # taken (this machine lands on 5175 — see DEV.md), so both are allow-listed.
+# allow_credentials matters now that /api/auth/* sets a session cookie — without
+# it, a browser would silently refuse to send/accept that cookie on a direct
+# (non-proxied) cross-origin call.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:5175", "http://localhost:5175"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -36,9 +40,9 @@ def health():
 # ---------------------------------------------------------------------------
 # Domain routers
 # ---------------------------------------------------------------------------
-from app.routers import command, connectors, investigations, misc, nav, pages  # noqa: E402
+from app.routers import auth, command, connectors, datasets, investigations, misc, nav, pages  # noqa: E402
 
-for r in (nav, command, investigations, pages, misc, connectors):
+for r in (nav, command, investigations, pages, misc, connectors, auth, datasets):
     app.include_router(r.router)
 
 

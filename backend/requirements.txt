@@ -2,3 +2,12 @@ fastapi>=0.115
 uvicorn[standard]>=0.32
 pydantic>=2.9
 httpx>=0.28
+# Dataset ingestion (app/dataset_store.py) — parsing uploaded CSV/Excel and
+# profiling it into the schema + aggregates the investigation agents read.
+pandas>=2.2
+openpyxl>=3.1
+python-multipart>=0.0.9
+# Investigation agents (app/agents/) — OpenAI client + .env loading for the
+# server-side API key. The key is NEVER sent from the browser.
+openai>=1.60
+python-dotenv>=1.0
