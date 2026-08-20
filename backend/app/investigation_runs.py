@@ -43,7 +43,7 @@ def _persist() -> None:
     RUNS_PATH.write_text(json.dumps(trimmed, indent=2), encoding="utf-8")
 
 
-def create_run(question: str, dataset_id: str, owner: str) -> dict[str, Any]:
+def create_run(question: str, dataset_id: str | None, owner: str) -> dict[str, Any]:
     with _lock:
         _load()
         run_id = uuid.uuid4().hex[:12]

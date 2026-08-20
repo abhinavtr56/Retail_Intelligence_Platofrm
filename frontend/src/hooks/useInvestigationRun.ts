@@ -7,7 +7,7 @@ import type { InvestigationRun } from '../types/agentRun'
 export function useStartInvestigationRun() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { question: string; dataset_id: string }) =>
+    mutationFn: (body: { question: string; dataset_id: string | null }) =>
       apiPost<InvestigationRun>('/investigations/run', body),
     onSuccess: (run) => {
       queryClient.setQueryData(['investigation-run', run.id], run)

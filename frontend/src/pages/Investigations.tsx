@@ -18,7 +18,6 @@ import {
   useInvestigationTypes,
   useOrchestration,
   useLegacyInvestigation,
-  useSubmitInvestigationQuery,
 } from '../hooks/useInvestigations'
 import { useStartInvestigationRun, useInvestigationRun } from '../hooks/useInvestigationRun'
 import { useDatasets } from '../hooks/useDatasets'
@@ -67,7 +66,6 @@ export function Investigations() {
   const { show } = useToast()
   const confirm = useConfirm()
   const live = useLiveStatus()
-  const submitQuery = useSubmitInvestigationQuery()
 
   // Real agent run against an uploaded dataset. When one is active its
   // orchestration replaces the static per-archetype JSON below.
@@ -76,10 +74,12 @@ export function Investigations() {
   const [runId, setRunId] = useState<string | undefined>(undefined)
   const [datasetId, setDatasetId] = useState<string | undefined>(undefined)
   const { data: run } = useInvestigationRun(runId)
-  useEffect(() => {
-    if (!datasetId && datasets?.length) setDatasetId(datasets[0].id)
-  }, [datasets, datasetId])
+  // `undefined` means the built-in TPO star schema — the same data the Command
+  // Center reports on, so both tabs agree. Uploads are the alternative source.
   const selectedDataset = datasets?.find((d) => d.id === datasetId)
+  const sourceLabel = selectedDataset
+    ? `${selectedDataset.filename} · ${selectedDataset.rows.toLocaleString()} rows`
+    : 'TPO star schema (built-in)'
   const liveOrch = run?.status === 'done' ? run.result?.orchestration : undefined
 
   const typeMeta = types?.find((t) => t.key === activeType) ?? types?.[0]
@@ -214,40 +214,25 @@ export function Investigations() {
       return
     }
 
-    // With a dataset uploaded, run the real agent pipeline against it. The
-    // staged setTimeout choreography below is only used when there's no data
-    // to analyse — there's nothing to actually investigate then.
-    if (datasetId) {
-      setRunId(undefined)
-      setSubmitting(true)
-      startRun.mutate(
-        { question: q, dataset_id: datasetId },
-        {
-          onSuccess: (started) => {
-            setSubmitting(false)
-            setRunId(started.id)
-            setActive(inferTypeOffline(q), q)
-            show(`Analysing ${selectedDataset?.filename ?? 'your data'} — specialist agents running…`, {
-              duration: 3000,
-            })
-          },
-          onError: (e) => {
-            setSubmitting(false)
-            show(e instanceof ApiError ? e.message : "Couldn't start the investigation.", { duration: 4000 })
-          },
-        },
-      )
-      return
-    }
-
+    // Always a real agent run now. Omitting dataset_id investigates the
+    // built-in star schema; passing one investigates that uploaded file.
+    setRunId(undefined)
     setSubmitting(true)
-    show('No dataset uploaded — showing the sample investigation', { duration: 2600 })
-    const minDelay = new Promise<void>((resolve) => window.setTimeout(resolve, 900))
-    Promise.allSettled([submitQuery.mutateAsync(q), minDelay]).then(([result]) => {
-      setSubmitting(false)
-      setActive(result.status === 'fulfilled' ? result.value.type : inferTypeOffline(q), q)
-      setBuilding(true)
-    })
+    startRun.mutate(
+      { question: q, dataset_id: datasetId ?? null },
+      {
+        onSuccess: (started) => {
+          setSubmitting(false)
+          setRunId(started.id)
+          setActive(inferTypeOffline(q), q)
+          show(`Analysing ${sourceLabel} — specialist agents running…`, { duration: 3000 })
+        },
+        onError: (e) => {
+          setSubmitting(false)
+          show(e instanceof ApiError ? e.message : "Couldn't start the investigation.", { duration: 4000 })
+        },
+      },
+    )
   }
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Investigations' }]
@@ -404,29 +389,28 @@ export function Investigations() {
           real to investigate, so the page falls back to the sample orchestration. */}
       <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-muted">
         <Icon name="database" className="h-3.5 w-3.5" />
-        {datasets?.length ? (
-          <>
-            <span>Analysing</span>
-            <Dropdown
-              selected={selectedDataset?.filename ?? ''}
-              options={datasets.map((d) => ({ label: `${d.filename} · ${d.rows.toLocaleString()} rows`, value: d.id }))}
-              onSelect={(val) => setDatasetId(val)}
-              trigger={
-                <Button variant="ghost" size="sm" className="cursor-pointer">
-                  {selectedDataset ? `${selectedDataset.filename} · ${selectedDataset.rows.toLocaleString()} rows` : 'Select dataset'}{' '}
-                  <Icon name="chevronDown" />
-                </Button>
-              }
-            />
-            {isAgentRun && <Pill tone="success">Live agent analysis</Pill>}
-          </>
-        ) : (
-          <span>
-            No data uploaded yet — showing a sample investigation.{' '}
-            <Link to="/home" className="font-semibold text-brand-violet">
-              Upload a dataset →
-            </Link>
-          </span>
+        <span>Analysing</span>
+        <Dropdown
+          selected={datasetId ?? 'star'}
+          options={[
+            { label: 'TPO star schema (built-in)', value: 'star' },
+            ...(datasets ?? []).map((d) => ({
+              label: `${d.filename} · ${d.rows.toLocaleString()} rows`,
+              value: d.id,
+            })),
+          ]}
+          onSelect={(val) => setDatasetId(val === 'star' ? undefined : val)}
+          trigger={
+            <Button variant="ghost" size="sm" className="cursor-pointer">
+              {sourceLabel} <Icon name="chevronDown" />
+            </Button>
+          }
+        />
+        {isAgentRun && <Pill tone="success">Live agent analysis</Pill>}
+        {!datasets?.length && (
+          <Link to="/home" className="font-semibold text-brand-violet">
+            Upload your own data →
+          </Link>
         )}
       </div>
 

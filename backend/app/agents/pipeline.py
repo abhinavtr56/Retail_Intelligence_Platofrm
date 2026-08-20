@@ -94,7 +94,14 @@ FINDING_SCHEMA = {
         "headline": {"type": "string", "description": "One line, states the finding"},
         "body": {"type": "string", "description": "1–2 sentences of explanation"},
         "evidence": {"type": "string", "description": "The specific numbers backing it"},
-        "metric": {"type": "string", "description": "Headline figure for the graph node, e.g. '2.4x' or '₹98.6 Cr'"},
+        "metric": {
+            "type": "string",
+            "description": (
+                "Headline figure for the graph node — the number that makes THIS analysis "
+                "distinctive, taken from a specific group in your table (e.g. 'Buy3Get1 7.7%'). "
+                "NOT the overall/selection total, which every other analysis also sees."
+            ),
+        },
         "delta": {"type": "string", "description": "Change vs comparison, e.g. '-18%'. Empty string if none."},
         "trend": {"type": "string", "enum": ["up", "down", ""]},
         "impact": {"type": "string", "enum": ["strong", "moderate", "negative", "risk", "data"]},

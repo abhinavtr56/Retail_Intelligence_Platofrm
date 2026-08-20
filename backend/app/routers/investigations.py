@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.agents.client import AgentConfigError
 from app.agents.pipeline import run_pipeline
+from app.agents.star_pipeline import run_star_pipeline
 from app.data_loader import InvestigationType, load
 from app.dataset_store import get_dataset, load_frame
 from app.deps import current_user
@@ -95,18 +96,23 @@ def get_recent_investigations() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 class InvestigationRunRequest(BaseModel):
     question: str
-    dataset_id: str
+    # Omit (or pass null) to investigate the built-in TPO star schema — the
+    # same data the Command Center reports on. Pass an id to investigate an
+    # uploaded file instead.
+    dataset_id: str | None = None
 
 
-async def _execute_run(run_id: str, question: str, dataset_id: str) -> None:
+async def _execute_run(run_id: str, question: str, dataset_id: str | None) -> None:
     """Background task: run the pipeline, streaming stage updates into the
     run record so the frontend's poll shows genuine progress."""
     try:
-        record = get_dataset(dataset_id)
-        frame = load_frame(dataset_id)
-        if record is None or frame is None:
-            update_run(run_id, status="error", error="Dataset not found.")
-            return
+        record = frame = None
+        if dataset_id:
+            record = get_dataset(dataset_id)
+            frame = load_frame(dataset_id)
+            if record is None or frame is None:
+                update_run(run_id, status="error", error="Dataset not found.")
+                return
 
         async def on_event(kind: str, payload: dict[str, Any]) -> None:
             run = get_run(run_id)
@@ -130,7 +136,10 @@ async def _execute_run(run_id: str, question: str, dataset_id: str) -> None:
                 ]
                 update_run(run_id, specialists=specs)
 
-        result = await run_pipeline(question, frame, record["profile"], record["filename"], on_event=on_event)
+        if dataset_id and frame is not None and record is not None:
+            result = await run_pipeline(question, frame, record["profile"], record["filename"], on_event=on_event)
+        else:
+            result = await run_star_pipeline(question, on_event=on_event)
         update_run(run_id, status="done", stage="complete", result=result)
 
     except AgentConfigError as e:
@@ -150,9 +159,10 @@ async def start_investigation_run(
     if not question:
         raise HTTPException(400, "question must not be empty")
 
-    record = get_dataset(body.dataset_id)
-    if not record or record.get("owner") != user["email_key"]:
-        raise HTTPException(404, "Dataset not found.")
+    if body.dataset_id:
+        record = get_dataset(body.dataset_id)
+        if not record or record.get("owner") != user["email_key"]:
+            raise HTTPException(404, "Dataset not found.")
 
     run = create_run(question, body.dataset_id, user["email_key"])
     # Recorded in the shared history immediately so it shows up even while running.
