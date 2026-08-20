@@ -11,3 +11,5 @@ python-multipart>=0.0.9
 # server-side API key. The key is NEVER sent from the browser.
 openai>=1.60
 python-dotenv>=1.0
+# Test suite (backend/tests/)
+pytest>=8.0

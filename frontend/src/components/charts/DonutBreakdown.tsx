@@ -4,6 +4,9 @@ export interface DonutSegment {
   key: string
   pct: number
   color: string
+  /** Already-formatted amount for this slice, shown beside the share when the
+   *  caller has one. Optional so existing callers are unaffected. */
+  value?: string
 }
 
 // Ported from js/components/charts.js Charts.donutBreakdown
@@ -57,7 +60,7 @@ export function DonutBreakdown({
   })
 
   return (
-    <div className="flex items-center gap-6">
+    <div className="flex flex-wrap items-center gap-6">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           {arcs}
@@ -73,12 +76,15 @@ export function DonutBreakdown({
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         {segments.map((s) => (
-          <div key={s.key} className="flex items-center gap-2 text-[13px]">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-            <span className="text-ink-secondary">{s.key}</span>
-            <span className="font-semibold text-ink-primary">{s.pct}%</span>
+          <div key={s.key} className="flex items-center gap-2 text-[12.5px]" title={s.key}>
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+            <span className="min-w-0 flex-1 truncate text-ink-secondary">{s.key}</span>
+            <span className="shrink-0 font-semibold tabular-nums text-ink-primary">{s.pct}%</span>
+            {s.value && (
+              <span className="shrink-0 tabular-nums text-[11.5px] text-ink-muted">{s.value}</span>
+            )}
           </div>
         ))}
       </div>

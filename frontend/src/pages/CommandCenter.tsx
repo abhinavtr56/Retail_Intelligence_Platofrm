@@ -1,18 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useCommand } from '../hooks/useCommand'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import {
   Button,
-  IconButton,
   Card,
   CardHeader,
   CardBody,
-  Pill,
   TpoKpiGrid,
   TpoKpiTile,
   AlertBanner,
-  RiskList,
   Table,
   Th,
   Td,
@@ -23,270 +20,481 @@ import {
   useToast,
 } from '../components/ui'
 import { Icon, type IconName } from '../icons'
-import { ComboBarLine, DonutBreakdown } from '../components/charts'
+import { InfoBlock, InfoPopover } from '../components/ui/InfoPopover'
+import { calendarYear } from '../lib/labels'
+import { FilterBar } from '../components/command/FilterBar'
+import { PromotionMixCard } from '../components/command/PromotionMixCard'
+import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
+import { topPriorityAlert } from '../components/command/riskRanking'
+import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
+import { TrendPanels } from '../components/command/TrendPanels'
+import {
+  ChannelSection,
+  RetailerDistributorSection,
+  ProductSection,
+  PromotionTypeSection,
+  PromotionContributionSection,
+  TopPerformingSection,
+} from '../components/command/ChartSections'
+import {
+  useFilterOptions,
+  useKpis,
+  usePromotionMix,
+  useBreakdown,
+  useRiskAlerts,
+  useTrend,
+  useUnderperforming,
+} from '../hooks/useCommandCenter'
+import { useCommandFilters } from '../store/commandFilters'
+import type { KpiCard } from '../types/commandCenter'
 
-const PERIODS = ['Q1 FY25 (Jan – Mar)', 'Q2 FY25 (Apr – Jun)', 'Q3 FY25 (Jul – Sep)', 'Q4 FY25 (Oct – Dec)', 'FY25 (Annual)']
-const CHANNELS = ['All Channels', 'Modern Trade', 'General Trade', 'eCommerce', 'B2B']
-const GRANULARITIES = ['Daily', 'Weekly', 'Monthly', 'Quarterly']
+const GRANULARITIES = [
+  { label: 'Weekly', value: 'week' as const },
+  { label: 'Monthly', value: 'month' as const },
+]
 
-// Ported from js/pages/command.js + js/components/{sidebar,topbar,charts}.js.
-// Same data shape (D.kpis, D.alert, D.trend, D.topRiskAlerts, D.topUnderperforming,
-// D.promoMix), same interactions (filters, refresh, row clicks -> Investigations),
-// state-driven instead of imperative DOM rebuilds.
+// Presentation only — which glyph and tint each card wears. The label, value,
+// formula and delta all come from the backend; nothing here computes or
+// re-formats a KPI.
+const KPI_STYLE: Record<string, { icon: IconName; tint: string }> = {
+  trade_spend: { icon: 'wallet', tint: 'lavender' },
+  incremental_sales: { icon: 'barChart', tint: 'sky' },
+  promotion_roi: { icon: 'target', tint: 'violet' },
+  margin_impact: { icon: 'coins', tint: 'amber' },
+  pei: { icon: 'gauge', tint: 'mint' },
+  cannibalization_rate: { icon: 'cannib', tint: 'rose' },
+}
+
+const KPI_ORDER = [
+  'trade_spend',
+  'incremental_sales',
+  'promotion_roi',
+  'margin_impact',
+  'pei',
+  'cannibalization_rate',
+]
+
+const LOWER_IS_BETTER = new Set(['trade_spend', 'cannibalization_rate'])
+
+// The API emits ONE concatenated Critical -> High -> Medium list and truncates
+// the tail, so the top of the High band sits behind every Critical row and a
+// small `limit` cannot reach it. The whole alert set for the scope is fetched
+// and segmented client-side instead. React Query caches it per filter
+// combination, so this is one request per scope, not per render.
+const ALERT_FETCH_LIMIT = 100000
+
+// Same reason as the alerts: `/underperforming-promotions` ranks by At Stake
+// DESC, so the worst-ROI promotions are NOT at the head of its list. The full
+// set for the scope is fetched and re-ranked here.
+const UNDERPERFORMING_FETCH_LIMIT = 100000
+
+// How many ranked rows are rendered. The card reports the true total in its
+// header; this only bounds the DOM, and the scroller reaches every one of them.
+const UNDERPERFORMING_ROWS = 25
+
+// Three rows above the fold, the rest inside the scroller. Sized so the card
+// keeps a fixed height whatever the row count.
+const UNDERPERFORMING_VIEWPORT_PX = 252
+
 export function CommandCenter() {
-  const { data, isLoading, isError, error, refetch, isFetching } = useCommand()
+  const [granularity, setGranularity] = useState<'week' | 'month'>('week')
   const { show } = useToast()
   const navigate = useNavigate()
   const live = useLiveStatus()
+  const queryClient = useQueryClient()
 
-  const [period, setPeriod] = useState('')
-  const [channel, setChannel] = useState('')
-  const [granularity, setGranularity] = useState('Weekly')
+  const initialise = useCommandFilters((s) => s.initialise)
+  const initialised = useCommandFilters((s) => s.initialised)
+  const reset = useCommandFilters((s) => s.reset)
 
+  const options = useFilterOptions()
+  const kpis = useKpis()
+  const trend = useTrend(granularity)
+  const alerts = useRiskAlerts(ALERT_FETCH_LIMIT)
+  const underperforming = useUnderperforming(UNDERPERFORMING_FETCH_LIMIT)
+  // Both metrics per MECHANIC for the Promotion Mix toggle.
+  //
+  // Was `by=promotion`, which is why the 20% seasonal mechanic never appeared
+  // here: it is not one offer but six (PBNY24 … PBDI24), so the largest
+  // mechanic in 2024 was split into six slices each smaller than the 5%
+  // Discount slice and was never named. `by=promotion_mechanic` groups them on
+  // dim_promotion.Promotion_Name, which is what the Promotion Contribution
+  // card already does. 50 comfortably exceeds the five mechanics.
+  const mixBreakdown = useBreakdown('promotion_mechanic', { limit: 50 })
+  const mix = usePromotionMix()
+
+  // Highest-impact underperformers: worst ROI first, larger Trade Spend
+  // breaking ties. Computed from the API's own rows — no row is hardcoded and
+  // nothing is recomputed, only re-ordered.
+  const worstPromotions = useMemo(
+    () =>
+      [...(underperforming.data?.rows ?? [])]
+        .sort((a, b) => (a.roi_pct ?? 0) - (b.roi_pct ?? 0) || b.trade_spend - a.trade_spend)
+        .slice(0, UNDERPERFORMING_ROWS),
+    [underperforming.data],
+  )
+
+  // Default the period to the most recent year the data actually contains,
+  // rather than to a hardcoded year that a future extract might not have.
   useEffect(() => {
-    if (data) {
-      setPeriod(data.filters.period)
-      setChannel(data.filters.channel)
-    }
-  }, [data])
+    const years = options.data?.years
+    if (years?.length) initialise(Math.max(...years))
+  }, [options.data?.years, initialise])
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Command Center' }]
 
-  if (isLoading) {
-    return (
-      <AppShell activeKey="command" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Command Center…</div>
-      </AppShell>
-    )
-  }
-
-  if (isError || !data) {
-    return (
-      <AppShell activeKey="command" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center text-sm text-status-danger">
-          Couldn't reach the backend: {error instanceof Error ? error.message : 'unknown error'}
-        </div>
-      </AppShell>
-    )
-  }
-
-  const goToInvestigation = (message: string) => {
-    show(message, { duration: 1500 })
-    window.setTimeout(() => navigate('/investigations'), 700)
-  }
+  const refreshing =
+    kpis.isFetching || trend.isFetching || alerts.isFetching || underperforming.isFetching || mix.isFetching
 
   const handleRefresh = () => {
     show('Refreshing all data sources...', { duration: 1500 })
-    refetch().then(() => {
+    queryClient.invalidateQueries({ queryKey: ['command-center'] }).then(() => {
       live.reset()
       show('Data refreshed · all systems healthy', { duration: 2000 })
     })
   }
 
+  // First load: lay out the real grid in skeleton form so the page does not
+  // jump when data lands, and so nothing reads as a value before it is one.
+  // `initialised` is part of the condition, not just a nicety: the data queries
+  // are disabled until the default year is known, so `kpis.isLoading` is false
+  // in that window and the page would fall through to the error branch.
+  if (!initialised || options.isLoading || kpis.isLoading) {
+    return (
+      <AppShell activeKey="command" crumbs={crumbs}>
+        <div className="relative">
+          <div className="cc-ambient" aria-hidden="true" />
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <h1 className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.025em]">TPO Command Center</h1>
+              <p className="mt-1.5 text-sm text-ink-muted">Loading the latest promotion performance…</p>
+            </div>
+          </div>
+          <div className="mt-[18px]">
+            <TpoKpiGrid>
+              {KPI_ORDER.map((key, i) => (
+                <KpiSkeleton key={key} delayMs={i * 50} />
+              ))}
+            </TpoKpiGrid>
+          </div>
+          <span className="sr-only" role="status">Loading Command Center</span>
+        </div>
+      </AppShell>
+    )
+  }
+
+  const error = options.error ?? kpis.error
+  if (error || !kpis.data || !options.data) {
+    return (
+      <AppShell activeKey="command" crumbs={crumbs}>
+        <ErrorState
+          error={error ?? new Error('No data returned')}
+          retrying={options.isFetching || kpis.isFetching}
+          onRetry={() => {
+            void options.refetch()
+            void kpis.refetch()
+          }}
+        />
+      </AppShell>
+    )
+  }
+
+  const meta = kpis.data.meta
+  const counts = alerts.data?.counts
+  // Highest-priority risk in the CURRENT scope: Critical before High before
+  // Medium, then worst ROI, then largest stake. Derived from the data, so it
+  // follows every filter change and names no promotion in code.
+  const headline = topPriorityAlert(alerts.data?.alerts)
+
+  // No rows for this filter combination. Show the filter bar (so the user can
+  // undo it) and say so plainly — never a grid of "0"s, which would read as a
+  // genuine result.
+  const isEmpty = meta.row_count === 0
+
   return (
     <AppShell activeKey="command" crumbs={crumbs}>
-      <div className="fade-in flex items-end justify-between gap-4">
+      {/* Decorative ambient wash behind the header — the "lights" feel, kept to
+          two very low-alpha radial gradients. */}
+      <div className="cc-ambient" aria-hidden="true" />
+      <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-[30px] font-extrabold tracking-[-0.025em] leading-[1.1]">TPO Command Center</h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">Real-time overview of promotions, performance and risks</p>
+          <p className="mt-1.5 text-sm text-ink-muted">
+            Real-time overview of promotions, performance and risks · {calendarYear(meta.period)}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Dropdown
-            selected={period}
-            options={PERIODS.map((p) => ({ label: p }))}
-            onSelect={(val) => {
-              setPeriod(val)
-              show(`Period set to ${val} · refreshing data...`, { duration: 2000 })
-              live.reset()
-            }}
-            trigger={
-              <Button variant="secondary" size="md" className="cursor-pointer">
-                <Icon name="filter" />
-                <span>{period}</span>
-                <Icon name="chevronDown" />
-              </Button>
-            }
-          />
-          <Dropdown
-            selected={channel}
-            options={CHANNELS.map((c) => ({ label: c }))}
-            onSelect={(val) => {
-              setChannel(val)
-              show(`Filtered to ${val}`, { duration: 2000 })
-              live.reset()
-            }}
-            trigger={
-              <Button variant="secondary" size="md" className="cursor-pointer">
-                <Icon name="filter" />
-                <span>{channel}</span>
-                <Icon name="chevronDown" />
-              </Button>
-            }
-          />
-          <IconButton icon="refresh" title="Refresh data" spinning={isFetching} disabled={isFetching} onClick={handleRefresh} />
+        <div>
+          <FilterBar options={options.data} onRefresh={handleRefresh} refreshing={refreshing} />
         </div>
       </div>
 
-      <TpoKpiGrid>
-        {data.kpis.map((k, i) => (
-          <TpoKpiTile
-            key={k.key}
-            label={k.label}
-            value={k.value}
-            delta={k.delta}
-            deltaSub={k.deltaSub}
-            trend={k.trend}
-            icon={k.icon as IconName}
-            tint={k.tint}
-            delayMs={i * 60}
+      {isEmpty ? (
+        <Card className="mt-[18px]">
+          <CcEmptyState
+            hint="Try removing a filter, or clear them all to return to the full scope."
+            onClear={reset}
           />
-        ))}
-      </TpoKpiGrid>
+        </Card>
+      ) : (
+      <>
+      <Stale when={refreshing}>
+      <div className="mt-[18px]">
+        <TpoKpiGrid>
+          {KPI_ORDER.map((key, i) => {
+            const card: KpiCard | undefined = kpis.data.kpis[key]
+            if (!card) return null
+            const style = KPI_STYLE[key]
+            return (
+              <TpoKpiTile
+                key={key}
+                label={card.label}
+                value={card.display_value}
+                delta={card.delta_display}
+                deltaSub={calendarYear(card.available ? card.delta_sub : (card.unavailable_reason ?? card.delta_sub))}
+                trend={card.trend}
+                icon={style.icon}
+                tint={style.tint}
+                delayMs={i * 60}
+                info={card.info}
+                unit={card.unit}
+                lowerIsBetter={LOWER_IS_BETTER.has(key)}
+              />
+            )
+          })}
+        </TpoKpiGrid>
+      </div>
 
-      <AlertBanner
-        title={data.alert.title}
-        desc={data.alert.desc}
-        ctaTo="/investigations"
-        onClick={() => navigate('/investigations')}
-      />
+      {headline && (
+        <AlertBanner
+          title={headline.title}
+          desc={`${headline.description} ${headline.at_stake_display} at stake.`}
+          ctaTo="/investigations"
+          onClick={() => navigate('/investigations')}
+        />
+      )}
 
-      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
         <Card>
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
-                Promotion Performance Trend <Icon name="info" className="h-3.5 w-3.5 text-ink-muted" />
+                Promotion Performance Trend
+                <InfoPopover label="About Promotion Performance Trend" title="Promotion Performance Trend">
+                  <InfoBlock label="Incremental Sales">Actual Sales − Baseline Sales</InfoBlock>
+                  <InfoBlock label="Trade Spend">Discount Value + Promotion Cost</InfoBlock>
+                  <InfoBlock label="ROI">(Incremental Sales − Trade Spend) ÷ Trade Spend × 100</InfoBlock>
+                  <InfoBlock label="Target ROI">{meta.target_roi_pct}%</InfoBlock>
+                </InfoPopover>
               </span>
             }
             actions={
-              <div className="flex items-center gap-3">
-                <Dropdown
-                  selected={granularity}
-                  options={GRANULARITIES.map((g) => ({ label: g }))}
-                  onSelect={(val) => {
-                    setGranularity(val)
-                    show(`Trend granularity → ${val}`)
-                  }}
-                  trigger={
-                    <Button variant="ghost" size="sm" className="cursor-pointer">
-                      {granularity} <Icon name="chevronDown" />
-                    </Button>
-                  }
-                />
-                <IconButton icon="more" title="More options" />
-              </div>
+              <Dropdown
+                selected={GRANULARITIES.find((g) => g.value === granularity)?.label ?? 'Weekly'}
+                options={GRANULARITIES.map((g) => ({ label: g.label }))}
+                onSelect={(picked) => {
+                  const next = GRANULARITIES.find((g) => g.label === picked)
+                  if (next) setGranularity(next.value)
+                }}
+                trigger={
+                  <Button variant="ghost" size="sm" className="cursor-pointer">
+                    {GRANULARITIES.find((g) => g.value === granularity)?.label} <Icon name="chevronDown" />
+                  </Button>
+                }
+              />
             }
           />
           <CardBody>
+            {/* Three business series, all lines, plus the dashed reference. The
+                swatches mirror the stroke colours in TrendPanels. */}
             <div className="mb-2 flex flex-wrap gap-4 pb-2">
-              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm" style={{ background: '#7C5CFF' }} />} label="ROI" />
+              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm bg-brand-violet" />} label={`Incremental Sales (${meta.currency})`} />
+              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm bg-status-danger" />} label={`Trade Spend (${meta.currency})`} />
+              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm" style={{ background: '#14B8A6' }} />} label="ROI (%)" />
               <LegendItem
-                swatch={<span className="h-2.5 w-3.5 rounded-sm" style={{ background: '#B7CAFF' }} />}
-                label="Incremental Sales (Cr)"
-              />
-              <LegendItem swatch={<span className="h-0.5 w-[18px] rounded-sm" style={{ background: '#EF4444' }} />} label="Trade Spend (Cr)" />
-              <LegendItem
-                swatch={<span className="h-0 w-[18px] border-t-2 border-dashed" style={{ borderColor: '#9CA3AF' }} />}
-                label="Target ROI"
+                swatch={<span className="h-0 w-[18px] border-t-2 border-dashed border-ink-muted" />}
+                label={`Target ROI (${meta.target_roi_pct}%)`}
               />
             </div>
-            <ComboBarLine
-              labels={data.trend.labels}
-              bars={{ values: data.trend.incSales, color: '#B7CAFF' }}
-              lines={[
-                { values: data.trend.roi, color: '#7C5CFF', axis: 'left' },
-                { values: data.trend.tradeSpend, color: '#EF4444', axis: 'right' },
-                { values: data.trend.targetROI, color: '#9CA3AF', axis: 'left', dashed: true },
-              ]}
-            />
+            {trend.isLoading ? (
+              <PanelSkeleton height={300} />
+            ) : trend.error ? (
+              <ErrorState error={trend.error} onRetry={() => void trend.refetch()} retrying={trend.isFetching} compact />
+            ) : trend.data && trend.data.labels.length > 0 ? (
+              <Stale when={trend.isFetching}>
+                {/* Symbol AND rate both come from the trend response. Taking
+                    the symbol from the KPI response instead let the two
+                    disagree mid-switch — the axis briefly rendered ₹ against
+                    USD-converted numbers while the slower query settled. */}
+                <TrendPanels
+                  data={trend.data}
+                  rate={trend.data.meta.exchange_rate}
+                  symbol={trend.data.meta.currency === 'USD' ? '$' : '₹'}
+                  granularity={granularity}
+                />
+              </Stale>
+            ) : (
+              <CcEmptyState compact message="No promotions in this selection." />
+            )}
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader
-            title="Top Risk Alerts"
+            title="Risk Alerts"
+            subtitle={`Below the ${meta.target_roi_pct}% ROI target`}
             actions={
-              <Button variant="ghost" size="sm" onClick={() => navigate('/investigations')} className="!px-0 !text-brand-violet">
-                View All
-              </Button>
+              <div className="flex items-center gap-2">
+                {counts && (
+                  <span className="text-[11px] font-semibold text-ink-muted">
+                    {counts.target_achieved} of {counts.total_events} at target
+                  </span>
+                )}
+                <InfoPopover label="About Risk Alerts" title="Risk alert rule">
+                  <InfoBlock label="Severity">
+                    Critical &lt; 25%
+                    <br />
+                    High 25–40%
+                    <br />
+                    Medium 40–{meta.target_roi_pct}%
+                    <br />
+                    Target ≥ {meta.target_roi_pct}%
+                  </InfoBlock>
+                  <InfoBlock label="Ranking">
+                    Highest stake first
+                    <br />
+                    ROI as tie-breaker
+                  </InfoBlock>
+                </InfoPopover>
+              </div>
             }
           />
-          <CardBody className="px-4 py-1.5">
-            <RiskList
-              items={data.topRiskAlerts.map((r) => ({
-                title: r.title,
-                desc: r.desc,
-                severity: r.severity,
-                ic: r.ic as IconName,
-                tone: r.tone,
-              }))}
-              onSelect={(r) => goToInvestigation(`Opening "${r.title}" investigation...`)}
+          {alerts.data && alerts.data.alerts.length > 0 ? (
+            <RiskAlertsPanel
+              data={alerts.data}
+              onSelect={(a) => {
+                show(`Opening "${a.title}" investigation...`, { duration: 1500 })
+                window.setTimeout(() => navigate('/investigations'), 700)
+              }}
             />
-          </CardBody>
+          ) : (
+            <CardBody className="px-5 py-1.5">
+              <EmptyState message="Every promotion in this selection is at or above target." />
+            </CardBody>
+          )}
         </Card>
       </div>
 
-      <div className="mt-[18px] grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
         <Card>
           <CardHeader
             title="Top Underperforming Promotions"
             actions={
-              <Button variant="ghost" size="sm" onClick={() => navigate('/investigations')} className="!px-0 !text-brand-violet">
-                View All
-              </Button>
+              underperforming.data ? (
+                <span className="text-[11px] font-semibold text-ink-muted">
+                  {underperforming.data.total} below {meta.target_roi_pct}% target
+                </span>
+              ) : null
             }
           />
-          <div className="overflow-x-auto rounded-b-[var(--r-lg)]">
+          {/* Fixed-height internal scroller: the worst three sit above the fold
+              and the rest scroll INSIDE the card, so neither the card nor the
+              page grid grows with the row count. `overflow-x` stays on the same
+              element so a narrow viewport still scrolls the table sideways. */}
+          <div
+            // Tighter horizontal cell padding than the shared Table default
+            // (18px), scoped to this table only: eight columns at the default
+            // spend 288px on padding alone and pushed the Action control out of
+            // view behind a horizontal scrollbar.
+            className="overflow-auto rounded-b-[var(--r-lg)] [&_td]:!px-2.5 [&_th]:!px-2.5"
+            style={{ maxHeight: UNDERPERFORMING_VIEWPORT_PX }}
+          >
             <Table>
-              <thead>
+              <thead className="sticky top-0 z-10 bg-surface-muted">
                 <tr>
-                  <Th>Promotion Name</Th>
+                  <Th>Promotion</Th>
                   <Th>Channel</Th>
                   <Th>Period</Th>
-                  <Th>ROI</Th>
-                  <Th>vs Target</Th>
-                  <Th>Status</Th>
+                  <Th className="text-right">ROI</Th>
+                  <Th className="text-right">Trade Spend</Th>
+                  <Th>Primary Cause</Th>
+                  <Th>Action</Th>
                 </tr>
               </thead>
               <tbody>
-                {data.topUnderperforming.map((p) => (
-                  <Tr key={p.name} onClick={() => goToInvestigation(`Drilling into "${p.name}"...`)}>
-                    <Td emphasis>{p.name}</Td>
-                    <Td>{p.channel}</Td>
-                    <Td>{p.period}</Td>
-                    <Td>{p.roi.toFixed(2)}</Td>
-                    <Td className={p.vsTarget < 0 ? 'font-bold text-status-danger' : 'font-bold text-status-success'}>
-                      {p.vsTarget > 0 ? '+' : ''}
-                      {p.vsTarget.toFixed(1)}%
+                {worstPromotions.map((p, i) => (
+                  <Tr
+                    key={`${p.promotion}-${p.period}-${p.product}-${i}`}
+                    onClick={() => {
+                      show(`Drilling into "${p.promotion}"...`, { duration: 1500 })
+                      window.setTimeout(() => navigate('/investigations'), 700)
+                    }}
+                  >
+                    <Td emphasis className="max-w-[150px] truncate" title={p.promotion}>
+                      {p.promotion}
+                    </Td>
+                    <Td className="max-w-[130px] truncate" title={p.channel}>{p.channel}</Td>
+                    <Td className="whitespace-nowrap">{p.period}</Td>
+                    <Td
+                      className={`text-right font-bold tabular-nums ${
+                        (p.roi_pct ?? 0) < 0 ? 'text-status-danger' : 'text-ink-primary'
+                      }`}
+                    >
+                      {p.roi_display}
+                    </Td>
+                    <Td className="whitespace-nowrap text-right tabular-nums">{p.trade_spend_display}</Td>
+                    <Td className="max-w-[155px] truncate" title={p.primary_cause}>
+                      {p.primary_cause}
                     </Td>
                     <Td>
-                      <Pill tone={p.status === 'On Track' ? 'success' : 'danger'} dot>
-                        {p.status}
-                      </Pill>
+                      {/* The recommended action rides as the tooltip so the
+                          control stays one line — the row itself already opens
+                          the RCA view, and this makes that affordance explicit. */}
+                      <span
+                        title={p.action}
+                        className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
+                      >
+                        Ask why
+                        <Icon name="arrowRight" />
+                      </span>
                     </Td>
                   </Tr>
                 ))}
               </tbody>
             </Table>
+            {worstPromotions.length === 0 && (
+              <EmptyState message="No promotion in this selection is below target." />
+            )}
           </div>
         </Card>
 
-        <Card>
-          <CardHeader title="Promotion Mix by Type (Spend %)" actions={<span className="text-[13px] font-semibold text-brand-violet">View All</span>} />
-          <CardBody>
-            <DonutBreakdown
-              segments={data.promoMix.map((p) => ({ key: p.label, pct: p.pct, color: p.color }))}
-              size={168}
-              stroke={26}
-              centerValue={data.totalSpend}
-              centerLabel="Total Spend"
-            />
-          </CardBody>
-        </Card>
+        <PromotionMixCard
+          mix={mix.data}
+          breakdown={mixBreakdown.data}
+          tradeSpendTotal={kpis.data.kpis.trade_spend?.display_value ?? '—'}
+          incrementalSalesTotal={kpis.data.kpis.incremental_sales?.display_value ?? '—'}
+          emptyState={<EmptyState message="No promotional spend in this selection." />}
+        />
       </div>
+
+      {/* ---- Chart sections. Each reads the same filter state as the cards. ---- */}
+      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+        <ChannelSection />
+        <TopPerformingSection />
+      </div>
+      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+        <RetailerDistributorSection />
+        <PromotionContributionSection />
+      </div>
+      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1100px]:grid-cols-1">
+        <ProductSection />
+        <PromotionTypeSection />
+      </div>
+      </Stale>
+      </>
+      )}
     </AppShell>
   )
 }
@@ -298,4 +506,10 @@ function LegendItem({ swatch, label }: { swatch: React.ReactNode; label: string 
       {label}
     </span>
   )
+}
+
+/** Shown when a filter combination genuinely has no data. Saying so is the
+ *  point — the alternative is a chart of zeros that reads as a real result. */
+function EmptyState({ message }: { message: string }) {
+  return <div className="grid min-h-[120px] place-items-center px-4 text-center text-xs text-ink-muted">{message}</div>
 }

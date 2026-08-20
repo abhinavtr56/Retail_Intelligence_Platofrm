@@ -40,9 +40,19 @@ def health():
 # ---------------------------------------------------------------------------
 # Domain routers
 # ---------------------------------------------------------------------------
-from app.routers import auth, command, connectors, datasets, investigations, misc, nav, pages  # noqa: E402
+from app.routers import (  # noqa: E402
+    auth,
+    command,
+    command_center,
+    connectors,
+    datasets,
+    investigations,
+    misc,
+    nav,
+    pages,
+)
 
-for r in (nav, command, investigations, pages, misc, connectors, auth, datasets):
+for r in (nav, command, command_center, investigations, pages, misc, connectors, auth, datasets):
     app.include_router(r.router)
 
 
