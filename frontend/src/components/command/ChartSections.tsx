@@ -88,6 +88,7 @@ export function ChannelSection() {
 
   return (
     <ChartFrame
+      fill
       title="Channel Performance"
       hint={`Compares channel-level promotion performance at the selected promotion mechanic. Metrics: Incremental Sales, Trade Spend, ROI. Currently showing ${level?.label ?? '—'}.`}
       actions={
@@ -125,11 +126,12 @@ export function ChannelSection() {
         void q.refetch()
       }}
       isEmpty={!data || data.groups.length === 0}
-      emptyMessage={`No ${level.label} discount activity in this scope.`}
+      emptyMessage={`No ${level?.label ?? 'promotion'} activity in this scope.`}
       footnote="Ranked by Incremental Sales. Channels are compared, not summed."
     >
       {data && (
         <RankedBar
+          fill
           groups={data.groups}
           rate={data.meta.exchange_rate}
           symbol={symbol}
@@ -188,21 +190,43 @@ const TOP_N = 10
  *  the cap, which is what previously filled four of ten rows with 5% Discount. */
 const PER_MECHANIC_CAP = 2
 
-/** The mechanic behind one promotion event. PR001/2/3 carry the percentage in
- *  their own display name; the seasonal events do not — their mechanic is a
- *  property of the YEAR they ran in (2024 seasonal is the 20% price cut, 2025
- *  seasonal is Buy3Get1). Read off the event's PERIOD, which is authoritative,
- *  rather than the year suffix in its display name. Labels match the mechanic
- *  names the Promotion Contribution card shows, so the two cards agree. */
-const SEASONAL_MECHANIC_BY_YEAR: Record<string, string> = {
-  '2024': '20% Discount (Seasonal)',
-  '2025': 'Buy3Get1 (Seasonal)',
+/** Promotion display name -> mechanic label, built from the API rather than
+ *  from any list held here.
+ *
+ *  `/breakdown?by=promotion_mechanic` returns each mechanic's label and the
+ *  Promotion_Ids behind it; `/breakdown?by=promotion` maps those ids to the
+ *  display names the top-promotions endpoint uses. Joining the two gives the
+ *  mechanic for every event, scoped to the selected year, with no mechanic
+ *  list, year map or Promotion_Id literal in the frontend.
+ *
+ *  This replaces a hardcoded {'2024': '20% Discount (Seasonal)', '2025':
+ *  'Buy3Get1 (Seasonal)'} map. That map was the reason the 20% seasonal
+ *  mechanic could not be shown on a row and, for any period outside those two
+ *  years, collapsed every seasonal mechanic into one generic "Seasonal"
+ *  bucket — which silently shares a single cap between mechanics that are not
+ *  the same mechanic. */
+function useMechanicByPromotion(): Map<string, string> {
+  const mechanics = useBreakdown('promotion_mechanic', { limit: 50 })
+  const offers = useBreakdown('promotion', { limit: 50 })
+
+  return useMemo(() => {
+    const nameOfOffer = new Map((offers.data?.groups ?? []).map((g) => [g.code, g.label]))
+    const map = new Map<string, string>()
+    for (const mechanic of mechanics.data?.groups ?? []) {
+      for (const code of mechanic.members ?? []) {
+        const name = nameOfOffer.get(code)
+        if (name) map.set(name, mechanic.label)
+      }
+    }
+    return map
+  }, [mechanics.data, offers.data])
 }
 
-function promotionMechanic(row: { promotion: string; period: string }): string {
-  const explicit = /^(\d+)%/.exec(row.promotion)
-  if (explicit) return `${explicit[1]}% Discount`
-  return SEASONAL_MECHANIC_BY_YEAR[row.period.slice(0, 4)] ?? 'Seasonal'
+/** The mechanic one event belongs to. Falls back to the event's own name so an
+ *  unmapped promotion occupies its OWN cap rather than being merged into a
+ *  shared bucket with unrelated mechanics. */
+function promotionMechanic(row: { promotion: string }, byPromotion: Map<string, string>): string {
+  return byPromotion.get(row.promotion) ?? row.promotion
 }
 
 /** The whole eligible population, because the threshold is its MEDIAN: any
@@ -212,6 +236,7 @@ const TOP_FETCH_LIMIT = 100000
 
 export function TopPerformingSection() {
   const q = useTopPromotions(TOP_FETCH_LIMIT)
+  const mechanicByPromotion = useMechanicByPromotion()
 
   const rows = useMemo(() => {
     const eligible = (q.data?.rows ?? []).filter(
@@ -239,20 +264,23 @@ export function TopPerformingSection() {
     // scope yields eight rows and All Years ten; a SHORTER, honest list beats
     // handing the spare slots back to the mechanic that already dominates.
     const used = new Map<string, number>()
-    const picked = deduped.filter((r) => {
-      const m = promotionMechanic(r)
+    const picked: (typeof deduped[number] & { mechanic: string })[] = []
+    for (const r of deduped) {
+      const m = promotionMechanic(r, mechanicByPromotion)
       const n = used.get(m) ?? 0
-      if (n >= PER_MECHANIC_CAP) return false
+      if (n >= PER_MECHANIC_CAP) continue
       used.set(m, n + 1)
-      return true
-    })
-    return picked.slice(0, TOP_N)
-  }, [q.data])
+      picked.push({ ...r, mechanic: m })
+      if (picked.length >= TOP_N) break
+    }
+    return picked
+  }, [q.data, mechanicByPromotion])
 
   const peak = rows.length ? Math.max(rows[0].roi_pct, 1) : 1
 
   return (
     <ChartFrame
+      fill
       title="Top Performing Promotions"
       hint="Top performing promotions ranked by ROI among meaningful-impact promotions."
       isLoading={q.isLoading}
@@ -264,9 +292,11 @@ export function TopPerformingSection() {
       height={260}
       footnote={`${rows.length} promotions ranked by ROI, among those at or above median Trade Spend. At most ${PER_MECHANIC_CAP} per mechanic.`}
     >
-      {/* Fixed viewport so the card keeps the exact height it had as the
-          scatter chart; any rows beyond the fold scroll inside the card. */}
-      <div className="flex flex-col gap-2 overflow-y-auto pr-1" style={{ maxHeight: 268 }}>
+      {/* The list takes the height the card actually has instead of a fixed
+          268px viewport, so the scrollbar appears only when the rows genuinely
+          exceed the card rather than because of a hardcoded cap. min-h-0 is
+          what lets a flex child shrink far enough to scroll at all. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {rows.map((r, i) => (
           <div
             key={`${r.promotion}-${r.channel}-${r.period}-${i}`}
@@ -298,7 +328,7 @@ ${r.channel} · ${r.period}
             </div>
             <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[10.5px] text-ink-muted">
               <span className="min-w-0 truncate">
-                {r.channel} · {r.period}
+                {r.channel} · {r.period} · {r.mechanic}
               </span>
               <span className="shrink-0 tabular-nums">
                 Spend {r.trade_spend_display} · Inc. Sales {r.incremental_sales_display}
@@ -793,7 +823,7 @@ export function PromotionTypeSection() {
                 </span>
               </div>
               {/* Both bars share `peak`, so their lengths are comparable. */}
-              <div className="mt-1.5 h-14 w-full overflow-hidden rounded-[var(--r-sm)] bg-ink-primary/[0.05]">
+              <div className="mt-1.5 h-28 w-full overflow-hidden rounded-[var(--r-sm)] bg-ink-primary/[0.05]">
                 <div
                   className={`h-full rounded-[var(--r-sm)] transition-[width] duration-300 group-hover:brightness-110 ${
                     g.code === 'Regular' ? 'bg-brand-violet' : 'bg-status-info'

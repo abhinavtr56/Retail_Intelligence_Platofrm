@@ -14,8 +14,14 @@ export function RankedBar({
   rate,
   symbol,
   rowTooltip,
+  fill = false,
 }: {
   groups: BreakdownGroup[]
+  /** Distribute the rows over a stretched card instead of stacking them at its
+   *  top. Used where the grid row is taller than this chart's natural height,
+   *  so the card fills rather than ending in blank space. Bars grow with it,
+   *  because a 10px bar adrift in a 450px card reads as a rendering fault. */
+  fill?: boolean
   /** Optional hover text for a whole row. Omitted by every caller that does
    *  not need it, so their rows behave exactly as before. */
   rowTooltip?: (group: BreakdownGroup) => string
@@ -44,7 +50,7 @@ export function RankedBar({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className={`flex flex-col gap-2.5 ${fill ? 'h-full justify-between' : ''}`}>
       {groups.map((g) => (
         <div key={g.code} className="group" title={rowTooltip?.(g)}>
           <div className="flex items-baseline justify-between gap-3 text-[11.5px]">
@@ -67,14 +73,14 @@ export function RankedBar({
             </span>
           </div>
           <div className="mt-1 space-y-[3px]">
-            <div className="h-2.5 w-full overflow-hidden rounded-full bg-ink-primary/[0.05]">
+            <div className={`${fill ? 'h-4' : 'h-2.5'} w-full overflow-hidden rounded-full bg-ink-primary/[0.05]`}>
               <div
                 className="h-full rounded-full bg-brand-violet transition-[width] duration-300 group-hover:brightness-110"
                 style={{ width: pct(g.incremental_sales) }}
                 title={`Incremental Sales ${g.incremental_sales_display}`}
               />
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-primary/[0.03]">
+            <div className={`${fill ? 'h-2' : 'h-1.5'} w-full overflow-hidden rounded-full bg-ink-primary/[0.03]`}>
               <div
                 className="h-full rounded-full bg-status-danger/60 transition-[width] duration-300"
                 style={{ width: pct(g.trade_spend) }}

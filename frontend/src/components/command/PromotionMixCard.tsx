@@ -88,31 +88,37 @@ export function PromotionMixCard({
             </InfoPopover>
           </span>
         }
-        actions={
-          <div
-            className="inline-flex overflow-hidden rounded-[var(--r-sm)] border border-border-subtle"
-            role="radiogroup"
-            aria-label="Promotion Mix metric"
-          >
-            {METRICS.map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                role="radio"
-                aria-checked={metric === m.key}
-                onClick={() => setMetric(m.key)}
-                className={`cursor-pointer px-2 py-0.5 text-[11px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
-                  metric === m.key
-                    ? 'bg-brand-violet text-white'
-                    : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        }
       />
+      {/* The metric toggle sits on its own strip rather than in the header.
+          At this card's width the header could not hold the title, its ⓘ and a
+          two-button control on one line, so the title wrapped and the header
+          grew to 82px while its row partner stayed at 63 — the two cards then
+          started their content at different heights. Same strip the ChartFrame
+          cards use. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-5 py-2.5">
+        <div
+          className="inline-flex h-[23px] items-stretch overflow-hidden rounded-[var(--r-sm)] border border-border-subtle"
+          role="radiogroup"
+          aria-label="Promotion Mix metric"
+        >
+              {METRICS.map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={metric === m.key}
+                  onClick={() => setMetric(m.key)}
+                  className={`cursor-pointer px-2 text-[11px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+                    metric === m.key
+                      ? 'bg-brand-violet text-white'
+                      : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+      </div>
       <CardBody>
         {segments.length > 0 ? (
           <DonutBreakdown
