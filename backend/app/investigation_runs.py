@@ -43,12 +43,15 @@ def _persist() -> None:
     RUNS_PATH.write_text(json.dumps(trimmed, indent=2), encoding="utf-8")
 
 
-def create_run(question: str, dataset_id: str | None, owner: str) -> dict[str, Any]:
+def create_run(question: str, dataset_id: str | None, owner: str, kind: str = "investigation") -> dict[str, Any]:
     with _lock:
         _load()
         run_id = uuid.uuid4().hex[:12]
         run = {
             "id": run_id,
+            # Investigation and Promotion Intelligence runs share this store;
+            # without `kind` each endpoint would list the other's runs.
+            "kind": kind,
             "question": question,
             "dataset_id": dataset_id,
             "owner": owner,
@@ -82,12 +85,26 @@ def get_run(run_id: str) -> dict[str, Any] | None:
         return _load().get(run_id)
 
 
-def list_runs(owner: str, limit: int = 20) -> list[dict[str, Any]]:
-    """Summaries only — full results are large and the list view shows none of it."""
+def list_runs(owner: str, limit: int = 20, kind: str | None = None) -> list[dict[str, Any]]:
+    """Summaries only — full results are large and the list view shows none of it.
+    Runs created before `kind` existed default to "investigation"."""
     with _lock:
         runs = [r for r in _load().values() if r.get("owner") == owner]
+    if kind:
+        runs = [r for r in runs if r.get("kind", "investigation") == kind]
     runs.sort(key=lambda r: r["created_at"], reverse=True)
     return [
-        {k: r[k] for k in ("id", "question", "dataset_id", "status", "stage", "created_at", "updated_at")}
+        {k: r.get(k) for k in ("id", "kind", "question", "dataset_id", "status", "stage", "created_at", "updated_at")}
         for r in runs[:limit]
     ]
+
+
+def latest_completed(owner: str, kind: str = "investigation") -> dict[str, Any] | None:
+    """Most recent finished run of one kind — how Promotion Intelligence finds
+    the investigation it is meant to deepen."""
+    with _lock:
+        runs = [
+            r for r in _load().values()
+            if r.get("owner") == owner and r.get("kind", "investigation") == kind and r.get("status") == "done"
+        ]
+    return max(runs, key=lambda r: r["created_at"], default=None)

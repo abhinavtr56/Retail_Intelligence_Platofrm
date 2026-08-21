@@ -9,7 +9,7 @@ from app.agents.client import AgentConfigError
 from app.agents.intelligence_agent import analyse, recommend
 from app.deps import current_user
 from app.intelligence_engine import SECTIONS, build_intelligence_facts
-from app.investigation_runs import create_run, get_run, list_runs, update_run
+from app.investigation_runs import create_run, get_run, latest_completed, list_runs, update_run
 
 log = logging.getLogger(__name__)
 
@@ -21,21 +21,40 @@ router = APIRouter(prefix="/api/promotion-intelligence", tags=["promotion-intell
 
 
 class IntelligenceRequest(BaseModel):
-    question: str = "What is driving promotion performance, and what should we change?"
-    # Same filter vocabulary as the investigation agents: year, month, channel,
-    # region, state, city, retailer, category, brand, promotion_type.
+    """Promotion Intelligence deepens an investigation.
+
+    Pass `investigation_run_id` and the question, scope and prior findings are
+    inherited from it — that is the intended path. `question`/`filters` are the
+    fallback for analysing a scope directly with no investigation behind it.
+    """
+
+    investigation_run_id: str | None = None
+    question: str | None = None
     filters: dict[str, Any] | None = None
 
 
 @router.get("/facts")
 def get_facts(
     year: int | None = None,
+    month: int | None = None,
     channel: str | None = None,
     region: str | None = None,
+    state: str | None = None,
+    city: str | None = None,
+    retailer: str | None = None,
+    category: str | None = None,
+    brand: str | None = None,
+    promotion_type: str | None = None,
     sections: str = "core",
     _user: dict[str, Any] = Depends(current_user),
 ) -> dict[str, Any]:
     """The deterministic picture — no model involved.
+
+    Accepts the full investigation filter vocabulary, not a subset: when this
+    page deepens an investigation scoped to (say) October Seasonal promotions,
+    dropping `month` and `promotion_type` would show whole-year figures under
+    that investigation's heading — numbers that quietly describe something
+    else. List dimensions take comma-separated values.
 
     `sections` is a comma-separated subset of core|dimensions|risk|waterfall.
     Each breakdown re-runs the KPI engine once per group, so computing all of
@@ -45,10 +64,21 @@ def get_facts(
     filters: dict[str, Any] = {}
     if year:
         filters["year"] = year
-    if channel:
-        filters["channel"] = [channel]
-    if region:
-        filters["region"] = [region]
+    if month:
+        filters["month"] = month
+    for name, raw in (
+        ("channel", channel),
+        ("region", region),
+        ("state", state),
+        ("city", city),
+        ("retailer", retailer),
+        ("category", category),
+        ("brand", brand),
+        ("promotion_type", promotion_type),
+    ):
+        values = [v.strip() for v in (raw or "").split(",") if v.strip()]
+        if values:
+            filters[name] = values
 
     wanted = tuple(s.strip() for s in sections.split(",") if s.strip() in SECTIONS)
     if not wanted:
@@ -56,7 +86,42 @@ def get_facts(
     return build_intelligence_facts(filters, wanted)
 
 
-async def _execute(run_id: str, question: str, filters: dict[str, Any]) -> None:
+@router.get("/context")
+def get_context(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+    """The investigation this page should deepen, plus any analysis already run
+    against it — so the page can pick up where the user left off instead of
+    asking them to re-run."""
+    investigation = latest_completed(user["email_key"], kind="investigation")
+    analysis = latest_completed(user["email_key"], kind="intelligence")
+    if not investigation:
+        return {"investigation": None, "analysis": None}
+
+    result = investigation.get("result") or {}
+    ctx = {
+        "run_id": investigation["id"],
+        "question": investigation.get("question"),
+        "scope": result.get("global_filters") or {},
+        "investigation_type": result.get("investigation_type"),
+        "root_cause": (result.get("synthesis") or {}).get("root_cause"),
+        "summary": (result.get("synthesis") or {}).get("summary"),
+        "confidence": (result.get("synthesis") or {}).get("confidence"),
+        "findings": [
+            {"key": f.get("key"), "name": f.get("name"), "headline": f.get("headline"),
+             "impact": f.get("impact"), "confidence": f.get("confidence")}
+            for f in (result.get("findings") or [])
+        ],
+        "created_at": investigation.get("created_at"),
+    }
+    # Only offer a previous analysis if it was run against this same investigation.
+    prior = None
+    if analysis and (analysis.get("result") or {}).get("investigation_run_id") == investigation["id"]:
+        prior = {"run_id": analysis["id"], "created_at": analysis.get("created_at")}
+    return {"investigation": ctx, "analysis": prior}
+
+
+async def _execute(
+    run_id: str, question: str, filters: dict[str, Any], prior: dict[str, Any] | None, investigation_run_id: str | None
+) -> None:
     """Analyst then Advisor, streaming stage updates into the run record."""
     try:
         update_run(run_id, stage="computing", specialists=[
@@ -77,7 +142,7 @@ async def _execute(run_id: str, question: str, filters: dict[str, Any]) -> None:
 
         update_run(run_id, stage="analyzing")
         mark("analyst", "running")
-        analysis = await analyse(question, facts)
+        analysis = await analyse(question, facts, prior)
         mark("analyst", "done")
 
         mark("advisor", "running")
@@ -90,6 +155,7 @@ async def _execute(run_id: str, question: str, filters: dict[str, Any]) -> None:
             stage="complete",
             result={
                 "source": "star_schema",
+                "investigation_run_id": investigation_run_id,
                 "scope": filters,
                 "facts": facts,
                 "analysis": analysis,
@@ -112,19 +178,39 @@ async def start_analysis(
     """Run the Analyst + Advisor pair. Returns immediately with a run id —
     poll /intelligence/runs/{id}. Reuses the investigation run store so results
     persist and a reload doesn't re-run (and re-bill) the analysis."""
-    question = body.question.strip()
-    if not question:
-        raise HTTPException(400, "question must not be empty")
+    prior: dict[str, Any] | None = None
+    question = (body.question or "").strip()
     filters = {k: v for k, v in (body.filters or {}).items() if v not in (None, [], "")}
-    run = create_run(question, None, user["email_key"])
+
+    if body.investigation_run_id:
+        inv = get_run(body.investigation_run_id)
+        if not inv or inv.get("owner") != user["email_key"]:
+            raise HTTPException(404, "Investigation run not found.")
+        if inv.get("status") != "done":
+            raise HTTPException(409, "That investigation hasn't finished yet.")
+        result = inv.get("result") or {}
+        # Scope and question come FROM the investigation — this page deepens it
+        # rather than analysing something unrelated.
+        question = question or inv.get("question") or ""
+        filters = filters or (result.get("global_filters") or {})
+        prior = {
+            "question": inv.get("question"),
+            "synthesis": result.get("synthesis"),
+            "findings": result.get("findings"),
+        }
+
+    if not question:
+        raise HTTPException(400, "Provide investigation_run_id or a question.")
+
+    run = create_run(question, None, user["email_key"], kind="intelligence")
     update_run(run["id"], stage="computing")
-    asyncio.create_task(_execute(run["id"], question, filters))
+    asyncio.create_task(_execute(run["id"], question, filters, prior, body.investigation_run_id))
     return get_run(run["id"]) or run
 
 
 @router.get("/runs")
 def get_runs(user: dict[str, Any] = Depends(current_user)) -> list[dict[str, Any]]:
-    return list_runs(user["email_key"])
+    return list_runs(user["email_key"], kind="intelligence")
 
 
 @router.get("/runs/{run_id}")

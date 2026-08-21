@@ -173,7 +173,7 @@ async def start_investigation_run(
 
 @router.get("/investigations/runs")
 def get_investigation_runs(user: dict[str, Any] = Depends(current_user)) -> list[dict[str, Any]]:
-    return list_runs(user["email_key"])
+    return list_runs(user["email_key"], kind="investigation")
 
 
 @router.get("/investigations/runs/{run_id}")

@@ -142,3 +142,21 @@ export type CoreFacts = Pick<
   IntelligenceFacts,
   'scope' | 'currency' | 'currency_symbol' | 'target_roi_pct' | 'kpis' | 'whole_business_kpis' | 'saturation' | 'trend' | 'by_mechanic'
 >
+
+/** The investigation this page deepens — from GET /promotion-intelligence/context. */
+export interface InvestigationContext {
+  run_id: string
+  question: string
+  scope: Record<string, unknown>
+  investigation_type: string | null
+  root_cause: string | null
+  summary: string | null
+  confidence: number | null
+  findings: { key: string; name: string; headline: string; impact: string; confidence: number }[]
+  created_at: number
+}
+
+export interface IntelligenceContextResponse {
+  investigation: InvestigationContext | null
+  analysis: { run_id: string; created_at: number } | null
+}

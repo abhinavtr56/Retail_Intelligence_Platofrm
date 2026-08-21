@@ -13,6 +13,7 @@ closing the investigate -> diagnose -> simulate loop rather than ending at a
 paragraph of advice.
 """
 import json
+import re
 from typing import Any
 
 from app.agents.client import complete_json
@@ -214,23 +215,99 @@ worth more than one more suggestion — and it demonstrates the analysis was rea
 rather than pattern-matched."""
 
 
-def _facts_prompt(question: str, facts: dict[str, Any]) -> str:
+def _prior_block(prior: dict[str, Any] | None) -> str:
+    """The investigation this analysis is deepening.
+
+    Promotion Intelligence is downstream of Investigations: the investigation
+    establishes WHAT went wrong, and this layer explains the mechanism behind
+    it. Handing the Analyst the prior findings is what makes it a second,
+    deeper pass rather than an unrelated re-derivation of the same headline.
+    """
+    if not prior:
+        return ""
+    syn = prior.get("synthesis") or {}
+    findings = [
+        f"    - [{f.get('name')}] {f.get('headline')} (confidence {f.get('confidence')})"
+        for f in (prior.get("findings") or [])
+    ]
+    return (
+        "\n\nTHE INVESTIGATION YOU ARE DEEPENING\n"
+        f"  Question asked: {prior.get('question')}\n"
+        f"  Root cause found: {syn.get('root_cause')}\n"
+        f"  Summary: {syn.get('summary')}\n"
+        f"  Confidence: {syn.get('confidence')}\n"
+        "  Specialist findings:\n" + "\n".join(findings)
+    )
+
+
+def _facts_prompt(question: str, facts: dict[str, Any], prior: dict[str, Any] | None = None) -> str:
     return (
         f"QUESTION: {question}\n\n"
-        f"SCOPE: {json.dumps(facts.get('scope') or {}) or 'whole business'}\n\n"
+        f"SCOPE: {json.dumps(facts.get('scope') or {}) or 'whole business'}"
+        f"{_prior_block(prior)}\n\n"
         f"FACTS (all pre-computed):\n{json.dumps(facts, indent=1, default=str)}"
     )
 
 
-async def analyse(question: str, facts: dict[str, Any]) -> dict[str, Any]:
-    return await complete_json(
-        ANALYST_SYSTEM, _facts_prompt(question, facts), ANALYSIS_SCHEMA, "intelligence_analysis", temperature=0.2
+_TONE_TAG = re.compile(r"\[/?[grn]\]")
+
+
+def _strip_tone(value: Any) -> Any:
+    """Remove [r]/[g]/[n] markup from everything except the narrative.
+
+    Only AiAnswerCard parses those tags. Asking for them in `narrative` reliably
+    leaks them into insight titles and driver notes too, where they render
+    literally as "[r]29.2%[/r]". Stripping server-side is more robust than
+    hoping the model confines them, and keeps the tags out of any future
+    consumer that doesn't know about them.
+    """
+    if isinstance(value, str):
+        return _TONE_TAG.sub("", value)
+    if isinstance(value, list):
+        return [_strip_tone(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _strip_tone(v) for k, v in value.items()}
+    return value
+
+
+def _clean_analysis(analysis: dict[str, Any]) -> dict[str, Any]:
+    narrative = analysis.get("narrative")
+    cleaned = {k: _strip_tone(v) for k, v in analysis.items()}
+    if isinstance(narrative, str):
+        cleaned["narrative"] = narrative  # the one field where the tags belong
+    return cleaned
+
+
+async def analyse(question: str, facts: dict[str, Any], prior: dict[str, Any] | None = None) -> dict[str, Any]:
+    system = ANALYST_SYSTEM
+    if prior:
+        system += """
+
+YOU ARE DEEPENING AN EXISTING INVESTIGATION.
+
+The investigation already established the root cause. Restating it is not your
+job and adds nothing. Your job is the MECHANISM and the CONSEQUENCES:
+
+- WHY does the root cause behave this way? The saturation curve, the spend
+  concentration, the trend — explain what is actually happening underneath.
+- WHERE does it bite hardest? Name the channels, regions, retailers, products
+  the investigation did not have room to examine.
+- HOW MUCH is it worth? Quantify the gap in money, not only in percentage points.
+- Does the deeper data CONFIRM or COMPLICATE the investigation's conclusion? If
+  the finer breakdown disagrees with the headline, say so — that is the single
+  most valuable thing this second pass can produce.
+
+Your drivers should decompose the root cause into its components, not repeat it
+as one line."""
+    analysis = await complete_json(
+        system, _facts_prompt(question, facts, prior), ANALYSIS_SCHEMA, "intelligence_analysis", temperature=0.2
     )
+    return _clean_analysis(analysis)
 
 
 async def recommend(question: str, facts: dict[str, Any], analysis: dict[str, Any]) -> dict[str, Any]:
     primary = [d for d in analysis.get("drivers", []) if d.get("is_primary")]
-    return await complete_json(
+    advice = await complete_json(
         ADVISOR_SYSTEM,
         (
             f"QUESTION: {question}\n\n"
@@ -246,3 +323,4 @@ async def recommend(question: str, facts: dict[str, Any], analysis: dict[str, An
         "intelligence_recommendations",
         temperature=0.3,
     )
+    return _strip_tone(advice)

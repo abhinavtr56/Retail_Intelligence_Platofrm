@@ -1,20 +1,29 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, apiPost } from '../lib/api'
-import type { CoreFacts, IntelligenceFacts, IntelligenceRun } from '../types/promotionIntelligence'
+import type {
+  CoreFacts,
+  IntelligenceContextResponse,
+  IntelligenceFacts,
+  IntelligenceRun,
+} from '../types/promotionIntelligence'
 
-export interface IntelligenceScope {
-  year?: number
-  channel?: string
-  region?: string
-}
+/** The investigation's own filter object, forwarded whole. Anything dropped
+ *  here would mean showing figures for a wider scope than the page claims. */
+export type IntelligenceScope = Record<string, unknown>
+
+const LIST_DIMENSIONS = ['channel', 'region', 'state', 'city', 'retailer', 'category', 'brand', 'promotion_type']
 
 export type FactSection = 'core' | 'dimensions' | 'risk' | 'waterfall'
 
 function toQuery(scope: IntelligenceScope, sections: FactSection[]): string {
   const p = new URLSearchParams()
   if (scope.year) p.set('year', String(scope.year))
-  if (scope.channel) p.set('channel', scope.channel)
-  if (scope.region) p.set('region', scope.region)
+  if (scope.month) p.set('month', String(scope.month))
+  for (const dim of LIST_DIMENSIONS) {
+    const v = scope[dim]
+    const values = Array.isArray(v) ? v : v == null || v === '' ? [] : [v]
+    if (values.length) p.set(dim, values.map(String).join(','))
+  }
   p.set('sections', sections.join(','))
   return `?${p.toString()}`
 }
@@ -46,10 +55,20 @@ export function useFactSection(scope: IntelligenceScope, section: FactSection | 
   })
 }
 
+// The investigation this page is meant to deepen, and any analysis already run
+// against it. Promotion Intelligence is downstream of Investigations — without
+// one it has nothing to go deeper on.
+export function useIntelligenceContext() {
+  return useQuery({
+    queryKey: ['pi-context'],
+    queryFn: () => apiFetch<IntelligenceContextResponse>('/promotion-intelligence/context'),
+  })
+}
+
 export function useStartIntelligenceAnalysis() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { question: string; filters: Record<string, unknown> }) =>
+    mutationFn: (body: { investigation_run_id?: string; question?: string; filters?: Record<string, unknown> }) =>
       apiPost<IntelligenceRun>('/promotion-intelligence/analyze', body),
     onSuccess: (run) => queryClient.setQueryData(['pi-run', run.id], run),
   })
