@@ -12,6 +12,7 @@ which is one free unit in four and so 25% effective. That gives five real
 depth points to plot ROI against, which is a genuine elasticity read rather
 than a decorative curve.
 """
+import json
 import re
 from typing import Any
 
@@ -189,28 +190,76 @@ def risk_summary(filters: dict[str, Any] | None = None) -> dict[str, Any]:
     }
 
 
-def build_intelligence_facts(filters: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Everything deterministic the Intelligence page needs, in one pass.
-    This is the entire factual basis the agent layer is allowed to reason over."""
-    filters = filters or {}
+# ---------------------------------------------------------------------------
+# Section cache.
+#
+# service.breakdown() re-runs the whole KPI engine once per group, so a single
+# breakdown over 31 retailers is 31 passes. Computing every section eagerly
+# took ~40s — unusable as a page load. Sections are therefore computed on
+# demand and memoised per (section, scope): the first request for a tab pays
+# for that tab only, and revisiting it is instant.
+#
+# The underlying data is immutable seed data (see data_loader), so nothing
+# invalidates this. It would need clearing if uploads ever fed this engine.
+# ---------------------------------------------------------------------------
+_SECTION_CACHE: dict[tuple[str, str], Any] = {}
+
+SECTIONS = ("core", "dimensions", "risk", "waterfall")
+
+
+def _cached(section: str, filters: dict[str, Any], build) -> Any:
+    key = (section, json.dumps(filters, sort_keys=True, default=str))
+    if key not in _SECTION_CACHE:
+        _SECTION_CACHE[key] = build()
+    return _SECTION_CACHE[key]
+
+
+def _core(filters: dict[str, Any]) -> dict[str, Any]:
+    """What the Overview and Saturation tabs need — the cheap, high-value half."""
     return {
-        "scope": filters,
-        # Stated explicitly because every figure below is INR and a model with
-        # no currency told to it will default to dollars.
-        "currency": config.BASE_CURRENCY,
-        "currency_symbol": "₹",
         "kpis": segment_kpis(filters),
         "whole_business_kpis": segment_kpis({}),
-        "target_roi_pct": config.PROMOTION_TARGET_ROI_PCT,
         "saturation": saturation_curve(filters),
-        "waterfall": contribution_waterfall(filters),
         "trend": inc_sales_trend(filters),
+        "by_mechanic": _dimension_table(filters, "promotion_mechanic"),
+    }
+
+
+def _dimensions(filters: dict[str, Any]) -> dict[str, Any]:
+    return {
         "by_channel": _dimension_table(filters, "channel"),
         "by_region": _dimension_table(filters, "region"),
         "by_retailer": _dimension_table(filters, "retailer", limit=12),
         "by_category": _dimension_table(filters, "category"),
         "by_brand": _dimension_table(filters, "brand"),
         "by_product": _dimension_table(filters, "product", limit=12),
-        "by_mechanic": _dimension_table(filters, "promotion_mechanic"),
-        "risk": risk_summary(filters),
     }
+
+
+def build_intelligence_facts(
+    filters: dict[str, Any] | None = None, sections: tuple[str, ...] = SECTIONS
+) -> dict[str, Any]:
+    """The deterministic basis for the page and for the agent layer.
+
+    `sections` selects how much to compute. The agents ask for everything; the
+    page asks for one tab's worth at a time.
+    """
+    filters = filters or {}
+    out: dict[str, Any] = {
+        "scope": filters,
+        # Stated explicitly because every figure below is INR, and a model not
+        # told the currency will default to dollars.
+        "currency": config.BASE_CURRENCY,
+        "currency_symbol": "₹",
+        "target_roi_pct": config.PROMOTION_TARGET_ROI_PCT,
+        "sections": list(sections),
+    }
+    if "core" in sections:
+        out.update(_cached("core", filters, lambda: _core(filters)))
+    if "dimensions" in sections:
+        out.update(_cached("dimensions", filters, lambda: _dimensions(filters)))
+    if "waterfall" in sections:
+        out["waterfall"] = _cached("waterfall", filters, lambda: contribution_waterfall(filters))
+    if "risk" in sections:
+        out["risk"] = _cached("risk", filters, lambda: risk_summary(filters))
+    return out

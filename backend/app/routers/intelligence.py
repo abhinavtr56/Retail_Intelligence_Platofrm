@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from app.agents.client import AgentConfigError
 from app.agents.intelligence_agent import analyse, recommend
 from app.deps import current_user
-from app.intelligence_engine import build_intelligence_facts
+from app.intelligence_engine import SECTIONS, build_intelligence_facts
 from app.investigation_runs import create_run, get_run, list_runs, update_run
 
 log = logging.getLogger(__name__)
@@ -32,12 +32,16 @@ def get_facts(
     year: int | None = None,
     channel: str | None = None,
     region: str | None = None,
+    sections: str = "core",
     _user: dict[str, Any] = Depends(current_user),
 ) -> dict[str, Any]:
-    """The deterministic picture — KPIs, saturation curve, contribution,
-    trend vs target, per-dimension tables and risk. No model involved, so this
-    is fast and free; the page can render everything except the narrative and
-    recommendations from it."""
+    """The deterministic picture — no model involved.
+
+    `sections` is a comma-separated subset of core|dimensions|risk|waterfall.
+    Each breakdown re-runs the KPI engine once per group, so computing all of
+    them is ~40s; the page requests one tab's worth at a time and results are
+    memoised per scope.
+    """
     filters: dict[str, Any] = {}
     if year:
         filters["year"] = year
@@ -45,7 +49,11 @@ def get_facts(
         filters["channel"] = [channel]
     if region:
         filters["region"] = [region]
-    return build_intelligence_facts(filters)
+
+    wanted = tuple(s.strip() for s in sections.split(",") if s.strip() in SECTIONS)
+    if not wanted:
+        raise HTTPException(400, f"sections must name at least one of: {', '.join(SECTIONS)}")
+    return build_intelligence_facts(filters, wanted)
 
 
 async def _execute(run_id: str, question: str, filters: dict[str, Any]) -> None:

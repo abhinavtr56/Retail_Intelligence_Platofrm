@@ -7,13 +7,43 @@ frontend too (see the static mount at the bottom) — one process, one
 deploy, no separate proxy. See DEV.md at the project root for exact run
 commands and the full phase-by-phase migration notes.
 """
+import logging
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+log = logging.getLogger(__name__)
+
 app = FastAPI(title="TIQ API", version="0.1.0")
+
+
+@app.on_event("startup")
+def _warm_caches() -> None:
+    """Parse the 205,920-row fact table and precompute the default Promotion
+    Intelligence scope in the background.
+
+    Without this the first user to open the page pays for the CSV load plus a
+    full set of KPI-engine passes — about 20 seconds of blank screen. Warming
+    on a daemon thread keeps startup itself instant and makes that first page
+    load land on a populated cache instead.
+    """
+
+    def warm() -> None:
+        try:
+            from app.intelligence_engine import build_intelligence_facts
+            from app.tpo.loader import get_store
+
+            store = get_store()
+            log.info("Warmed fact store: %s rows", store.row_count)
+            build_intelligence_facts({"year": 2025}, ("core",))
+            log.info("Warmed Promotion Intelligence core facts (F25)")
+        except Exception:  # a warmup failure must never stop the server booting
+            log.exception("Cache warmup failed; first request will be slow instead")
+
+    threading.Thread(target=warm, name="tiq-warmup", daemon=True).start()
 
 # Vite dev server origins. Only exercised when something calls the API directly
 # instead of through Vite's /api proxy (which makes requests same-origin already);
