@@ -74,7 +74,7 @@ export function Home() {
         <Link to="/home" className="flex min-w-0 items-center gap-3">
           <img src="/image.png" alt="TransOrg" className="h-[34px] w-[34px] shrink-0" />
           <div className="min-w-0">
-            <h1 className="truncate text-[15px] leading-[1.25] sm:text-[17px]">Retail Intelligence Platform</h1>
+            <h1 className="truncate text-[15px] leading-[1.25] sm:text-[17px]">Agentic CPG &amp; Retail Intelligence Platform</h1>
             <p className="mt-px hidden truncate text-xs text-ink-muted sm:block">Enterprise decision intelligence for FMCG/CPG</p>
           </div>
         </Link>

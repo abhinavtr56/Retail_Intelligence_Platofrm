@@ -25,9 +25,13 @@ export function ModuleGrid() {
             <h3 className="text-[15px] leading-[1.3]">{m.title}</h3>
             <p className="flex-1 text-[12.5px] leading-[1.55] text-ink-muted">{m.desc}</p>
             <div className="mt-0.5 flex items-center justify-between">
-              <Pill tone={m.live ? 'success' : 'neutral'} dot={m.live} pulse={m.live}>
-                {m.live ? 'LIVE' : 'COMING SOON'}
-              </Pill>
+              {m.live ? (
+                <Pill tone="success" dot pulse>
+                  LIVE
+                </Pill>
+              ) : (
+                <span />
+              )}
               <span
                 className={`grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full transition-colors [&_svg]:h-4 [&_svg]:w-4 ${
                   m.live ? 'bg-brand-violet text-white' : 'cursor-default bg-surface-muted text-ink-muted'
