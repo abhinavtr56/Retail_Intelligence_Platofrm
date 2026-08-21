@@ -401,7 +401,21 @@ def risk_alerts(state: FilterState, currency: str = "INR", limit: int = 20) -> d
                 "channel": event.channel_name,
                 "product": event.product_name.strip(),
                 "week": event.week_key,
+                # The event's own dimension codes, for the same reason the
+                # underperforming rows carry them: a drill-down narrows BY
+                # IDENTITY instead of handing over the whole selection. The
+                # names beside them stay display-only and are never converted.
+                #
+                # `week` is NOT among them, and cannot be. An event's
+                # Incremental Sales is measured against the non-promoted rows
+                # of the SELECTION -- `promotion_events` holds that
+                # selection-wide baseline fixed on purpose -- and a scope
+                # narrowed to the promoted week contains no such row, so the
+                # counterfactual disappears and the ROI collapses to -100%.
+                # The week identifies the event; it cannot scope it.
                 "promotion_id": event.promotion_id,
+                "product_id": event.product_id,
+                "channel_id": event.channel_id,
             })
 
     return {
@@ -462,9 +476,27 @@ def underperforming_promotions(
             (c, a) for predicate, c, a in _CAUSES if predicate(event, cannib)
         )
         rows.append({
+            # THE EVENT'S OWN DIMENSION CODES, carried so a drill-down can
+            # narrow BY IDENTITY. They are not derived here and nothing is
+            # guessed: `PromotionEvent` was built from the WeekRows themselves,
+            # so these are the same codes the row was selected by. Without them
+            # a click on this table could only hand over the user's existing
+            # selection, and the Simulation Studio would answer for the whole
+            # promotion while the row on screen described one SKU in one
+            # channel in one week.
+            #
+            # THE WEEK IS STILL NOT NARROWABLE. FilterState has `year` and
+            # `month` and no week, so a hand-off reaches this event's
+            # (promotion, product, channel) and pools whatever weeks that pair
+            # traded in scope. Exact for a single-week event; a pooled figure
+            # otherwise, which is a real number for a real scope rather than a
+            # week invented out of a month.
             "promotion": event.promotion_name,
+            "promotion_id": event.promotion_id,
             "product": event.product_name.strip(),
+            "product_id": event.product_id,
             "channel": event.channel_name,
+            "channel_id": event.channel_id,
             "period": event.week_key,
             "roi_pct": event.roi_pct,
             "roi_display": F.percent(event.roi_pct),

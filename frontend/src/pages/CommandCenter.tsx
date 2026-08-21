@@ -224,12 +224,18 @@ export function CommandCenter() {
    *  validated FilterState, narrowed only by identifiers the source ACTUALLY
    *  provides.
    *
-   *  A risk alert carries a real `promotion_id`, so the scope is narrowed by
-   *  it. Its channel and product arrive as display NAMES ("Modern Trade", not
-   *  "CH002") and the underperforming table carries no identifier at all, so
-   *  those travel as labels and narrow nothing. Turning a name back into a
-   *  code by guessing would select different rows from the ones the user
-   *  clicked.
+   *  BOTH SOURCES CARRY THE EVENT'S CODES — promotion, product and channel —
+   *  so all three narrow the scope. That is what makes a row's ROI and the
+   *  Simulation Studio's Current Plan describe the same population: a -3.6%
+   *  alert is one SKU in one channel, and handing over an unnarrowed selection
+   *  made Simulation answer for the whole promotion instead.
+   *
+   *  THE WEEK IS A LABEL AND STAYS ONE. It identifies the event but cannot
+   *  scope it: Incremental Sales is measured against the non-promoted rows of
+   *  the selection, the promoted week has none, and a week-narrowed scope
+   *  reports -100% instead of the row's own ROI. Display names ("Modern
+   *  Trade", not "CH002") likewise stay in `labels` — turning one back into a
+   *  code by guessing would select different rows from the ones clicked.
    *
    *  Nothing here recomputes anything, and the Command Center's own filter
    *  state is not mutated — the hand-off is a copy.
@@ -238,8 +244,17 @@ export function CommandCenter() {
     startFromCommandCenter({
       origin: 'risk_alert',
       label: alert.title,
-      filters: { ...filters, promotion: [alert.promotion_id] },
-      identifiers: { promotion_id: alert.promotion_id },
+      filters: {
+        ...filters,
+        promotion: [alert.promotion_id],
+        product: [alert.product_id],
+        channel: [alert.channel_id],
+      },
+      identifiers: {
+        promotion_id: alert.promotion_id,
+        product_id: alert.product_id,
+        channel_id: alert.channel_id,
+      },
       labels: { product: alert.product, channel: alert.channel, week: alert.week },
     })
     navigate('/investigations')
@@ -249,10 +264,25 @@ export function CommandCenter() {
     startFromCommandCenter({
       origin: 'underperforming',
       label: row.promotion,
-      // No identifier is available on this row, so the scope is the user's
-      // current selection, unnarrowed. Reported honestly rather than guessed.
-      filters,
-      identifiers: {},
+      // The current selection narrowed by the three codes this event genuinely
+      // carries. The PERIOD SELECTION IS LEFT ALONE on purpose: an event's
+      // Incremental Sales is measured against the baseline of the whole
+      // selection, so changing the period window would move the baseline and
+      // the drill-down would answer a different question from the row that was
+      // clicked. `row.period` is a week and stays a label — FilterState has no
+      // week, so the scope reaches this (promotion, product, channel) and
+      // pools whatever weeks it traded in.
+      filters: {
+        ...filters,
+        promotion: [row.promotion_id],
+        product: [row.product_id],
+        channel: [row.channel_id],
+      },
+      identifiers: {
+        promotion_id: row.promotion_id,
+        product_id: row.product_id,
+        channel_id: row.channel_id,
+      },
       labels: { product: row.product, channel: row.channel, period: row.period },
     })
     navigate('/investigations')
@@ -466,6 +496,11 @@ export function CommandCenter() {
               <thead className="sticky top-0 z-10 bg-surface-muted">
                 <tr>
                   <Th>Promotion</Th>
+                  {/* The event grain is promotion x product x channel x week.
+                      Without Product on screen, three SKUs of one promotion in
+                      one channel and week read as one row repeated with
+                      different numbers. */}
+                  <Th>Product</Th>
                   <Th>Channel</Th>
                   <Th>Period</Th>
                   <Th className="text-right">ROI</Th>
@@ -483,10 +518,11 @@ export function CommandCenter() {
                       window.setTimeout(() => handOffPromotion(p), 700)
                     }}
                   >
-                    <Td emphasis className="max-w-[150px] truncate" title={p.promotion}>
+                    <Td emphasis className="max-w-[120px] truncate" title={p.promotion}>
                       {p.promotion}
                     </Td>
-                    <Td className="max-w-[130px] truncate" title={p.channel}>{p.channel}</Td>
+                    <Td className="max-w-[130px] truncate" title={p.product}>{p.product}</Td>
+                    <Td className="max-w-[110px] truncate" title={p.channel}>{p.channel}</Td>
                     <Td className="whitespace-nowrap">{p.period}</Td>
                     <Td
                       className={`text-right font-bold tabular-nums ${
@@ -496,7 +532,7 @@ export function CommandCenter() {
                       {p.roi_display}
                     </Td>
                     <Td className="whitespace-nowrap text-right tabular-nums">{p.trade_spend_display}</Td>
-                    <Td className="max-w-[155px] truncate" title={p.primary_cause}>
+                    <Td className="max-w-[130px] truncate" title={p.primary_cause}>
                       {p.primary_cause}
                     </Td>
                     <Td>

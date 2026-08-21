@@ -45,7 +45,16 @@ export function AlertBanner({
       </div>
       <Link
         to={ctaTo}
-        onClick={(e) => e.stopPropagation()}
+        // The CTA must do what the banner does. `stopPropagation` alone left
+        // the Link navigating while the banner's `onClick` never ran, so
+        // "View Details" -- the obvious affordance -- arrived at the target
+        // page with NO scope handed over, while clicking the banner body
+        // handed one over correctly. The handler is still invoked exactly
+        // once: propagation stays stopped, and the CTA calls it itself.
+        onClick={(e) => {
+          e.stopPropagation()
+          onClick?.()
+        }}
         className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[var(--r-md)] border border-[#FBC3BD] bg-white px-[18px] text-[13px] font-semibold text-[#DC2626] transition-colors hover:border-[#F87171] hover:bg-[#FEF6F5] [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-[#DC2626]"
       >
         View Details

@@ -106,8 +106,13 @@ export interface RiskAlert {
   at_stake_display: string
   channel: string
   product: string
+  /** The week the event ran. A LABEL, not a filter: an event's ROI is measured
+   *  against the non-promoted rows of the selection, and the promoted week has
+   *  none — see the note in service.risk_alerts. */
   week: string
   promotion_id: string
+  product_id: string
+  channel_id: string
 }
 
 export interface RiskAlertsResponse {
@@ -124,8 +129,14 @@ export interface RiskAlertsResponse {
 
 export interface UnderperformingRow {
   promotion: string
+  /** The event's own dimension codes, from the rows it was measured over.
+   *  A hand-off narrows by these rather than by the display names beside
+   *  them — see CommandCenter's handOffPromotion. */
+  promotion_id: string
   product: string
+  product_id: string
   channel: string
+  channel_id: string
   period: string
   roi_pct: number
   roi_display: string

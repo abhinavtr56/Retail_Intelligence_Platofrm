@@ -77,10 +77,17 @@ def _post(client, path, body):
 def test_the_full_journey(client, alert):
     """Command Center -> RCA -> Simulation -> scenario -> real result."""
     # 1-3. The Command Center holds a validated scope.
-    # 4-6. Clicking an alert narrows it by the ONE identifier the alert carries.
-    #      Its channel and product arrive as display names and narrow nothing.
+    # 4-6. Clicking an alert narrows it by the identifiers the alert carries:
+    #      the promotion, product and channel CODES of the event it measured.
+    #      Its channel NAME travels alongside them as a label and narrows
+    #      nothing, and its week narrows nothing either -- a scope cut to the
+    #      promoted week keeps no non-promoted row to measure an uplift against.
+    #      This journey stays on the promotion narrowing, so the scope it walks
+    #      is the wider one; the drill-down's own reconciliation is asserted in
+    #      test_command_center.test_narrowing_by_an_alerts_identifiers_...
     assert alert["promotion_id"], "the alert must carry a real promotion id"
-    assert alert["channel"] == "Modern Trade", "channel arrives as a label"
+    assert alert["product_id"] and alert["channel_id"], "and its other two codes"
+    assert alert["channel"] == "Modern Trade", "channel arrives as a label too"
     handed_off = {**COMMAND_CENTER_SCOPE, "promotion": [alert["promotion_id"]]}
 
     # 7-8. A question the user actually asked.
@@ -190,10 +197,14 @@ def test_investigation_id_is_still_honestly_unavailable(client):
     assert "investigation_id" in context["missing"]
 
 
-def test_the_underperforming_path_carries_no_invented_identifier(client):
-    """An UnderperformingRow carries only display labels, so a hand-off from
-    that table narrows nothing. The scope is the user's own selection, and the
-    focus reports what it genuinely cannot establish."""
+def test_an_unnarrowed_scope_reports_the_gap_rather_than_inventing_one(client):
+    """A hand-off that carries no promotion must SAY so.
+
+    An underperforming row now narrows by the promotion, product and channel
+    codes of the event it measured, so this is no longer that table's path.
+    The property it guards is unchanged and still load-bearing: where a source
+    genuinely provides no identifier, the scope stays the user's own selection
+    and the focus reports what it cannot establish instead of guessing."""
     context = _post(
         client,
         "/api/simulation/context",

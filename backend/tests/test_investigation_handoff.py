@@ -6,10 +6,11 @@ survives the context contract intact, reaches the simulation endpoints
 unchanged, and carries none of RCA's authored figures with it.
 
 The hand-off narrows by IDENTIFIERS THE SOURCE PROVIDES. A risk alert carries
-a real `promotion_id`; its channel and product arrive as display names, and the
-underperforming table carries no identifier at all. So the tests below use the
-promotion narrowing that is genuinely available, and assert that nothing
-invents the rest.
+a real `promotion_id` while its channel and product arrive as display names; an
+underperforming row carries the promotion, product and channel codes of the
+event it measured. Neither can narrow to a week, because FilterState has none.
+So the tests below use the promotion narrowing that is genuinely available, and
+assert that nothing invents the rest.
 
 Run with:
 

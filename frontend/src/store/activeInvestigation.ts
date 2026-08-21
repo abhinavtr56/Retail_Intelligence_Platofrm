@@ -26,12 +26,16 @@ export type InvestigationOrigin = 'risk_alert' | 'underperforming' | 'query'
  *
  *  THE ONE RULE HERE. `filters` is the Command Center's own validated
  *  FilterState, narrowed only by identifiers the source ACTUALLY PROVIDED.
- *  Display labels stay in `labels` and are never turned into codes: a risk
- *  alert carries a real `promotion_id`, but its channel and product arrive as
- *  names ("Modern Trade", not "CH002"), and the underperforming table carries
- *  no identifier at all. Converting a name back into a code by guessing would
- *  be a second filter model wearing a disguise, and it would silently select
- *  different rows from the ones the user clicked.
+ *  Display labels stay in `labels` and are never turned into codes.
+ *  Converting a name back into a code by guessing would be a second filter
+ *  model wearing a disguise, and it would silently select different rows from
+ *  the ones the user clicked.
+ *
+ *  WHAT EACH SOURCE PROVIDES. A risk alert carries a real `promotion_id`,
+ *  while its channel and product arrive as display names and so narrow
+ *  nothing. An underperforming row carries the promotion, product and channel
+ *  codes of the event it measured, so all three narrow. Neither can narrow to
+ *  a week: FilterState has no week.
  */
 export interface InvestigationScope {
   /** The validated Command Center FilterState at the moment of hand-off. */
@@ -40,7 +44,7 @@ export interface InvestigationScope {
   /** What the user clicked, for display. */
   label: string
   /** Real identifiers the source genuinely provided. Absent means absent. */
-  identifiers: { promotion_id?: string }
+  identifiers: { promotion_id?: string; product_id?: string; channel_id?: string }
   /** Display-only attributes. NOT converted into filters — see above. */
   labels: { product?: string; channel?: string; week?: string; period?: string }
   at: number

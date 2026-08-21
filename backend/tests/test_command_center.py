@@ -254,6 +254,74 @@ def test_alerts_and_underperformers_share_one_roi():
         assert alert["roi_pct"] == events[alert["id"]]
 
 
+def test_alerts_carry_the_event_identifiers_but_never_a_week_filter():
+    """An alert names its event with codes, and its week stays a label.
+
+    The codes are what a drill-down narrows by. The week is deliberately not
+    among them: `promotion_events` measures an event against the non-promoted
+    rows of the SELECTION, and a scope narrowed to the promoted week has none,
+    so the counterfactual disappears and the ROI collapses. Asserted here so
+    nobody later 'completes' the set by adding one.
+    """
+    state = FilterState.build(year=YEAR)
+    events = {e.key: e for e in service.promotion_events(state)}
+    alerts = service.risk_alerts(state, limit=500)["alerts"]
+    assert alerts, "no alerts to check"
+
+    for alert in alerts:
+        event = events[alert["id"]]
+        assert alert["promotion_id"] == event.promotion_id
+        assert alert["product_id"] == event.product_id
+        assert alert["channel_id"] == event.channel_id
+        assert alert["week"] == event.week_key
+
+    # The collapse itself, on the event the alert names.
+    alert = alerts[0]
+    event = events[alert["id"]]
+    narrowed = FilterState.build(
+        year=YEAR,
+        promotion=[alert["promotion_id"]],
+        product=[alert["product_id"]],
+        channel=[alert["channel_id"]],
+    )
+    volume = baseline_rows_for(narrowed)
+    week_only = tuple(r for r in volume if r.week_key == event.week_key)
+    assert any(not r.is_promoted for r in volume), "the scope keeps a counterfactual"
+    assert not any(not r.is_promoted for r in week_only), (
+        "the promoted week carries no non-promoted row -- which is why week is "
+        "not a filter"
+    )
+
+
+def test_narrowing_by_an_alerts_identifiers_reproduces_its_roi():
+    """The alert's ROI and the narrowed scope's ROI are one number.
+
+    Same contract as the underperforming table: exact where the event's
+    (promotion, product, channel) traded in a single week, pooled otherwise --
+    the part a week filter could not fix without destroying the baseline.
+    """
+    state = FilterState.build(year=YEAR)
+    alerts = service.risk_alerts(state, limit=500)["alerts"]
+
+    checked = 0
+    for alert in alerts:
+        narrowed = FilterState.build(
+            year=YEAR,
+            promotion=[alert["promotion_id"]],
+            product=[alert["product_id"]],
+            channel=[alert["channel_id"]],
+        )
+        weeks = {r.week_key for r in rows_for(narrowed) if r.is_promoted}
+        if weeks != {alert["week"]}:
+            continue
+        kpis = service.kpis(narrowed)["kpis"]
+        assert kpis["promotion_roi"]["value"] == pytest.approx(alert["roi_pct"], abs=0.05)
+        assert kpis["trade_spend"]["value"] == pytest.approx(alert["trade_spend"], rel=1e-9)
+        checked += 1
+
+    assert checked, "no single-week alert available to check the drill-down against"
+
+
 def test_severity_bands_match_the_spec():
     """Critical < 25 <= High < 40 <= Medium < 50 <= target achieved."""
     assert service._severity(10.0) == "critical"
@@ -280,6 +348,63 @@ def test_underperformers_are_ranked_by_at_stake():
     payload = service.underperforming_promotions(FilterState.build(year=YEAR), limit=50)
     at_stake = [row["at_stake"] for row in payload["rows"]]
     assert at_stake == sorted(at_stake, reverse=True)
+
+
+def test_underperforming_rows_carry_the_event_identifiers():
+    """Each row exposes the codes of the event it measured, not just labels.
+
+    The hand-off into the Simulation Studio narrows by these. If they were
+    absent -- or were display names -- a click could only carry the user's
+    existing selection, and the studio would answer for a whole promotion
+    while the row on screen described one SKU in one channel in one week.
+    """
+    state = FilterState.build(year=YEAR)
+    events = {e.key: e for e in service.promotion_events(state)}
+    payload = service.underperforming_promotions(state, limit=200)
+    assert payload["rows"], "no underperforming rows to check"
+
+    for row in payload["rows"]:
+        key = f"{row['product_id']}|{row['channel_id']}|{row['period']}|{row['promotion_id']}"
+        event = events.get(key)
+        assert event is not None, f"row identifiers do not name a real event: {key}"
+        # The codes belong to the same event the displayed figures came from.
+        assert row["roi_pct"] == event.roi_pct
+        assert row["trade_spend"] == event.trade_spend
+        assert row["promotion"] == event.promotion_name
+        assert row["product"] == event.product_name.strip()
+        assert row["channel"] == event.channel_name
+
+
+def test_narrowing_by_a_rows_identifiers_reproduces_its_roi():
+    """The drill-down contract, end to end.
+
+    Filtering the SAME scope by a row's three codes must select that event's
+    rows and no others -- which is what makes the Command Center's row and the
+    Simulation Studio's Current Plan describe one population. Asserted on rows
+    whose (promotion, product, channel) traded in exactly one week, because a
+    week is the one part of the grain FilterState cannot express: where the
+    pair traded in several weeks the narrowed scope legitimately pools them.
+    """
+    state = FilterState.build(year=YEAR)
+    payload = service.underperforming_promotions(state, limit=200)
+
+    checked = 0
+    for row in payload["rows"]:
+        narrowed = FilterState.build(
+            year=YEAR,
+            promotion=[row["promotion_id"]],
+            product=[row["product_id"]],
+            channel=[row["channel_id"]],
+        )
+        weeks = {r.week_key for r in rows_for(narrowed) if r.is_promoted}
+        if weeks != {row["period"]}:
+            continue  # Pair traded in more than one week -- pooling is correct.
+        kpis = service.kpis(narrowed)["kpis"]
+        assert kpis["promotion_roi"]["value"] == pytest.approx(row["roi_pct"], abs=0.05)
+        assert kpis["trade_spend"]["value"] == pytest.approx(row["trade_spend"], rel=1e-9)
+        checked += 1
+
+    assert checked, "no single-week event available to check the drill-down against"
 
 
 def test_every_underperformer_is_below_target():
