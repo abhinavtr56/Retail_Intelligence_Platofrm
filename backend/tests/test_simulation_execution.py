@@ -42,6 +42,13 @@ SCOPES = {
 }
 DISCOUNT = {"PR001": 5, "PR002": 10, "PR003": 15, "PS001": 20, "PB001": 25}
 
+#: One promoted SKU in one channel, whose Brand Form neighbours did not trade
+#: there that week. The engine reports no comparable event however wide the row
+#: set is -- a genuine absence of evidence rather than a starved scope.
+NO_EVIDENCE_SCOPE = {
+    "year": YEAR, "promotion": ["PBDU25"], "product": ["P13-240ct"], "channel": ["CH003"],
+}
+
 #: The engine rounds ROI to one decimal place, so an exact algebraic identity
 #: can still land up to half a step away. Everything looser than this would be
 #: hiding a real disagreement.
@@ -78,8 +85,13 @@ def _synth(state: FilterState, uplift: float, discount: float):
     """The same three row sets the service builds, rebuilt here independently
     so a test can call the engine directly on them."""
     rows, volume_rows = rows_for(state), baseline_rows_for(state)
+    # The cannibalization set takes BOTH widenings unconditionally, mirroring
+    # `service._bundle` and `execution._evaluate`: the Brand Form for the
+    # neighbours, and `baseline_rows_for` for the non-promoted rows every
+    # baseline is derived from. A scenario scope names a promotion, so without
+    # the second one this set holds no non-promoted row and the metric starves.
     widened = state.widened_to_brand_form()
-    family_rows = baseline_rows_for(widened) if widened != state else ()
+    family_rows = baseline_rows_for(widened)
     targets = execution._target_keys(rows)
     baselines = execution._baselines(volume_rows)
     return (
@@ -336,7 +348,13 @@ def test_cannibalization_is_labelled_engine_derived(client):
     assert "Engine-derived" in available["note"]
     assert "no cannibalization response" in available["note"]
 
-    absent = _ok(client, SCOPES["PR002"], 10)["result"]["low"]["kpis"]["cannibalization"]
+    # A scope with no evidence LEFT once the engine has been given everything
+    # it asks for: one SKU in one channel, whose Brand Form siblings never
+    # traded in that channel in the promoted week, so no adjacent pack exists
+    # to measure a loss against. It must stay null -- not zero -- and say why.
+    # (It is NOT an Offer-filtered scope: those starved on the row set rather
+    # than on the evidence, which is the defect this file now guards against.)
+    absent = _ok(client, NO_EVIDENCE_SCOPE, 10)["result"]["low"]["kpis"]["cannibalization"]
     assert absent["available"] is False
     assert absent["value"] is None
     assert absent["unavailable_reason"], "an absent KPI must say why"

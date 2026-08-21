@@ -35,6 +35,13 @@ from app.tpo.risk import RISK_POLICY, UNDEFINED_THRESHOLDS, assess
 YEAR = 2025
 SCOPE = {"year": YEAR, "channel": ["CH002"]}
 OFFER_SCOPE = {"year": YEAR, "channel": ["CH002"], "promotion": ["PBDU25"]}
+#: A scope the cannibalization engine genuinely cannot measure: one SKU in one
+#: channel with no Brand Form neighbour trading there that week. An Offer
+#: filter alone is NOT such a scope -- it used to look like one only because
+#: the row set handed to the metric held no non-promoted row at all.
+NO_CANNIBALIZATION_EVIDENCE = {
+    "year": YEAR, "channel": ["CH003"], "promotion": ["PBDU25"], "product": ["P13-240ct"],
+}
 
 
 @pytest.fixture(scope="session")
@@ -164,7 +171,9 @@ def test_cannibalization_available_is_reported_without_a_verdict(clear_scenario)
 
 def test_cannibalization_unavailable_keeps_the_engines_reason(client):
     """7. Never zero-filled."""
-    finding = _finding(assess(_simulate(client, 10, "x", OFFER_SCOPE)), "cannibalization")
+    finding = _finding(
+        assess(_simulate(client, 10, "x", NO_CANNIBALIZATION_EVIDENCE)), "cannibalization"
+    )
     assert finding["status"] == "unknown"
     assert finding["severity"] == "unknown"
     assert finding["evidence"]["available"] is False

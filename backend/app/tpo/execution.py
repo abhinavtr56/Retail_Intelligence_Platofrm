@@ -271,8 +271,13 @@ def _evaluate(
     """
     rows = rows_for(state)
     volume_rows = baseline_rows_for(state)
+    # Both widenings, exactly as `service._bundle` resolves them -- the Brand
+    # Form for the neighbours, and `baseline_rows_for` for the non-promoted
+    # rows every baseline is derived from. A scenario has to be scoped the same
+    # way a measurement is, and a scenario scope names a promotion by
+    # definition, so the un-widened set holds no non-promoted row at all.
     widened = state.widened_to_brand_form()
-    family_rows = baseline_rows_for(widened) if widened != state else ()
+    family_rows = baseline_rows_for(widened)
 
     # Targets are taken from the SELECTION. A sibling SKU's own promotion,
     # pulled in only by the Brand-Form widening, is not this scenario's
@@ -292,6 +297,9 @@ def _evaluate(
         if family_rows
         else Synthesis((), 0)
     )
+    # `targets` come from the selection, so the siblings the widening brought
+    # in keep their measured values and only this scenario's own promoted rows
+    # are re-based.
 
     bundle = A.calculate_kpis(
         cf_rows.rows,

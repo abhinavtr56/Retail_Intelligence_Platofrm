@@ -267,8 +267,18 @@ def test_no_midpoint_is_produced(record):
 
 
 def test_unavailable_metrics_stay_unavailable(client, journey):
-    """9. Never zero-filled, and the engine's reason survives."""
-    offer_scope = {"year": YEAR, "channel": ["CH002"], "promotion": ["PBDU25"]}
+    """9. Never zero-filled, and the engine's reason survives.
+
+    The scope is one where the cannibalization evidence is genuinely absent --
+    a single SKU in a single channel with no Brand Form neighbour trading
+    there that week. An Offer filter no longer produces an unavailable metric:
+    it only did so while the row set handed to the metric held no non-promoted
+    row, which is the defect the widening fixed.
+    """
+    offer_scope = {
+        "year": YEAR, "channel": ["CH003"], "promotion": ["PBDU25"],
+        "product": ["P13-240ct"],
+    }
     context = _post(
         client, "/api/simulation/context",
         {"filters": offer_scope, "question": QUESTION, "investigation_started": True},

@@ -33,6 +33,13 @@ from app.tpo import comparison, config, response
 YEAR = 2025
 SCOPE = {"year": YEAR, "channel": ["CH002"], "promotion": ["PBDU25"]}
 OTHER_SCOPE = {"year": YEAR, "channel": ["CH001"], "promotion": ["PBDI25"]}
+#: A scope whose cannibalization the engine genuinely cannot measure: one SKU
+#: in one channel with no Brand Form neighbour trading there that week. An
+#: Offer filter alone is NOT one -- that only looked unavailable while the
+#: metric was handed a row set holding no non-promoted row at all.
+NO_CANNIBALIZATION_EVIDENCE = {
+    "year": YEAR, "channel": ["CH003"], "promotion": ["PBDU25"], "product": ["P13-240ct"],
+}
 
 METRIC_KEYS = {
     "trade_spend", "incremental_units", "incremental_sales",
@@ -210,10 +217,27 @@ def test_the_range_is_never_called_a_confidence_interval(client, baseline, optim
 # --- 8, 15: unavailable KPIs ------------------------------------------------
 
 
-def test_an_unavailable_kpi_stays_unavailable(client, baseline, optimized):
-    """8, 15. Cannibalization is unavailable for an offer-filtered scope. It
-    keeps its reason and gets a null delta -- never a zero."""
-    metric = _metric(_compare(client, [baseline, optimized]), "cannibalization")
+def test_an_unavailable_kpi_stays_unavailable(client):
+    """8, 15. A KPI the engine cannot measure keeps its reason and gets a null
+    delta -- never a zero.
+
+    Built on its own scope rather than the module's: cannibalization is
+    measurable for an Offer-filtered scope now that the metric is handed the
+    Brand-Form and baseline-widened rows it asks for, so an unavailable case
+    has to be one where the EVIDENCE is genuinely absent.
+    """
+    run = client.post(
+        "/api/simulation/run", json={"filters": NO_CANNIBALIZATION_EVIDENCE}
+    ).json()
+    base = {
+        "scenario_id": "current-plan", "name": "Current Plan",
+        "measured": run["kpis"], "scope": run["scope"]["filters_applied"],
+    }
+    scenario = _simulate(client, 10, filters=NO_CANNIBALIZATION_EVIDENCE)
+    metric = _metric(
+        _compare(client, [base, scenario], filters=NO_CANNIBALIZATION_EVIDENCE),
+        "cannibalization",
+    )
 
     assert metric["baseline"]["available"] is False
     assert metric["baseline"]["value"] is None

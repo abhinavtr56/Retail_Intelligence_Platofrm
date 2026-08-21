@@ -131,10 +131,36 @@ def _bundle(state: FilterState) -> tuple[A.KpiBundle, str | None]:
     previous_rows = rows_for(previous_state) if previous_state else ()
     previous_volume = baseline_rows_for(previous_state) if previous_state else ()
 
+    # THE CANNIBALIZATION SCOPE. Two widenings, and BOTH are required before
+    # the metric can be measured at all:
+    #
+    #   * `widened_to_brand_form()` lifts a Product filter to the SKU's Brand
+    #     Form, so the neighbours a promoted pack steals from are present. The
+    #     Product filter still travels separately as `promoted_products`, so a
+    #     sibling can be a victim but never a promoter.
+    #   * `baseline_rows_for` re-admits the NON-PROMOTED rows. Cannibalization
+    #     needs them twice over -- `_sku_baselines` derives every baseline from
+    #     them, and a neighbour only counts as a victim if it was un-promoted
+    #     that week.
+    #
+    # The second one used to be conditional on the first, which starved the
+    # metric under an Offer filter: `rows_for` drops every non-promoted row
+    # when a promotion is selected, so no SKU had a baseline and EVERY
+    # candidate event was excluded ("no non-promoted row in this selection").
+    # A scope naming one promotion -- the Simulation Studio's normal scope, and
+    # the Command Center's whenever an Offer is picked -- could therefore never
+    # report a rate, however much evidence the Brand Form held.
+    #
+    # For every other scope shape this is the same row set as before:
+    # `baseline_rows_for` returns `rows_for` unchanged when no Offer or
+    # Promotion-type filter is active, and a Product-filtered scope already
+    # took this path. Nothing but cannibalization reads these rows -- see
+    # `aggregate.calculate_kpis`, where `family_rows` feeds `cannib_rows` and
+    # nothing else.
     widened = state.widened_to_brand_form()
-    family_rows = baseline_rows_for(widened) if widened != state else ()
+    family_rows = baseline_rows_for(widened)
     previous_family = ()
-    if previous_state is not None and widened != state:
+    if previous_state is not None:
         previous_family = baseline_rows_for(previous_state.widened_to_brand_form())
 
     bundle = A.calculate_kpis(
