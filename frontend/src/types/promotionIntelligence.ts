@@ -159,4 +159,6 @@ export interface InvestigationContext {
 export interface IntelligenceContextResponse {
   investigation: InvestigationContext | null
   analysis: { run_id: string; created_at: number } | null
+  /** Other completed investigations that could be deepened instead. */
+  available: { run_id: string; question: string; created_at: number }[]
 }

@@ -25,6 +25,7 @@ import { calendarYear } from '../lib/labels'
 import { FilterBar } from '../components/command/FilterBar'
 import { PromotionMixCard } from '../components/command/PromotionMixCard'
 import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
+import { ASK_WHY_STATE_KEY, buildAskWhyIntent } from '../lib/askWhy'
 import { topPriorityAlert } from '../components/command/riskRanking'
 import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
 import { TrendPanels } from '../components/command/TrendPanels'
@@ -375,8 +376,19 @@ export function CommandCenter() {
             <RiskAlertsPanel
               data={alerts.data}
               onSelect={(a) => {
-                show(`Opening "${a.title}" investigation...`, { duration: 1500 })
-                window.setTimeout(() => navigate('/investigations'), 700)
+                // Carry the alert across. `week` is this payload's name for the
+                // period; without it the question loses its timeframe.
+                const intent = buildAskWhyIntent({
+                  promotion: a.title?.split('—').pop()?.trim() ?? a.title,
+                  product: a.product,
+                  channel: a.channel,
+                  period: a.week,
+                  roi_pct: a.roi_pct,
+                  title: a.title,
+                  description: a.description,
+                })
+                show(`Investigating "${a.title}"…`, { duration: 1500 })
+                navigate('/investigations', { state: { [ASK_WHY_STATE_KEY]: intent } })
               }}
             />
           ) : (
@@ -450,15 +462,20 @@ export function CommandCenter() {
                     </Td>
                     <Td>
                       {/* The recommended action rides as the tooltip so the
-                          control stays one line — the row itself already opens
-                          the RCA view, and this makes that affordance explicit. */}
-                      <span
+                          control stays one line. This button is the RCA entry
+                          point — it hands the row's context to Investigations. */}
+                      <button
                         title={p.action}
+                        onClick={() =>
+                          navigate('/investigations', {
+                            state: { [ASK_WHY_STATE_KEY]: buildAskWhyIntent(p) },
+                          })
+                        }
                         className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
                       >
                         Ask why
                         <Icon name="arrowRight" />
-                      </span>
+                      </button>
                     </Td>
                   </Tr>
                 ))}

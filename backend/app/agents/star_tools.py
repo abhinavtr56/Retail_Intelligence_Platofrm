@@ -79,12 +79,25 @@ def schema_summary() -> dict[str, Any]:
     }
 
 
+def _bounded_int(value: Any, low: int, high: int) -> int | None:
+    """Accept an integer only inside a sensible range, else drop it.
+
+    A planner reading "week 41 of 2025" will happily emit month=41, and the
+    engine's formatter indexes a 12-element month list — so an unchecked value
+    becomes an IndexError deep inside code that is not ours. Validating at this
+    boundary keeps malformed model output from ever reaching the KPI engine.
+    """
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return n if low <= n <= high else None
+
+
 def build_filter_state(raw: dict[str, Any] | None) -> FilterState:
-    """Build a FilterState from planner output, ignoring anything unknown so a
-    hallucinated key can't crash a run."""
+    """Build a FilterState from planner output, ignoring anything unknown or
+    out of range so malformed model output can't crash a run."""
     raw = raw or {}
-    year = raw.get("year")
-    month = raw.get("month")
     lists: dict[str, list[str]] = {}
     for field in _LIST_FIELDS:
         value = raw.get(field)
@@ -95,8 +108,8 @@ def build_filter_state(raw: dict[str, Any] | None) -> FilterState:
         if isinstance(value, list) and value:
             lists[field] = [str(v) for v in value]
     return FilterState.build(
-        year=int(year) if isinstance(year, (int, str)) and str(year).isdigit() else None,
-        month=int(month) if isinstance(month, (int, str)) and str(month).isdigit() else None,
+        year=_bounded_int(raw.get("year"), 1900, 2200),
+        month=_bounded_int(raw.get("month"), 1, 12),
         **lists,
     )
 

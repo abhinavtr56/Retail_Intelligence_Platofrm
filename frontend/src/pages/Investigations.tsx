@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import {
   Button,
@@ -22,6 +22,7 @@ import {
 import { useStartInvestigationRun, useInvestigationRun } from '../hooks/useInvestigationRun'
 import { useDatasets } from '../hooks/useDatasets'
 import { ApiError } from '../lib/api'
+import { ASK_WHY_STATE_KEY, type AskWhyIntent } from '../lib/askWhy'
 import { useFocus } from '../hooks/useNav'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { InvestigationGraph } from '../components/investigations/InvestigationGraph'
@@ -55,6 +56,50 @@ function inferTypeOffline(q: string): InvestigationType {
   return 'diagnostic'
 }
 
+/** The landing state: a prompt, not a pre-baked answer. Example questions come
+ *  from the archetype metadata so they stay in step with what the agents can
+ *  actually investigate. */
+function AskSomething({
+  types,
+  onPick,
+}: {
+  types: { key: string; title: string; desc?: string; questions?: string[] }[] | undefined
+  onPick: (q: string) => void
+}) {
+  return (
+    <Card className="fade-in mt-4">
+      <div className="grid place-items-center gap-2 p-[36px_24px_10px] text-center">
+        <div className="grid h-12 w-12 place-items-center rounded-xl bg-brand-violet-50 text-brand-violet">
+          <Icon name="search" className="h-6 w-6" />
+        </div>
+        <h2 className="text-lg font-extrabold">Ask a question to start an investigation</h2>
+        <p className="max-w-[520px] text-[13px] leading-[1.6] text-ink-muted">
+          Specialist agents will pick the analyses your question needs, run them against your data, and report a root
+          cause with evidence. Ask in plain English, or start from one of these.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 p-[14px_24px_26px] max-[900px]:grid-cols-1">
+        {(types ?? []).map((t) => (
+          <div key={t.key} className="rounded-[var(--r-lg)] border border-border-subtle p-[12px_14px]">
+            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">{t.title}</div>
+            <div className="flex flex-col gap-1.5">
+              {(t.questions ?? []).slice(0, 2).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => onPick(q)}
+                  className="text-left text-[12.5px] leading-[1.5] text-brand-violet hover:underline"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 type AccelState = 'queued' | 'progress' | 'done'
 
 export function Investigations() {
@@ -81,6 +126,18 @@ export function Investigations() {
     ? `${selectedDataset.filename} · ${selectedDataset.rows.toLocaleString()} rows`
     : 'TPO star schema (built-in)'
   const liveOrch = run?.status === 'done' ? run.result?.orchestration : undefined
+
+  // An "Ask why" handoff from the Command Center arrives as router state.
+  const location = useLocation()
+  const intent = (location.state as Record<string, unknown> | null)?.[ASK_WHY_STATE_KEY] as
+    | AskWhyIntent
+    | undefined
+
+  // Nothing is rendered until the user actually asks something. Opening the
+  // page from the sidebar used to show a hardcoded question and a sample graph
+  // — an answer to a question nobody asked.
+  const [hasAsked, setHasAsked] = useState(Boolean(intent))
+  const [handoffLabel, setHandoffLabel] = useState<string | undefined>(intent?.sourceLabel)
 
   const typeMeta = types?.find((t) => t.key === activeType) ?? types?.[0]
 
@@ -207,16 +264,11 @@ export function Investigations() {
 
   const legend = legacy?.legend ?? []
 
-  const runQuery = () => {
-    const q = queryInput.trim()
-    if (!q) {
-      show('Type a question for TIQ to investigate', { duration: 2000 })
-      return
-    }
-
-    // Always a real agent run now. Omitting dataset_id investigates the
-    // built-in star schema; passing one investigates that uploaded file.
+  // Always a real agent run. Omitting dataset_id investigates the built-in
+  // star schema; passing one investigates that uploaded file.
+  const launch = (q: string) => {
     setRunId(undefined)
+    setHasAsked(true)
     setSubmitting(true)
     startRun.mutate(
       { question: q, dataset_id: datasetId ?? null },
@@ -235,9 +287,32 @@ export function Investigations() {
     )
   }
 
+  const runQuery = () => {
+    const q = queryInput.trim()
+    if (!q) {
+      show('Type a question for TIQ to investigate', { duration: 2000 })
+      return
+    }
+    launch(q)
+  }
+
+  // Arriving from "Ask why": fill the question in and start immediately. The
+  // user already expressed intent by clicking the alert; making them press
+  // enter again would be asking twice. Guarded on the intent's question so a
+  // re-render or a second handoff can't re-trigger the same run.
+  const launchedIntentRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!intent?.question || launchedIntentRef.current === intent.question) return
+    launchedIntentRef.current = intent.question
+    setQueryInput(intent.question)
+    setHandoffLabel(intent.sourceLabel)
+    if (intent.autoRun) launch(intent.question)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intent?.question])
+
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Investigations' }]
 
-  if (isLoading || !orch || !typeMeta) {
+  if (!typeMeta || (hasAsked && (isLoading || !orch))) {
     return (
       <AppShell activeKey="investigations" crumbs={crumbs}>
         <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Investigations…</div>
@@ -301,10 +376,10 @@ export function Investigations() {
 
   const progress = agentProgress ??
     liveProgress ?? {
-      pct: view.progress.pct,
-      insights: view.progress.insights,
-      sub: `${view.progress.completed} of ${view.progress.total} accelerators completed`,
-      confidence: view.progress.confidence,
+      pct: view?.progress.pct ?? 0,
+      insights: view?.progress.insights ?? 0,
+      sub: view ? `${view.progress.completed} of ${view.progress.total} accelerators completed` : '',
+      confidence: view?.progress.confidence ?? 0,
     }
 
   return (
@@ -319,7 +394,7 @@ export function Investigations() {
           </div>
           <p className="mt-1.5 text-sm text-ink-muted">
             Investigation Compression Engine · <strong className="text-brand-violet">{typeMeta.title}</strong> mode ·{' '}
-            {(runAccelerators ?? view.accelerators).length} specialist agents orchestrated
+            {(runAccelerators ?? view?.accelerators ?? []).length} specialist agents orchestrated
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -406,6 +481,7 @@ export function Investigations() {
             </Button>
           }
         />
+        {handoffLabel && <Pill tone="violet">{handoffLabel}</Pill>}
         {isAgentRun && <Pill tone="success">Live agent analysis</Pill>}
         {!datasets?.length && (
           <Link to="/home" className="font-semibold text-brand-violet">
@@ -455,6 +531,10 @@ export function Investigations() {
         </Card>
       )}
 
+      {!hasAsked || !view ? (
+        <AskSomething types={types} onPick={(q) => { setQueryInput(q); launch(q) }} />
+      ) : (
+        <>
       <BizQuestionCard typeMeta={typeMeta} question={activeQuestion} contextChips={view.contextChips} />
 
       <div className="grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
@@ -531,7 +611,10 @@ export function Investigations() {
         confidenceDelta={view.progress.confidenceDelta}
       />
 
-      {popover && (
+        </>
+      )}
+
+      {popover && view && (
         <NodeDetailPopover
           node={popover.node}
           detail={view.nodeDetails[popover.node.key]}

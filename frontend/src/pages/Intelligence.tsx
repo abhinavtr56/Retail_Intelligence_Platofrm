@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
-import { Button, Card, CardHeader, LiveStatus, Pill, Spinner, Tabs, useLiveStatus, useToast } from '../components/ui'
+import {
+  Button,
+  Card,
+  CardHeader,
+  Dropdown,
+  LiveStatus,
+  Pill,
+  Spinner,
+  Tabs,
+  useLiveStatus,
+  useToast,
+} from '../components/ui'
 import { Icon } from '../icons'
 import { ApiError } from '../lib/api'
 import {
@@ -107,13 +118,28 @@ function NoInvestigation() {
 }
 
 /** The investigation being deepened — scope, root cause, what its agents found. */
-function InvestigationHeader({ ctx }: { ctx: InvestigationContext }) {
+function InvestigationHeader({
+  ctx,
+  available,
+  onPick,
+}: {
+  ctx: InvestigationContext
+  available: { run_id: string; question: string; created_at: number }[]
+  onPick: (runId: string) => void
+}) {
+  const when = new Date(ctx.created_at).toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const others = available.filter((a) => a.run_id !== ctx.run_id)
   return (
     <Card className="fade-in mt-4">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle p-[14px_18px]">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <Pill tone="violet">Deepening investigation</Pill>
+            <Pill tone="violet">Deepening your investigation from {when}</Pill>
             {ctx.investigation_type && <Pill tone="neutral">{ctx.investigation_type}</Pill>}
             <Pill tone="neutral">{describeScope(ctx.scope)}</Pill>
             {ctx.confidence != null && <Pill tone="success">{ctx.confidence}% confidence</Pill>}
@@ -126,9 +152,26 @@ function InvestigationHeader({ ctx }: { ctx: InvestigationContext }) {
             </div>
           )}
         </div>
-        <Link to="/investigations" className="shrink-0 whitespace-nowrap text-[12.5px] font-semibold text-brand-violet">
-          ← Back to investigation
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          {others.length > 0 && (
+            <Dropdown
+              selected={ctx.run_id}
+              options={[
+                { label: `${ctx.question.slice(0, 60)} (current)`, value: ctx.run_id },
+                ...others.map((a) => ({ label: a.question.slice(0, 60), value: a.run_id })),
+              ]}
+              onSelect={(v) => onPick(v)}
+              trigger={
+                <Button variant="ghost" size="sm" className="cursor-pointer">
+                  Switch investigation <Icon name="chevronDown" />
+                </Button>
+              }
+            />
+          )}
+          <Link to="/investigations" className="whitespace-nowrap text-[12.5px] font-semibold text-brand-violet">
+            ← Back to investigation
+          </Link>
+        </div>
       </div>
       {ctx.findings.length > 0 && (
         <div className="flex flex-wrap gap-2 p-[12px_18px]">
@@ -163,9 +206,13 @@ export function Intelligence() {
 
   const [tab, setTab] = useState(0)
   const [runId, setRunId] = useState<string | undefined>(undefined)
+  // Which investigation to deepen. Undefined = the most recent one, which the
+  // header states explicitly rather than leaving the user to guess.
+  const [pickedRunId, setPickedRunId] = useState<string | undefined>(undefined)
 
-  const { data: context, isLoading: ctxLoading } = useIntelligenceContext()
+  const { data: context, isLoading: ctxLoading } = useIntelligenceContext(pickedRunId)
   const investigation = context?.investigation ?? null
+  const available = context?.available ?? []
 
   // Pick up an analysis already run against this investigation, so returning to
   // the page doesn't discard it (or pay for it twice).
@@ -263,7 +310,15 @@ export function Intelligence() {
         </div>
       </div>
 
-      <InvestigationHeader ctx={investigation} />
+      <InvestigationHeader
+        ctx={investigation}
+        available={available}
+        onPick={(id) => {
+          setPickedRunId(id)
+          setRunId(undefined) // the previous analysis belongs to the other investigation
+          setTab(0)
+        }}
+      />
 
       {/* Scope KPIs — the investigation's own numbers, not a portfolio dashboard */}
       {facts && k && (

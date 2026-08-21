@@ -16,7 +16,16 @@ interface ActiveInvestigationState {
   setActive: (type: InvestigationType, question: string) => void
 }
 
-const DEFAULT_QUESTION = 'Why did South Modern Trade Push underperform despite increased trade spend?'
+// Empty by design. A pre-filled question makes the Investigations page render
+// an answer nobody asked for; the page now starts blank until the user asks
+// something or arrives from an "Ask why" handoff.
+const DEFAULT_QUESTION = ''
+
+// The old default question is still sitting in localStorage for anyone who
+// used the app before, and persisted state wins over the initial value — so
+// clearing the constant alone would fix nothing for existing users. Version 2
+// drops it on load.
+const OLD_DEFAULT = 'Why did South Modern Trade Push underperform despite increased trade spend?'
 
 export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
   persist(
@@ -25,6 +34,16 @@ export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
       activeQuestion: DEFAULT_QUESTION,
       setActive: (type, question) => set({ activeType: type, activeQuestion: question }),
     }),
-    { name: 'tiq.activeInvestigation' },
+    {
+      name: 'tiq.activeInvestigation',
+      version: 2,
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<ActiveInvestigationState>
+        if (state.activeQuestion === OLD_DEFAULT) {
+          return { ...state, activeQuestion: '' } as ActiveInvestigationState
+        }
+        return state as ActiveInvestigationState
+      },
+    },
   ),
 )

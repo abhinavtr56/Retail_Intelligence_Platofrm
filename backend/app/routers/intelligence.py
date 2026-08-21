@@ -87,14 +87,32 @@ def get_facts(
 
 
 @router.get("/context")
-def get_context(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
+def get_context(
+    investigation_run_id: str | None = None, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
     """The investigation this page should deepen, plus any analysis already run
     against it — so the page can pick up where the user left off instead of
-    asking them to re-run."""
-    investigation = latest_completed(user["email_key"], kind="investigation")
+    asking them to re-run.
+
+    Defaults to the most recent completed investigation; pass
+    `investigation_run_id` to deepen a specific earlier one. `available` lists
+    what else could be chosen, so the page can say plainly which investigation
+    it is showing rather than silently resurrecting the newest.
+    """
+    if investigation_run_id:
+        investigation = get_run(investigation_run_id)
+        if not investigation or investigation.get("owner") != user["email_key"]:
+            raise HTTPException(404, "Investigation run not found.")
+    else:
+        investigation = latest_completed(user["email_key"], kind="investigation")
     analysis = latest_completed(user["email_key"], kind="intelligence")
+    available = [
+        {"run_id": r["id"], "question": r["question"], "created_at": r["created_at"]}
+        for r in list_runs(user["email_key"], limit=10, kind="investigation")
+        if r.get("status") == "done"
+    ]
     if not investigation:
-        return {"investigation": None, "analysis": None}
+        return {"investigation": None, "analysis": None, "available": available}
 
     result = investigation.get("result") or {}
     ctx = {
@@ -116,7 +134,7 @@ def get_context(user: dict[str, Any] = Depends(current_user)) -> dict[str, Any]:
     prior = None
     if analysis and (analysis.get("result") or {}).get("investigation_run_id") == investigation["id"]:
         prior = {"run_id": analysis["id"], "created_at": analysis.get("created_at")}
-    return {"investigation": ctx, "analysis": prior}
+    return {"investigation": ctx, "analysis": prior, "available": available}
 
 
 async def _execute(

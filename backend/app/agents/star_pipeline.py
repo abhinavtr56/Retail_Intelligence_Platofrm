@@ -26,7 +26,7 @@ from app.agents.pipeline import (
 from app.agents.roster import BY_KEY as ROSTER_BY_KEY
 from app.agents.roster import KEYS as ROSTER_KEYS
 from app.agents.roster import roster_catalogue
-from app.agents.star_tools import schema_summary, segment_kpis
+from app.agents.star_tools import _bounded_int, schema_summary, segment_kpis
 
 INVESTIGATION_TYPES = ["diagnostic", "optimization", "launch", "strategic"]
 
@@ -91,6 +91,9 @@ Given a business question, you must:
 2. Set `global_filters` to the scope the question implies (a year, a channel,
    a region). Use ONLY codes/values present in the schema summary. Set every
    field you are not constraining to null.
+   `month` is a calendar month, 1-12. A question naming a WEEK ("week 41") is
+   not naming a month — leave month null rather than putting the week number
+   in it.
 3. Assign the specialists who should investigate it.
 
 You do NOT invent analyses. You ASSIGN work to a standing team of specialists,
@@ -210,7 +213,18 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
     )
 
     def clean_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
-        return {k: v for k, v in (raw or {}).items() if v not in (None, [], "")}
+        """Drop empties, and drop year/month that fall outside real ranges.
+
+        A question mentioning "week 41" reliably tempts the planner into
+        month=41. Sanitising here keeps the bad value out of the stored scope,
+        the UI's scope label and the /facts query — not just out of FilterState.
+        """
+        out = {k: v for k, v in (raw or {}).items() if v not in (None, [], "")}
+        for key, low, high in (("year", 1900, 2200), ("month", 1, 12)):
+            if key in out:
+                if _bounded_int(out[key], low, high) is None:
+                    out.pop(key)
+        return out
 
     global_filters = clean_filters(plan.get("global_filters"))
     specialists: list[dict[str, Any]] = []

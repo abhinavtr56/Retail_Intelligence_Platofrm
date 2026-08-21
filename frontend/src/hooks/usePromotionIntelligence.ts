@@ -58,10 +58,13 @@ export function useFactSection(scope: IntelligenceScope, section: FactSection | 
 // The investigation this page is meant to deepen, and any analysis already run
 // against it. Promotion Intelligence is downstream of Investigations — without
 // one it has nothing to go deeper on.
-export function useIntelligenceContext() {
+export function useIntelligenceContext(investigationRunId?: string) {
   return useQuery({
-    queryKey: ['pi-context'],
-    queryFn: () => apiFetch<IntelligenceContextResponse>('/promotion-intelligence/context'),
+    queryKey: ['pi-context', investigationRunId ?? 'latest'],
+    queryFn: () =>
+      apiFetch<IntelligenceContextResponse>(
+        `/promotion-intelligence/context${investigationRunId ? `?investigation_run_id=${investigationRunId}` : ''}`,
+      ),
   })
 }
 

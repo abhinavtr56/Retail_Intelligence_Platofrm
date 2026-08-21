@@ -85,16 +85,38 @@ def get_run(run_id: str) -> dict[str, Any] | None:
         return _load().get(run_id)
 
 
+def run_kind(run: dict[str, Any]) -> str:
+    """A run's kind, inferred from its result when the field predates it.
+
+    Defaulting missing values to "investigation" put old Promotion Intelligence
+    runs into the investigations picker, offering "What is driving promotion
+    performance…" as something to deepen. The two results are structurally
+    distinct — investigations carry an `orchestration`, analyses carry
+    `analysis`/`recommendations` — so the shape is a reliable discriminator.
+    """
+    kind = run.get("kind")
+    if kind:
+        return str(kind)
+    result = run.get("result") or {}
+    if "orchestration" in result:
+        return "investigation"
+    if "analysis" in result or "recommendations" in result:
+        return "intelligence"
+    return "investigation"
+
+
 def list_runs(owner: str, limit: int = 20, kind: str | None = None) -> list[dict[str, Any]]:
-    """Summaries only — full results are large and the list view shows none of it.
-    Runs created before `kind` existed default to "investigation"."""
+    """Summaries only — full results are large and the list view shows none of it."""
     with _lock:
         runs = [r for r in _load().values() if r.get("owner") == owner]
     if kind:
-        runs = [r for r in runs if r.get("kind", "investigation") == kind]
+        runs = [r for r in runs if run_kind(r) == kind]
     runs.sort(key=lambda r: r["created_at"], reverse=True)
     return [
-        {k: r.get(k) for k in ("id", "kind", "question", "dataset_id", "status", "stage", "created_at", "updated_at")}
+        {
+            **{k: r.get(k) for k in ("id", "question", "dataset_id", "status", "stage", "created_at", "updated_at")},
+            "kind": run_kind(r),
+        }
         for r in runs[:limit]
     ]
 
@@ -105,6 +127,6 @@ def latest_completed(owner: str, kind: str = "investigation") -> dict[str, Any] 
     with _lock:
         runs = [
             r for r in _load().values()
-            if r.get("owner") == owner and r.get("kind", "investigation") == kind and r.get("status") == "done"
+            if r.get("owner") == owner and run_kind(r) == kind and r.get("status") == "done"
         ]
     return max(runs, key=lambda r: r["created_at"], default=None)
