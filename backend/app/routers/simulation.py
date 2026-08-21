@@ -20,7 +20,16 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.tpo import comparison, execution, investigation, recommendation, risk, simulation, weekly
+from app.tpo import (
+    comparison,
+    execution,
+    investigation,
+    optimization,
+    recommendation,
+    risk,
+    simulation,
+    weekly,
+)
 from app.tpo.filters import FilterState
 from app.tpo.response import UnapprovedDiscount
 
@@ -427,3 +436,96 @@ def run(body: SimulationRunRequest) -> dict[str, Any]:
         scenario_name=body.scenario_name,
         currency=body.currency,
     )
+
+
+# --- General Optimization ---------------------------------------------------
+#
+# A SECOND, SEPARATE MODE. It shares the ONE FilterState and the approved
+# promotion economics with the Investigation Simulation above, and nothing
+# else: no route here calls /run, /simulate, /compare, /recommend, /weekly or
+# /risk, and none of those changed to make room for these two.
+
+
+class GeneralOptimizationScopeRequest(BaseModel):
+    """The scope controls, before a budget has been chosen.
+
+    Deliberately NOT a `SimulationFilters`: this mode offers exactly three
+    dimensions -- category, channel and month -- and accepting the other eleven
+    would let a caller build a scope the screen cannot show or explain. The
+    fields are handed to the same `FilterState.build`, so they are the same
+    dimensions the rest of the project filters on.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: list[str] | None = None
+    channel: list[str] | None = None
+    month: Annotated[int | None, Field(ge=1, le=12)] = None
+    currency: Annotated[str, Field(pattern="^(INR|USD|inr|usd)$")] = "INR"
+
+    def to_state(self) -> FilterState:
+        # `year` is deliberately absent. The historical reference is BOTH 2024
+        # and 2025 by contract, and the service resolves each year itself --
+        # letting a caller pin one would silently halve the reference.
+        return FilterState.build(month=self.month, category=self.category, channel=self.channel)
+
+
+class GeneralOptimizationRequest(GeneralOptimizationScopeRequest):
+    """The scope plus the business constraints.
+
+    `max_trade_spend` is bounded by the historical average for the selected
+    scope, which the client learns from /general-optimization/scope. A value
+    above it is clamped by the service rather than rejected, and the response
+    reports the clamp -- a slider that has drifted out of date should not lose
+    the user their request.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    max_trade_spend: Annotated[float, Field(ge=0)]
+    min_discount_pct: Annotated[float, Field(ge=0, le=100)] = 0.0
+    max_discount_pct: Annotated[float, Field(ge=0, le=100)] = optimization.MAX_DISCOUNT_PCT
+
+
+@router.post("/general-optimization/scope")
+def general_optimization_scope(body: GeneralOptimizationScopeRequest) -> dict[str, Any]:
+    """Measure the selected scope so its controls can be bounded.
+
+    The trade-spend ceiling is the one thing the client cannot work out for
+    itself: it is the mean Trade Spend across 2024 and 2025 for this category,
+    channel and month, measured by the validated engine. Optimises nothing.
+    """
+    try:
+        state = body.to_state()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return optimization.scope(state, currency=body.currency)
+
+
+@router.post("/general-optimization")
+def general_optimization(body: GeneralOptimizationRequest) -> dict[str, Any]:
+    """Allocate a trade-spend budget across the selected scope.
+
+    Maximises optimized revenue at the bottom of each approved uplift band
+    subject to optimized trade spend at the TOP of that band staying inside the
+    ceiling. Every treatment it may place is one of the five approved depths;
+    it interpolates none of them, and a plan it could not produce comes back as
+    a status with the reason and no numbers.
+    """
+    try:
+        state = body.to_state()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
+        return optimization.optimize(
+            state,
+            max_trade_spend=body.max_trade_spend,
+            min_discount_pct=body.min_discount_pct,
+            max_discount_pct=body.max_discount_pct,
+            currency=body.currency,
+        )
+    except optimization.InvalidConstraints as exc:
+        # 422: the scope is well-formed and the constraints contradict each
+        # other. A clamped or emptied plan would hide the contradiction.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

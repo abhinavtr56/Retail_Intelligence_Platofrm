@@ -32,6 +32,9 @@ import { RiskPanel, RiskEmptyState } from '../components/simulation/RiskPanel'
 import { LeverPanel } from '../components/simulation/LeverPanel'
 import { ScenarioResultPanel, NotSimulatedPanel } from '../components/simulation/ScenarioResultPanel'
 import { KpiTable, NoDataPanel } from '../components/simulation/panels'
+import { GeneralOptimization } from '../components/optimization/GeneralOptimization'
+import { useGeneralOptimizationStore, type SimulationMode } from '../store/generalOptimization'
+import { useFilterOptions } from '../hooks/useCommandCenter'
 
 /** TPO Simulation Studio.
  *
@@ -66,6 +69,18 @@ export function Simulation() {
   //
   // Either way this is ONE FilterState, and it is the one /run and /simulate
   // receive. Neither path invents a filter.
+  // THE MODE SWITCH. General Optimization is a SECOND, SEPARATE workspace,
+  // not a variant of this one: it has its own service, its own controls and
+  // its own store, and nothing below this line reads it. Every hook on this
+  // page still runs in either mode -- the branch is in the JSX, not around
+  // the hooks -- so switching back is instant and the investigation path
+  // never observes that it was away.
+  const mode = useGeneralOptimizationStore((s) => s.mode)
+  const setMode = useGeneralOptimizationStore((s) => s.setMode)
+  // The option lists General Optimization's own pickers read. The same
+  // endpoint the Command Center uses; no second source of dimension values.
+  const filterOptions = useFilterOptions()
+
   const commandFilters = useCommandFilters((s) => s.filters)
   const currency = useCommandFilters((s) => s.currency)
   const filters = investigationScope?.filters ?? commandFilters
@@ -356,329 +371,394 @@ export function Simulation() {
             <LiveStatus label={live.label} />
           </div>
           <p className="mt-1.5 text-sm text-ink-muted">
-            The measured promotion plan for the current selection, and what an approved treatment would do to
-            it.
+            {mode === 'general'
+              ? 'Allocate a trade-spend budget across a category and channel, at approved discount depths.'
+              : 'The measured promotion plan for the current selection, and what an approved treatment would do to it.'}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => run.mutate(body, { onSuccess: (d) => seed(scopeKey, d.scenarios) })} disabled={run.isPending}>
-          <Icon name="refresh" /> <span>Recalculate</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <ModeSwitch mode={mode} onChange={setMode} />
+          {mode === 'investigation' && (
+            <Button variant="secondary" onClick={() => run.mutate(body, { onSuccess: (d) => seed(scopeKey, d.scenarios) })} disabled={run.isPending}>
+              <Icon name="refresh" /> <span>Recalculate</span>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {typeMeta && (
+      {/* THE TWO MODES. General Optimization renders INSTEAD of the
+          investigation workspace, never beside it -- one page shell, one
+          router entry, two workspaces. Nothing below is duplicated for it,
+          and nothing below changed to make room. */}
+      {mode === 'general' ? (
         <div className="mt-4">
-          <ActiveInvBanner
-            typeMeta={typeMeta}
-            // The RESOLVED question, not the raw store value. The store seeds
-            // itself with an example, and this banner sitting next to the
-            // context bar showing "no question yet" would contradict it.
-            question={context.data?.question.value ?? 'No investigation question yet'}
-            proceedTo="/decision"
-            proceedLabel="Open Decision Center"
-            proceedIcon="checkCircle"
-          />
+          <GeneralOptimization options={filterOptions.data} />
         </div>
-      )}
-
-      {run.isError && (
-        <Card className="fade-in mt-4 border-[1.5px] border-[rgba(239,68,68,0.35)]">
-          <CardBody>
-            <div className="flex items-start gap-3">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-status-danger-bg text-status-danger [&_svg]:h-4 [&_svg]:w-4">
-                <Icon name="warning" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-bold text-ink-primary">Could not load the baseline</div>
-                <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{run.error.message}</div>
-                <Button
-                  variant="secondary"
-                  className="mt-3"
-                  onClick={() => run.mutate(body, { onSuccess: (d) => seed(scopeKey, d.scenarios) })}
-                >
-                  <Icon name="refresh" /> Retry
-                </Button>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      )}
-
-      {!result && run.isPending && (
-        <div className="mt-4 grid min-h-[40vh] place-items-center">
-          <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
-            <Spinner />
-            <span>Calculating baseline KPIs…</span>
-          </div>
-        </div>
-      )}
-
-      {result && active && (
+      ) : (
         <>
-          <div className="fade-in mt-4">
-            <ContextBar
-              context={result.context}
-              investigation={context.data ?? null}
-              origin={investigationScope?.origin ?? null}
-              originLabel={investigationScope?.label ?? null}
+        {typeMeta && (
+          <div className="mt-4">
+            <ActiveInvBanner
+              typeMeta={typeMeta}
+              // The RESOLVED question, not the raw store value. The store seeds
+              // itself with an example, and this banner sitting next to the
+              // context bar showing "no question yet" would contradict it.
+              question={context.data?.question.value ?? 'No investigation question yet'}
+              proceedTo="/decision"
+              proceedLabel="Open Decision Center"
+              proceedIcon="checkCircle"
             />
           </div>
+        )}
 
-          <div className="mt-4">
-            <ScenarioRow scenarios={scenarios} activeId={activeId} onSelect={select} onAdd={addScenario} />
-          </div>
-
-          <div className="mt-4 grid grid-cols-[320px_1fr_300px] gap-4 max-[1400px]:grid-cols-[280px_1fr_280px] max-[1180px]:grid-cols-1">
-            <Card className="fade-in">
-              <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-                <div>
-                  <h3 className="text-[15px] font-bold">TPO Levers</h3>
-                  <div className="mt-0.5 text-[11.5px] text-ink-muted">{active.name}</div>
+        {run.isError && (
+          <Card className="fade-in mt-4 border-[1.5px] border-[rgba(239,68,68,0.35)]">
+            <CardBody>
+              <div className="flex items-start gap-3">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-status-danger-bg text-status-danger [&_svg]:h-4 [&_svg]:w-4">
+                  <Icon name="warning" />
                 </div>
-                {(run.isPending || active.running) && <Spinner />}
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-bold text-ink-primary">Could not load the baseline</div>
+                  <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{run.error.message}</div>
+                  <Button
+                    variant="secondary"
+                    className="mt-3"
+                    onClick={() => run.mutate(body, { onSuccess: (d) => seed(scopeKey, d.scenarios) })}
+                  >
+                    <Icon name="refresh" /> Retry
+                  </Button>
+                </div>
               </div>
-              <CardBody>
-                <LeverPanel
-                  definitions={definitions}
-                  values={active.levers}
-                  readOnly={isMeasured}
-                  simulation={active.simulation}
-                  note={
-                    isMeasured
-                      ? 'These are the observed values for this scope, not settings. Select a hypothetical scenario to explore an approved treatment.'
-                      : 'Discount is the only modelled lever. Duration and trade spend are shown for context — the first has no approved response, the second is derived from the scenario economics.'
-                  }
-                  canRun={isMeasured || approvedSelected}
-                  runLabel={isMeasured ? 'Recalculate baseline' : 'Run Simulation'}
-                  running={isMeasured ? run.isPending : active.running}
-                  onSelectDiscount={(value) => setLever(active.id, 'discount_pct', value)}
-                  onReset={() => resetLevers(active.id)}
-                  onRun={onRun}
-                  dirty={dirty}
-                />
-              </CardBody>
-            </Card>
+            </CardBody>
+          </Card>
+        )}
 
-            <Card className="fade-in">
-              {active.kind === 'measured' ? (
-                <>
-                  <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-                    <div>
-                      <h3 className="text-[15px] font-bold">Projected Business Impact</h3>
-                      <div className="mt-0.5 text-[11.5px] text-ink-muted">
-                        {active.name} · {result.context.period}
+        {!result && run.isPending && (
+          <div className="mt-4 grid min-h-[40vh] place-items-center">
+            <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+              <Spinner />
+              <span>Calculating baseline KPIs…</span>
+            </div>
+          </div>
+        )}
+
+        {result && active && (
+          <>
+            <div className="fade-in mt-4">
+              <ContextBar
+                context={result.context}
+                investigation={context.data ?? null}
+                origin={investigationScope?.origin ?? null}
+                originLabel={investigationScope?.label ?? null}
+              />
+            </div>
+
+            <div className="mt-4">
+              <ScenarioRow scenarios={scenarios} activeId={activeId} onSelect={select} onAdd={addScenario} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-[320px_1fr_300px] gap-4 max-[1400px]:grid-cols-[280px_1fr_280px] max-[1180px]:grid-cols-1">
+              <Card className="fade-in">
+                <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+                  <div>
+                    <h3 className="text-[15px] font-bold">TPO Levers</h3>
+                    <div className="mt-0.5 text-[11.5px] text-ink-muted">{active.name}</div>
+                  </div>
+                  {(run.isPending || active.running) && <Spinner />}
+                </div>
+                <CardBody>
+                  <LeverPanel
+                    definitions={definitions}
+                    values={active.levers}
+                    readOnly={isMeasured}
+                    simulation={active.simulation}
+                    note={
+                      isMeasured
+                        ? 'These are the observed values for this scope, not settings. Select a hypothetical scenario to explore an approved treatment.'
+                        : 'Discount is the only modelled lever. Duration and trade spend are shown for context — the first has no approved response, the second is derived from the scenario economics.'
+                    }
+                    canRun={isMeasured || approvedSelected}
+                    runLabel={isMeasured ? 'Recalculate baseline' : 'Run Simulation'}
+                    running={isMeasured ? run.isPending : active.running}
+                    onSelectDiscount={(value) => setLever(active.id, 'discount_pct', value)}
+                    onReset={() => resetLevers(active.id)}
+                    onRun={onRun}
+                    dirty={dirty}
+                  />
+                </CardBody>
+              </Card>
+
+              <Card className="fade-in">
+                {active.kind === 'measured' ? (
+                  <>
+                    <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+                      <div>
+                        <h3 className="text-[15px] font-bold">Projected Business Impact</h3>
+                        <div className="mt-0.5 text-[11.5px] text-ink-muted">
+                          {active.name} · {result.context.period}
+                        </div>
                       </div>
+                      <span className="rounded-[var(--r-pill)] bg-status-success-bg px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.04em] text-status-success">
+                        Measured
+                      </span>
                     </div>
-                    <span className="rounded-[var(--r-pill)] bg-status-success-bg px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.04em] text-status-success">
-                      Measured
-                    </span>
+                    {!result.scope.has_data ? (
+                      <NoDataPanel />
+                    ) : active.result ? (
+                      <div className="overflow-x-auto">
+                        <KpiTable kpis={active.result} targetRoiPct={result.meta.target_roi_pct} />
+                      </div>
+                    ) : (
+                      <NoDataPanel />
+                    )}
+                  </>
+                ) : active.running ? (
+                  <div className="grid min-h-[300px] place-items-center">
+                    <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+                      <Spinner />
+                      <span>Running {active.name} through the KPI engine…</span>
+                    </div>
                   </div>
-                  {!result.scope.has_data ? (
-                    <NoDataPanel />
-                  ) : active.result ? (
-                    <div className="overflow-x-auto">
-                      <KpiTable kpis={active.result} targetRoiPct={result.meta.target_roi_pct} />
+                ) : active.simulation ? (
+                  <ScenarioResultPanel
+                    simulation={active.simulation}
+                    // B: a scenario cell defers to the MEASURED figure rather
+                    // than resolving a wider scope of its own.
+                    measuredCannibalization={result.kpis.cannibalization}
+                  />
+                ) : (
+                  <NotSimulatedPanel reason={active.result_reason} error={active.error} />
+                )}
+              </Card>
+
+              <Card className="fade-in">
+                <div className="border-b border-border-subtle px-5 py-4">
+                  <h3 className="text-[15px] font-bold">Current Plan</h3>
+                  <div className="mt-0.5 text-[11.5px] text-ink-muted">Observed from the data</div>
+                </div>
+                <CardBody>
+                  <CurrentPlanPanel plan={result.current_plan} />
+                </CardBody>
+              </Card>
+            </div>
+
+            {/* The recommendation has the same three request states as everything
+                else on this page: pending, failed with a real message and a
+                retry, or an answer. It is never silently absent. */}
+            {(recommendation.data || recommendation.isPending || recommendation.isError) && (
+              <Card className="fade-in mt-[18px]">
+                {recommendation.isError ? (
+                  <div className="px-5 py-6">
+                    <div className="text-[13px] font-bold text-ink-primary">
+                      Could not produce a recommendation
                     </div>
-                  ) : (
-                    <NoDataPanel />
-                  )}
-                </>
-              ) : active.running ? (
-                <div className="grid min-h-[300px] place-items-center">
-                  <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
-                    <Spinner />
-                    <span>Running {active.name} through the KPI engine…</span>
+                    <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
+                      {recommendation.error.message}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      className="mt-3"
+                      onClick={() => {
+                        if (recommendation.variables) recommendation.mutate(recommendation.variables)
+                      }}
+                    >
+                      <Icon name="refresh" /> Retry
+                    </Button>
+                  </div>
+                ) : recommendation.data ? (
+                  <RecommendationPanel recommendation={recommendation.data} />
+                ) : (
+                  <div className="flex items-center gap-2 px-5 py-6 text-[12.5px] text-ink-muted">
+                    <Spinner /> Applying the decision policy…
+                  </div>
+                )}
+              </Card>
+            )}
+
+            <Card className="fade-in mt-[18px]">
+              {!active.simulation ? (
+                <div className="px-5 py-8 text-center">
+                  <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
+                    <Icon name="activity" />
+                  </div>
+                  <div className="text-sm font-bold text-ink-primary">Weekly Impact</div>
+                  <div className="mt-1.5 text-[12.5px] text-ink-secondary">
+                    Run a scenario to see weekly impact.
                   </div>
                 </div>
-              ) : active.simulation ? (
-                <ScenarioResultPanel
-                  simulation={active.simulation}
-                  // B: a scenario cell defers to the MEASURED figure rather
-                  // than resolving a wider scope of its own.
-                  measuredCannibalization={result.kpis.cannibalization}
-                />
-              ) : (
-                <NotSimulatedPanel reason={active.result_reason} error={active.error} />
-              )}
-            </Card>
-
-            <Card className="fade-in">
-              <div className="border-b border-border-subtle px-5 py-4">
-                <h3 className="text-[15px] font-bold">Current Plan</h3>
-                <div className="mt-0.5 text-[11.5px] text-ink-muted">Observed from the data</div>
-              </div>
-              <CardBody>
-                <CurrentPlanPanel plan={result.current_plan} />
-              </CardBody>
-            </Card>
-          </div>
-
-          {/* The recommendation has the same three request states as everything
-              else on this page: pending, failed with a real message and a
-              retry, or an answer. It is never silently absent. */}
-          {(recommendation.data || recommendation.isPending || recommendation.isError) && (
-            <Card className="fade-in mt-[18px]">
-              {recommendation.isError ? (
+              ) : weekly.isError ? (
                 <div className="px-5 py-6">
                   <div className="text-[13px] font-bold text-ink-primary">
-                    Could not produce a recommendation
+                    Could not build the weekly view
                   </div>
                   <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
-                    {recommendation.error.message}
+                    {weekly.error.message}
                   </div>
                   <Button
                     variant="secondary"
                     className="mt-3"
                     onClick={() => {
-                      if (recommendation.variables) recommendation.mutate(recommendation.variables)
+                      if (weekly.variables) weekly.mutate(weekly.variables)
                     }}
                   >
                     <Icon name="refresh" /> Retry
                   </Button>
                 </div>
-              ) : recommendation.data ? (
-                <RecommendationPanel recommendation={recommendation.data} />
+              ) : weekly.data && weekly.data.scenario_id === active.id ? (
+                <WeeklyImpactPanel
+                  weekly={weekly.data}
+                  isRecommended={recommendation.data?.recommended_scenario_id === active.id}
+                />
               ) : (
-                <div className="flex items-center gap-2 px-5 py-6 text-[12.5px] text-ink-muted">
-                  <Spinner /> Applying the decision policy…
+                <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
+                  <Spinner /> Decomposing the scenario across its business weeks…
                 </div>
               )}
             </Card>
-          )}
 
-          <Card className="fade-in mt-[18px]">
-            {!active.simulation ? (
-              <div className="px-5 py-8 text-center">
-                <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
-                  <Icon name="activity" />
-                </div>
-                <div className="text-sm font-bold text-ink-primary">Weekly Impact</div>
-                <div className="mt-1.5 text-[12.5px] text-ink-secondary">
-                  Run a scenario to see weekly impact.
-                </div>
-              </div>
-            ) : weekly.isError ? (
-              <div className="px-5 py-6">
-                <div className="text-[13px] font-bold text-ink-primary">
-                  Could not build the weekly view
-                </div>
-                <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
-                  {weekly.error.message}
-                </div>
-                <Button
-                  variant="secondary"
-                  className="mt-3"
-                  onClick={() => {
-                    if (weekly.variables) weekly.mutate(weekly.variables)
-                  }}
-                >
-                  <Icon name="refresh" /> Retry
-                </Button>
-              </div>
-            ) : weekly.data && weekly.data.scenario_id === active.id ? (
-              <WeeklyImpactPanel
-                weekly={weekly.data}
-                isRecommended={recommendation.data?.recommended_scenario_id === active.id}
-              />
-            ) : (
-              <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
-                <Spinner /> Decomposing the scenario across its business weeks…
-              </div>
-            )}
-          </Card>
-
-          <Card className="fade-in mt-[18px]">
-            {!active.simulation ? (
-              <RiskEmptyState />
-            ) : risk.isError ? (
-              <div className="px-5 py-6">
-                <div className="text-[13px] font-bold text-ink-primary">
-                  Could not assess risk and governance
-                </div>
-                <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
-                  {risk.error.message}
-                </div>
-                <Button
-                  variant="secondary"
-                  className="mt-3"
-                  onClick={() => {
-                    if (risk.variables) risk.mutate(risk.variables)
-                  }}
-                >
-                  <Icon name="refresh" /> Retry
-                </Button>
-              </div>
-            ) : risk.data && risk.data.scenario_id === active.id ? (
-              <RiskPanel risk={risk.data} />
-            ) : (
-              <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
-                <Spinner /> Assessing risk and governance…
-              </div>
-            )}
-          </Card>
-
-          {scenarios.length > 1 && (
             <Card className="fade-in mt-[18px]">
-              <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
-                <div>
-                  <h3 className="text-[15px] font-bold">Scenario Comparison</h3>
-                  <div className="mt-0.5 text-[11.5px] text-ink-muted">
-                    Measured, simulated and unrun scenarios side by side — facts and deltas, not a ranking.
+              {!active.simulation ? (
+                <RiskEmptyState />
+              ) : risk.isError ? (
+                <div className="px-5 py-6">
+                  <div className="text-[13px] font-bold text-ink-primary">
+                    Could not assess risk and governance
                   </div>
+                  <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
+                    {risk.error.message}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="mt-3"
+                    onClick={() => {
+                      if (risk.variables) risk.mutate(risk.variables)
+                    }}
+                  >
+                    <Icon name="refresh" /> Retry
+                  </Button>
                 </div>
-                {compare.isPending && <Spinner />}
-              </div>
-              <div className="overflow-x-auto rounded-b-[var(--r-lg)]">
-                {compare.isError ? (
-                  <div className="px-5 py-6 text-center text-[12.5px] text-ink-secondary">
-                    Could not build the comparison: {compare.error.message}
-                  </div>
-                ) : compare.data ? (
-                  <ComparisonTable comparison={compare.data} />
-                ) : (
-                  <div className="px-5 py-6 text-center text-[12.5px] text-ink-muted">
-                    Preparing the comparison…
-                  </div>
-                )}
-              </div>
+              ) : risk.data && risk.data.scenario_id === active.id ? (
+                <RiskPanel risk={risk.data} />
+              ) : (
+                <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
+                  <Spinner /> Assessing risk and governance…
+                </div>
+              )}
             </Card>
-          )}
+
+            {scenarios.length > 1 && (
+              <Card className="fade-in mt-[18px]">
+                <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
+                  <div>
+                    <h3 className="text-[15px] font-bold">Scenario Comparison</h3>
+                    <div className="mt-0.5 text-[11.5px] text-ink-muted">
+                      Measured, simulated and unrun scenarios side by side — facts and deltas, not a ranking.
+                    </div>
+                  </div>
+                  {compare.isPending && <Spinner />}
+                </div>
+                <div className="overflow-x-auto rounded-b-[var(--r-lg)]">
+                  {compare.isError ? (
+                    <div className="px-5 py-6 text-center text-[12.5px] text-ink-secondary">
+                      Could not build the comparison: {compare.error.message}
+                    </div>
+                  ) : compare.data ? (
+                    <ComparisonTable comparison={compare.data} />
+                  ) : (
+                    <div className="px-5 py-6 text-center text-[12.5px] text-ink-muted">
+                      Preparing the comparison…
+                    </div>
+                  )}
+                </div>
+              </Card>
+            )}
+          </>
+        )}
+
+        <div className="mt-[18px] flex items-center justify-end gap-2.5">
+          <span className="mr-auto text-[11.5px] text-ink-muted">
+            {saveScenario.isError ? (
+              <span className="text-status-danger">
+                Could not save the scenario — {saveScenario.error.message}. Nothing on this
+                page has changed.
+              </span>
+            ) : saveScenario.isSuccess ? (
+              <>
+                Saved as <strong>{saveScenario.data.scenario_id}</strong> · version{' '}
+                {saveScenario.data.version}. Ownership is unverified — this application has
+                no authentication.
+              </>
+            ) : canCarryDecision ? (
+              'Carrying the selected scenario, its recommendation and its governance assessment.'
+            ) : (
+              'Run and select a scenario to carry it to the Decision Center.'
+            )}
+          </span>
+          {/* B10: a real save. Only a scenario that has actually been simulated
+              can be stored — there is nothing else to store. */}
+          <Button
+            variant="secondary"
+            onClick={saveActiveScenario}
+            disabled={!canSaveScenario || saveScenario.isPending}
+            title={canSaveScenario ? undefined : 'Run this scenario first'}
+          >
+            {saveScenario.isPending ? <Spinner /> : <Icon name="checkCircle" />}
+            <span>{saveScenario.isPending ? 'Saving…' : 'Save Scenario'}</span>
+          </Button>
+          <Button variant="primary" onClick={openDecisionCenter} disabled={!canCarryDecision}>
+            <Icon name="arrowRight" /> Open Decision Center
+          </Button>
+        </div>
         </>
       )}
-
-      <div className="mt-[18px] flex items-center justify-end gap-2.5">
-        <span className="mr-auto text-[11.5px] text-ink-muted">
-          {saveScenario.isError ? (
-            <span className="text-status-danger">
-              Could not save the scenario — {saveScenario.error.message}. Nothing on this
-              page has changed.
-            </span>
-          ) : saveScenario.isSuccess ? (
-            <>
-              Saved as <strong>{saveScenario.data.scenario_id}</strong> · version{' '}
-              {saveScenario.data.version}. Ownership is unverified — this application has
-              no authentication.
-            </>
-          ) : canCarryDecision ? (
-            'Carrying the selected scenario, its recommendation and its governance assessment.'
-          ) : (
-            'Run and select a scenario to carry it to the Decision Center.'
-          )}
-        </span>
-        {/* B10: a real save. Only a scenario that has actually been simulated
-            can be stored — there is nothing else to store. */}
-        <Button
-          variant="secondary"
-          onClick={saveActiveScenario}
-          disabled={!canSaveScenario || saveScenario.isPending}
-          title={canSaveScenario ? undefined : 'Run this scenario first'}
-        >
-          {saveScenario.isPending ? <Spinner /> : <Icon name="checkCircle" />}
-          <span>{saveScenario.isPending ? 'Saving…' : 'Save Scenario'}</span>
-        </Button>
-        <Button variant="primary" onClick={openDecisionCenter} disabled={!canCarryDecision}>
-          <Icon name="arrowRight" /> Open Decision Center
-        </Button>
-      </div>
     </AppShell>
+  )
+}
+
+/** INVESTIGATION SIMULATION | GENERAL OPTIMIZATION.
+ *
+ *  A segmented control, not a router: both modes are this page, so switching
+ *  cannot lose the investigation's scope, its question or a scenario the user
+ *  has already run. The default is Investigation Simulation and the store does
+ *  not persist the choice, so a fresh load always opens on it.
+ */
+function ModeSwitch({
+  mode,
+  onChange,
+}: {
+  mode: SimulationMode
+  onChange: (mode: SimulationMode) => void
+}) {
+  const modes: { key: SimulationMode; label: string }[] = [
+    { key: 'investigation', label: 'Investigation Simulation' },
+    { key: 'general', label: 'General Optimization' },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Simulation mode"
+      className="inline-flex items-center gap-0.5 rounded-[var(--r-md)] border border-border-default bg-surface-muted p-0.5"
+    >
+      {modes.map((m) => {
+        const on = m.key === mode
+        return (
+          <button
+            key={m.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(m.key)}
+            className={`cursor-pointer whitespace-nowrap rounded-[var(--r-sm)] px-3 py-1.5 text-[12px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
+              on
+                ? 'bg-surface-card text-ink-primary shadow-[var(--shadow-sm)]'
+                : 'text-ink-muted hover:text-ink-primary'
+            }`}
+          >
+            {m.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
