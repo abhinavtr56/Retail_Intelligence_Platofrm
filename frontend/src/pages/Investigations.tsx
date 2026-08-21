@@ -7,6 +7,7 @@ import {
   Card,
   CardHeader,
   Pill,
+  Spinner,
   Dropdown,
   LiveStatus,
   useLiveStatus,
@@ -16,7 +17,6 @@ import {
 import { Icon } from '../icons'
 import {
   useInvestigationTypes,
-  useOrchestration,
   useLegacyInvestigation,
 } from '../hooks/useInvestigations'
 import { useStartInvestigationRun, useInvestigationRun } from '../hooks/useInvestigationRun'
@@ -100,12 +100,80 @@ function AskSomething({
   )
 }
 
+/** Shown while the agents are working. Previously this window rendered the
+ *  static sample graph, so clicking "investigate" flashed up a finished-looking
+ *  result for a different question before the real one arrived. */
+function RunningState({
+  question,
+  specialists,
+  stage,
+}: {
+  question: string
+  specialists: { key: string; name: string; desc: string; status: string }[]
+  stage?: string
+}) {
+  const done = specialists.filter((s) => s.status === 'done').length
+  const pct = specialists.length ? Math.round((done / specialists.length) * 100) : 0
+  return (
+    <Card className="fade-in mt-4">
+      <div className="border-b border-border-subtle p-[16px_20px]">
+        <div className="flex items-center gap-2.5">
+          <Spinner className="h-4 w-4 text-brand-violet" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-bold">
+              {stage === 'planning' || !specialists.length
+                ? 'Planning the investigation…'
+                : `Specialist agents running — ${done} of ${specialists.length} complete`}
+            </div>
+            <div className="mt-0.5 truncate text-[12px] text-ink-muted">{question}</div>
+          </div>
+        </div>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-[3px] bg-surface-muted">
+          <div className="h-full rounded-[3px] bg-brand-violet transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {specialists.length > 0 ? (
+        <div className="flex flex-col">
+          {specialists.map((sp) => (
+            <div key={sp.key} className="flex items-center gap-3 border-b border-border-subtle p-[12px_20px] last:border-b-0">
+              <span
+                className={`inline-block h-2 w-2 shrink-0 rounded-full ${
+                  sp.status === 'done'
+                    ? 'bg-status-success'
+                    : sp.status === 'running'
+                      ? 'animate-[pulseDot_1.2s_ease-in-out_infinite] bg-brand-violet'
+                      : 'bg-border-strong'
+                }`}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-semibold">{sp.name}</div>
+                <div className="text-[11.5px] text-ink-muted">{sp.desc}</div>
+              </div>
+              <span
+                className={`shrink-0 text-[11.5px] font-semibold ${
+                  sp.status === 'done' ? 'text-status-success' : sp.status === 'running' ? 'text-brand-violet' : 'text-ink-muted'
+                }`}
+              >
+                {sp.status === 'done' ? 'Completed' : sp.status === 'running' ? 'Running' : 'Queued'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-[18px_20px] text-[12.5px] leading-[1.6] text-ink-muted">
+          Choosing which specialists this question needs, and the scope they should analyse.
+        </div>
+      )}
+    </Card>
+  )
+}
+
 type AccelState = 'queued' | 'progress' | 'done'
 
 export function Investigations() {
   const { activeType, activeQuestion, setActive } = useActiveInvestigationStore()
   const { data: types } = useInvestigationTypes()
-  const { data: orch, isLoading } = useOrchestration(activeType)
   const { data: legacy } = useLegacyInvestigation()
   const { data: focus } = useFocus()
   const { show } = useToast()
@@ -149,10 +217,7 @@ export function Investigations() {
   const [layout, setLayout] = useState('Auto Layout')
 
   const [submitting, setSubmitting] = useState(false)
-  const [building, setBuilding] = useState(false)
   const [revealedKeys, setRevealedKeys] = useState<Set<string> | undefined>(undefined)
-  const [accelState, setAccelState] = useState<Record<string, AccelState> | undefined>(undefined)
-  const [liveProgress, setLiveProgress] = useState<{ pct: number; insights: number; sub: string; confidence: number } | null>(null)
   const timers = useRef<number[]>([])
   const clearTimers = () => {
     timers.current.forEach((t) => window.clearTimeout(t))
@@ -164,92 +229,10 @@ export function Investigations() {
 
   const [popover, setPopover] = useState<{ node: OrchNode; el: HTMLElement } | null>(null)
 
-  // Staged build choreography — runs once per `building` toggle-on, keyed to `orch`.
-  useEffect(() => {
-    clearTimers()
-    if (!orch) return
-
-    if (!building) {
-      // Static reveal: quick cascade so the page never looks frozen, real statuses.
-      setAccelState(undefined)
-      setLiveProgress(null)
-      const keys = new Set<string>()
-      setRevealedKeys(new Set(keys))
-      orch.nodes.forEach((n, i) => {
-        after(80 + i * 55, () => {
-          keys.add(n.key)
-          setRevealedKeys(new Set(keys))
-        })
-      })
-      return () => clearTimers()
-    }
-
-    // Building: baseline (non-accelerator) nodes trickle in, then each accelerator
-    // "runs" and reveals its linked node, pacing matches the original (5s/accelerator).
-    const revealed = new Set<string>()
-    setRevealedKeys(new Set())
-    const accKeys = new Set(orch.accelerators.map((a) => a.node).filter(Boolean) as string[])
-    const baseline = orch.nodes.filter((n) => !accKeys.has(n.key))
-    const initialState: Record<string, AccelState> = {}
-    orch.accelerators.forEach((a) => (initialState[a.key] = 'queued'))
-    setAccelState(initialState)
-    setLiveProgress({ pct: 0, insights: 0, sub: 'TIQ is orchestrating specialist agents…', confidence: 0 })
-
-    baseline.forEach((n, i) => {
-      after(400 + i * 450, () => {
-        revealed.add(n.key)
-        setRevealedKeys(new Set(revealed))
-      })
-    })
-
-    const ACC_STEP = 5000
-    const ACC_RUN = 4500
-    const total = orch.accelerators.length
-    orch.accelerators.forEach((a, i) => {
-      const start = 900 + i * ACC_STEP
-      after(start, () => {
-        setAccelState((s) => ({ ...s, [a.key]: 'progress' }))
-        if (a.node) {
-          revealed.add(a.node)
-          setRevealedKeys(new Set(revealed))
-        }
-      })
-      after(start + ACC_RUN, () => {
-        setAccelState((s) => ({ ...s, [a.key]: 'done' }))
-        const done = i + 1
-        const pct = Math.round((done / total) * 100)
-        const insights = Math.round((orch.progress.insights * done) / total)
-        const confidence = Math.round((orch.progress.confidence * done) / total)
-        setLiveProgress({ pct, insights, sub: `${done} of ${total} accelerators completed`, confidence })
-      })
-    })
-
-    const finishAt = 900 + (total - 1) * ACC_STEP + ACC_RUN + 700
-    after(finishAt, () => {
-      setBuilding(false)
-      setLiveProgress({
-        pct: 100,
-        insights: orch.progress.insights,
-        sub: `${total} of ${total} accelerators completed`,
-        confidence: orch.progress.confidence,
-      })
-      live.reset()
-      show(`Investigation complete — ${orch.progress.insights} insights identified · ${orch.progress.confidence}% confidence`, {
-        duration: 3500,
-      })
-    })
-
-    return () => clearTimers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orch, building])
-
-  // Reveal agent-produced nodes as they arrive. The cascade above is keyed to
-  // the static orchestration, so without this a finished run would render its
-  // graph with every node still hidden.
+  // Reveal the agent-produced nodes once a run finishes.
   useEffect(() => {
     if (!liveOrch) return
     clearTimers()
-    setBuilding(false)
     const keys = new Set<string>()
     setRevealedKeys(new Set(keys))
     liveOrch.nodes.forEach((n, i) => {
@@ -312,7 +295,7 @@ export function Investigations() {
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Investigations' }]
 
-  if (!typeMeta || (hasAsked && (isLoading || !orch))) {
+  if (!typeMeta) {
     return (
       <AppShell activeKey="investigations" crumbs={crumbs}>
         <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Investigations…</div>
@@ -323,7 +306,9 @@ export function Investigations() {
   // A finished agent run's orchestration takes precedence over the static
   // per-archetype sample; everything below renders from `view` either way,
   // since the backend assembles agent results into this exact shape.
-  const view = liveOrch ?? orch
+  // Only ever the live run. Falling back to the static sample here made the
+  // old hardcoded graph flash up while a real investigation was still running.
+  const view = liveOrch
   const isAgentRun = Boolean(liveOrch)
   const running = run?.status === 'running'
 
@@ -374,13 +359,13 @@ export function Investigations() {
       }
     : null
 
-  const progress = agentProgress ??
-    liveProgress ?? {
-      pct: view?.progress.pct ?? 0,
-      insights: view?.progress.insights ?? 0,
-      sub: view ? `${view.progress.completed} of ${view.progress.total} accelerators completed` : '',
-      confidence: view?.progress.confidence ?? 0,
-    }
+  // Progress comes from the run itself; there is no simulated fallback any more.
+  const progress = agentProgress ?? {
+    pct: view?.progress.pct ?? 0,
+    insights: view?.progress.insights ?? 0,
+    sub: view ? `${view.progress.completed} of ${view.progress.total} accelerators completed` : '',
+    confidence: view?.progress.confidence ?? 0,
+  }
 
   return (
     <AppShell activeKey="investigations" crumbs={crumbs}>
@@ -393,8 +378,21 @@ export function Investigations() {
             <LiveStatus label={live.label} />
           </div>
           <p className="mt-1.5 text-sm text-ink-muted">
-            Investigation Compression Engine · <strong className="text-brand-violet">{typeMeta.title}</strong> mode ·{' '}
-            {(runAccelerators ?? view?.accelerators ?? []).length} specialist agents orchestrated
+            {/* Agent count only means something once a run has produced one —
+                "0 specialist agents orchestrated" reads like a failure. */}
+            Investigation Compression Engine
+            {(() => {
+              const count = (runAccelerators ?? view?.accelerators ?? []).length
+              if (!hasAsked) return ' · ask a question to begin'
+              if (!count) return ' · composing the specialist team…'
+              return (
+                <>
+                  {' · '}
+                  <strong className="text-brand-violet">{typeMeta.title}</strong> mode · {count} specialist agents
+                  orchestrated
+                </>
+              )
+            })()}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -531,8 +529,14 @@ export function Investigations() {
         </Card>
       )}
 
-      {!hasAsked || !view ? (
+      {!hasAsked ? (
         <AskSomething types={types} onPick={(q) => { setQueryInput(q); launch(q) }} />
+      ) : !view ? (
+        <RunningState
+          question={queryInput || activeQuestion}
+          specialists={run?.specialists ?? []}
+          stage={run?.stage}
+        />
       ) : (
         <>
       <BizQuestionCard typeMeta={typeMeta} question={activeQuestion} contextChips={view.contextChips} />
@@ -587,7 +591,7 @@ export function Investigations() {
           <div className="px-4.5 py-1">
             <AccelList
               accelerators={runAccelerators ?? view.accelerators}
-              statusOverride={runAccelState ?? accelState}
+              statusOverride={runAccelState}
               onSelect={(a) => show(`Opening "${a.name}" details...`)}
             />
           </div>
