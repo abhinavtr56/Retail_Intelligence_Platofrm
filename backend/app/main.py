@@ -46,13 +46,14 @@ from app.routers import (  # noqa: E402
     command_center,
     connectors,
     datasets,
+    intelligence,
     investigations,
     misc,
     nav,
     pages,
 )
 
-for r in (nav, command, command_center, investigations, pages, misc, connectors, auth, datasets):
+for r in (nav, command, command_center, investigations, pages, misc, connectors, auth, datasets, intelligence):
     app.include_router(r.router)
 
 
