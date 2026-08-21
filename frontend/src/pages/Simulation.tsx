@@ -113,6 +113,18 @@ export function Simulation() {
         useSavedRefsStore.getState().investigationId,
       ),
     )
+    // The guard must NOT survive this effect being torn down. React's
+    // StrictMode mounts, unmounts and remounts on the first mount, and
+    // react-query drops a mutation's observer on unsubscribe without ever
+    // re-attaching it (MutationObserver has onUnsubscribe but no onSubscribe).
+    // A request fired on the discarded pass therefore returns 200 to a
+    // listener nobody holds: `onSuccess` never runs, `isPending` never clears
+    // and the page sits on "Calculating baseline KPIs…" forever. Clearing the
+    // ref lets the surviving pass issue the run it can actually receive.
+    // Still one run per scope — the deps are unchanged.
+    return () => {
+      requested.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKey])
 
