@@ -31,7 +31,12 @@ export interface KpiCard {
   available: boolean
   unavailable_reason: string | null
   info: KpiInfo
+  /** Cannibalization only — see MeasuredAt in types/simulation.ts. */
+  comparable_events?: number
+  measured_at?: MeasuredAt | null
 }
+
+import type { MeasuredAt } from './simulation'
 
 export interface Meta {
   period: string

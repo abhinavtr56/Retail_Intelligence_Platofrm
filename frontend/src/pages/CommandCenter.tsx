@@ -78,6 +78,20 @@ const KPI_ORDER = [
 
 const LOWER_IS_BETTER = new Set(['trade_spend', 'cannibalization_rate'])
 
+/** The evidence line for the Cannibalization card, or null for every other
+ *  card. Uses the tile's existing sub-label slot rather than adding a row to
+ *  a fixed-height tile. */
+function cannibalizationSub(card: KpiCard): string | null {
+  if (card.key !== 'cannibalization_rate') return null
+  const count = (n: number) => `${n.toLocaleString()} comparable event${n === 1 ? '' : 's'}`
+  if (card.available) {
+    return card.comparable_events == null ? null : `${card.delta_sub} · ${count(card.comparable_events)}`
+  }
+  const wider = card.measured_at
+  if (!wider) return null
+  return `${wider.display_value} across ${wider.scope_label} · ${count(wider.comparable_events)}`
+}
+
 // The API emits ONE concatenated Critical -> High -> Medium list and truncates
 // the tail, so the top of the High band sits behind every Critical row and a
 // small `limit` cannot reach it. The whole alert set for the scope is fetched
@@ -330,7 +344,11 @@ export function CommandCenter() {
                 label={card.label}
                 value={card.display_value}
                 delta={card.delta_display}
-                deltaSub={calendarYear(card.available ? card.delta_sub : (card.unavailable_reason ?? card.delta_sub))}
+                // Cannibalization carries its evidence: how many comparable
+                // events stood behind the rate, or -- when this selection
+                // cannot support one -- the narrowest wider scope that can,
+                // named so it is never read as this selection's own figure.
+                deltaSub={calendarYear(cannibalizationSub(card) ?? (card.available ? card.delta_sub : (card.unavailable_reason ?? card.delta_sub)))}
                 trend={card.trend}
                 icon={style.icon}
                 tint={style.tint}

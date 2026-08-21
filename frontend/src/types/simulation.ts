@@ -131,6 +131,18 @@ export interface SimulateResponse {
   meta: { currency: string; base_currency: string; target_roi_pct: number; phase: string }
 }
 
+/** Where a cannibalization rate was measured, when the selected scope could
+ *  not support one. NEVER a substitute for `value`: the figure belongs to the
+ *  scope named in `scope_label`, and the UI must print that label with it. */
+export interface MeasuredAt {
+  value: number
+  display_value: string
+  comparable_events: number
+  /** Which dimensions were lifted from the selection to reach this scope. */
+  lifted: string[]
+  scope_label: string
+}
+
 export interface SimulationKpi {
   key: string
   label: string
@@ -140,6 +152,11 @@ export interface SimulationKpi {
   available: boolean
   unavailable_reason: string | null
   formula: string
+  /** Cannibalization only: how many comparable promotion events the rate was
+   *  measured over, and — when the selection could not support one — a wider
+   *  scope that could. */
+  comparable_events?: number
+  measured_at?: MeasuredAt | null
 }
 
 export type SimulationKpiKey =

@@ -490,7 +490,12 @@ export function Simulation() {
                   </div>
                 </div>
               ) : active.simulation ? (
-                <ScenarioResultPanel simulation={active.simulation} />
+                <ScenarioResultPanel
+                  simulation={active.simulation}
+                  // B: a scenario cell defers to the MEASURED figure rather
+                  // than resolving a wider scope of its own.
+                  measuredCannibalization={result.kpis.cannibalization}
+                />
               ) : (
                 <NotSimulatedPanel reason={active.result_reason} error={active.error} />
               )}

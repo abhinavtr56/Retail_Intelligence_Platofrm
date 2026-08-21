@@ -204,6 +204,147 @@ def _meta(state: FilterState, rows: Sequence[A.WeekRow], currency: str, comparis
     }
 
 
+# --- cannibalization: the evidence floor and the measurement ladder --------
+#
+# TWO RULES, both ABOUT REPORTING and neither about the arithmetic.
+# `aggregate.cannibalization_detail` stays the one implementation; what follows
+# decides whether its answer is strong enough to show, and -- when it is not --
+# whether a WIDER scope the same engine can measure should be offered beside
+# the gap.
+
+#: A rate off one or two comparable events is a coincidence with a percent
+#: sign. Below this the metric reports unavailable, exactly as it does when no
+#: event was comparable at all.
+CANNIBALIZATION_MIN_EVENTS = 3
+
+#: The ladder, walked in order, each rung lifting ONE dimension from the pinned
+#: scope -- never cumulative, so the subject stays recognisable. Lifting the
+#: channel keeps the same promotion on the same SKU; lifting the offer keeps
+#: the same SKU in the same channel. The Product pin is never lifted: it is
+#: what makes the answer about the SKU the user is looking at.
+_CANNIBALIZATION_LADDER: tuple[tuple[str, ...], ...] = (
+    ("channel",),
+    ("promotion", "promotion_type"),
+)
+
+#: How a lifted dimension reads once it is no longer constraining.
+_LIFTED_LABEL = {
+    "channel": "all channels",
+    "promotion": "all promotions",
+    "promotion_type": "all promotion types",
+}
+
+
+def _cannibalization_detail(state: FilterState) -> dict[str, Any]:
+    """The engine's own answer for one scope. No arithmetic lives here."""
+    return A.cannibalization_detail(
+        baseline_rows_for(state.widened_to_brand_form()),
+        frozenset(state.product) if state.product else None,
+    )
+
+
+def _clears_the_floor(detail: dict[str, Any]) -> bool:
+    return (
+        detail["overall"] is not None
+        and detail["comparable_events"] >= CANNIBALIZATION_MIN_EVENTS
+    )
+
+
+def _scope_label(state: FilterState, lifted: tuple[str, ...]) -> str:
+    """What the reported scope IS, in words, so a wider figure can never be
+    mistaken for the pinned one."""
+    store = get_store()
+    parts: list[str] = []
+    for dimension in ("promotion", "product", "channel"):
+        if dimension in lifted:
+            parts.append(_LIFTED_LABEL[dimension])
+            continue
+        values = getattr(state, dimension)
+        if values:
+            parts.append(", ".join(sorted(_group_label(store, dimension, v) for v in values)))
+    return " · ".join(parts) if parts else "the whole selection"
+
+
+def cannibalization_resolution(state: FilterState) -> dict[str, Any]:
+    """WHERE the reported rate was measured, and on how much evidence.
+
+    The pinned scope first. If it cannot clear the floor, the ladder is walked
+    and the FIRST rung that does wins -- so the reported figure is always the
+    narrowest scope the evidence actually supports.
+
+    `value` is the PINNED scope's rate and stays None whenever the pinned scope
+    could not be measured; a fallback never overwrites it, because that field
+    means "this selection" everywhere else in the payload. The wider figure
+    travels beside it in `measured_at`, carrying the scope it belongs to.
+    """
+    pinned = _cannibalization_detail(state)
+    resolution: dict[str, Any] = {
+        "value": pinned["overall"] if _clears_the_floor(pinned) else None,
+        "comparable_events": pinned["comparable_events"],
+        "measured_at": None,
+    }
+    if resolution["value"] is not None:
+        return resolution
+
+    for lifted in _CANNIBALIZATION_LADDER:
+        wider = state.replace(**{dimension: None for dimension in lifted})
+        if wider == state:
+            continue  # Nothing constrained on that dimension -- not a rung.
+        detail = _cannibalization_detail(wider)
+        if not _clears_the_floor(detail):
+            continue
+        resolution["measured_at"] = {
+            "value": detail["overall"],
+            "display_value": F.percent(detail["overall"]),
+            "comparable_events": detail["comparable_events"],
+            "lifted": list(lifted),
+            "scope_label": _scope_label(state, lifted),
+        }
+        return resolution
+
+    return resolution
+
+
+def _cannibalization_card(card: dict[str, Any], state: FilterState, bundle: A.KpiBundle) -> None:
+    """Apply the floor and the ladder to the assembled card, in place.
+
+    NOTHING IS RECOMPUTED: the value is the engine's, and suppressing it drops
+    every derived figure with it. A delta against a rate that is no longer
+    reported would be a comparison to something the card does not show.
+    """
+    resolution = cannibalization_resolution(state)
+    card["comparable_events"] = resolution["comparable_events"]
+    card["measured_at"] = resolution["measured_at"]
+    if resolution["value"] is not None:
+        return
+
+    card.update(
+        value=None,
+        display_value=F.percent(None),
+        available=False,
+        previous_value=None,
+        delta=None,
+        delta_display=None,
+        delta_sub=None,
+        difference=None,
+        trend=None,
+        unavailable_reason=_thin_evidence_reason(resolution["comparable_events"], bundle),
+    )
+
+
+def _thin_evidence_reason(comparable: int, bundle: A.KpiBundle) -> str:
+    """Why the rate is absent -- no evidence, or not enough of it."""
+    if comparable == 0:
+        return _why_unavailable("cannibalization_rate", bundle)
+    return (
+        f"Measured on {comparable} comparable promotion "
+        f"event{'' if comparable == 1 else 's'}, below the "
+        f"{CANNIBALIZATION_MIN_EVENTS} this rate is reported from. A share "
+        "computed over one or two events is not a rate this selection can "
+        "support."
+    )
+
+
 # --- KPI cards -------------------------------------------------------------
 
 
@@ -238,6 +379,11 @@ def kpis(state: FilterState, currency: str = "INR") -> dict[str, Any]:
             "unavailable_reason": None if metric.value is not None else _why_unavailable(spec.key, bundle),
             "info": {"name": spec.label, "formula": spec.formula, "meaning": spec.meaning},
         }
+
+    # The floor and the ladder, applied ONCE and here, so the Command Center
+    # card and everything reading `service.kpis` -- the Simulation Studio
+    # included -- report the same rate from the same evidence.
+    _cannibalization_card(cards["cannibalization_rate"], state, bundle)
 
     return {"kpis": cards, "meta": _meta(state, rows, currency, comparison)}
 

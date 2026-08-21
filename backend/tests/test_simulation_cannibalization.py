@@ -33,7 +33,9 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.tpo import aggregate as A
 from app.tpo import execution, response, service
+from app.tpo import formatting as F
 from app.tpo.filters import FilterState, baseline_rows_for, rows_for
+from app.tpo.loader import get_store
 
 YEAR = 2025
 
@@ -319,3 +321,293 @@ def test_genuinely_absent_evidence_stays_null(client):
     assert any(
         "no adjacent SKU" in e.get("reason", "") for e in detail["excluded"]
     ), [e.get("reason") for e in detail["excluded"]]
+
+
+# ===========================================================================
+# The evidence floor and the measurement ladder
+# ===========================================================================
+#
+# TWO REPORTING RULES sitting on top of the one validated implementation.
+# Neither touches the arithmetic: `cannibalization_detail` still produces every
+# number, and these tests assert that what is SHOWN is that number, measured
+# somewhere the evidence supports.
+#
+#   * THE FLOOR. Under three comparable events the rate is not reported. A
+#     share computed over one event is a coincidence with a percent sign.
+#   * THE LADDER. When the selection cannot clear the floor, the narrowest
+#     WIDER scope that can is offered beside the gap, carrying the scope it
+#     belongs to. It never overwrites `value`.
+
+#: Real scopes, by how many comparable events the engine finds in each. The
+#: dataset carries no single-SKU scope with exactly three, so the boundary
+#: itself is asserted against the rule rather than hunted for in the data.
+EVENTS_0 = {"year": YEAR, "promotion": ["PBNY25"], "product": ["P11-800ml"], "channel": ["CH001"]}
+EVENTS_1 = {"year": YEAR, "promotion": ["PBNY25"], "product": ["P21-84ct"], "channel": ["CH001"]}
+EVENTS_2 = {"year": YEAR, "month": 1, "promotion": ["PR001"], "product": ["P11-100ml"], "channel": ["CH003"]}
+EVENTS_4 = {"year": YEAR, "promotion": ["PR001"], "product": ["P11-250ml"], "channel": ["CH002"]}
+
+#: Resolved by lifting the CHANNEL -- same promotion, same SKU.
+LADDER_RUNG_CHANNEL = {
+    "year": YEAR, "promotion": ["PBIN25"], "product": ["P13-240ct"], "channel": ["CH003"],
+}
+#: Resolved only by lifting the OFFER -- same SKU, same channel.
+LADDER_RUNG_PROMOTION = {
+    "year": YEAR, "promotion": ["PBNY25"], "product": ["P13-240ct"], "channel": ["CH005"],
+}
+#: No rung clears the floor. Must stay unavailable.
+LADDER_EXHAUSTED = {
+    "year": YEAR, "promotion": ["PBNY25"], "product": ["P13-240ct"], "channel": ["CH003"],
+}
+
+
+def _card(scope):
+    return service.kpis(FilterState.build(**scope))["kpis"]["cannibalization_rate"]
+
+
+# --- the floor --------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "comparable,reported",
+    [(0, False), (1, False), (2, False), (3, True), (4, True), (50, True)],
+)
+def test_the_floor_is_three_comparable_events(comparable, reported):
+    """0, 1 and 2 events report nothing; 3 is the first count that does."""
+    detail = {"overall": None if comparable == 0 else 5.0, "comparable_events": comparable}
+    assert service._clears_the_floor(detail) is reported
+    assert service.CANNIBALIZATION_MIN_EVENTS == 3
+
+
+@pytest.mark.parametrize(
+    "name,scope,events",
+    [("zero", EVENTS_0, 0), ("one", EVENTS_1, 1), ("two", EVENTS_2, 2)],
+)
+def test_thin_evidence_is_not_reported(name, scope, events):
+    """The floor, on real scopes.
+
+    The ENGINE still computes a rate for one and two events -- proof the floor
+    is a reporting rule and not a formula change -- and the card declines to
+    show it, with a reason that says which it is.
+    """
+    state = FilterState.build(**scope)
+    detail = _detail(state)
+    assert detail["comparable_events"] == events
+
+    card = _card(scope)
+    assert card["value"] is None
+    assert card["available"] is False
+    assert card["comparable_events"] == events
+    assert card["value"] != 0
+    if events:
+        assert detail["overall"] is not None, "the engine itself still produces a rate"
+        assert str(events) in card["unavailable_reason"]
+    # Suppressing the value drops everything derived from it.
+    for derived in ("previous_value", "delta", "delta_display", "difference", "trend"):
+        assert card[derived] is None
+
+
+def test_sufficient_evidence_is_reported_with_its_count():
+    """3+ events: the engine's own value, and the count beside it."""
+    state = FilterState.build(**EVENTS_4)
+    detail = _detail(state)
+    assert detail["comparable_events"] >= service.CANNIBALIZATION_MIN_EVENTS
+
+    card = _card(EVENTS_4)
+    assert card["value"] == detail["overall"]
+    assert card["available"] is True
+    assert card["comparable_events"] == detail["comparable_events"]
+    assert card["measured_at"] is None, "a scope that stands needs no fallback"
+
+
+# --- the ladder -------------------------------------------------------------
+
+
+def test_the_ladder_stops_at_the_first_rung_that_clears_the_floor():
+    """Lifting the channel is enough here, so the offer is never lifted."""
+    card = _card(LADDER_RUNG_CHANNEL)
+    assert card["value"] is None
+    assert card["measured_at"]["lifted"] == ["channel"]
+    assert card["measured_at"]["comparable_events"] >= service.CANNIBALIZATION_MIN_EVENTS
+
+    # The rung it stopped before would also have resolved -- so "first wins" is
+    # a real choice here, not an accident of there being only one option.
+    state = FilterState.build(**LADDER_RUNG_CHANNEL)
+    later = _detail(state.replace(promotion=None, promotion_type=None))
+    assert later["overall"] is not None
+    assert card["measured_at"]["value"] != later["overall"], (
+        "the two rungs happen to agree; pick a scope where they differ"
+    )
+
+
+def test_a_later_rung_is_used_when_the_first_cannot_clear_the_floor():
+    """Lifting the channel is not enough, so the offer is lifted instead."""
+    card = _card(LADDER_RUNG_PROMOTION)
+    assert card["value"] is None
+    assert card["measured_at"]["lifted"] == ["promotion", "promotion_type"]
+
+    state = FilterState.build(**LADDER_RUNG_PROMOTION)
+    skipped = _detail(state.replace(channel=None))
+    assert not service._clears_the_floor(skipped), "the first rung should have failed"
+
+
+@pytest.mark.parametrize(
+    "name,scope", [("channel", LADDER_RUNG_CHANNEL), ("promotion", LADDER_RUNG_PROMOTION)]
+)
+def test_the_fallback_equals_a_direct_engine_call_at_that_scope(name, scope):
+    """The reported figure IS `cannibalization_detail` at the resolved scope --
+    no second computation anywhere in the ladder."""
+    state = FilterState.build(**scope)
+    fallback = _card(scope)["measured_at"]
+    resolved = state.replace(**{dimension: None for dimension in fallback["lifted"]})
+    detail = _detail(resolved)
+    assert fallback["value"] == detail["overall"]
+    assert fallback["comparable_events"] == detail["comparable_events"]
+
+
+@pytest.mark.parametrize(
+    "name,scope", [("channel", LADDER_RUNG_CHANNEL), ("promotion", LADDER_RUNG_PROMOTION)]
+)
+def test_a_fallback_never_becomes_the_selections_own_value(name, scope):
+    """`value` means "this selection" everywhere else in the payload, so a
+    wider figure is never written into it -- it travels beside it, labelled."""
+    card = _card(scope)
+    assert card["value"] is None
+    assert card["available"] is False
+    assert card["display_value"] == F.percent(None)
+    assert card["measured_at"]["value"] is not None
+    assert card["measured_at"]["scope_label"], "a wider figure must name its scope"
+
+
+def test_the_pinned_scope_is_never_dressed_up_as_wider():
+    """The ladder does not run at all when the selection stands on its own."""
+    for scope in ({"year": YEAR}, EVENTS_4, PRODUCT_SCOPE, OFFER_SCOPE):
+        card = _card(scope)
+        assert card["available"] is True
+        assert card["measured_at"] is None
+
+
+def test_a_scope_no_rung_can_resolve_stays_unavailable():
+    """Absence of evidence survives the ladder. Never zero, never borrowed."""
+    card = _card(LADDER_EXHAUSTED)
+    assert card["value"] is None
+    assert card["value"] != 0
+    assert card["available"] is False
+    assert card["measured_at"] is None
+    assert card["unavailable_reason"]
+
+    state = FilterState.build(**LADDER_EXHAUSTED)
+    for lifted in service._CANNIBALIZATION_LADDER:
+        wider = state.replace(**{dimension: None for dimension in lifted})
+        assert not service._clears_the_floor(_detail(wider)), f"{lifted} should not resolve"
+
+
+def test_the_product_pin_is_never_lifted():
+    """Every rung keeps the answer about the SKU on screen."""
+    for lifted in service._CANNIBALIZATION_LADDER:
+        assert "product" not in lifted
+        assert "brand" not in lifted
+
+
+# --- parity, and the scenario boundary --------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name,scope",
+    [
+        ("offer", OFFER_SCOPE), ("product", PRODUCT_SCOPE),
+        ("rung channel", LADDER_RUNG_CHANNEL), ("rung promotion", LADDER_RUNG_PROMOTION),
+        ("exhausted", LADDER_EXHAUSTED), ("thin", EVENTS_1),
+    ],
+)
+def test_command_center_and_simulation_resolve_identically(client, name, scope):
+    """ONE resolution path. The floor and the ladder live in the shared
+    cannibalization code, so neither surface can drift from the other."""
+    card = _card(scope)
+    kpi = _run(client, scope)["kpis"]["cannibalization"]
+    assert kpi["value"] == card["value"]
+    assert kpi["available"] == card["available"]
+    assert kpi["unavailable_reason"] == card["unavailable_reason"]
+    assert kpi["comparable_events"] == card["comparable_events"]
+    assert kpi.get("measured_at") == card["measured_at"]
+
+
+def test_a_scenario_never_widens_its_own_population(client):
+    """THE BOUNDARY.
+
+    The ladder is a MEASUREMENT device; a scenario re-bases rows, and re-basing
+    rows the user did not select would be modelling a response Phase A does not
+    have. So a simulated scenario carries no `measured_at` of its own, and the
+    studio shows the resolved MEASURED figure beside those cells instead.
+    """
+    payload = _simulate(client, LADDER_RUNG_CHANNEL, 10)
+    for end in ("low", "high"):
+        kpi = payload["result"][end]["kpis"]["cannibalization"]
+        assert "measured_at" not in kpi, "a scenario resolved a wider scope of its own"
+        assert kpi["value"] is None
+        assert kpi["comparable_events"] < service.CANNIBALIZATION_MIN_EVENTS
+
+    # The figure those cells defer to is the measured one, and it exists.
+    measured = _run(client, LADDER_RUNG_CHANNEL)["kpis"]["cannibalization"]
+    assert measured["measured_at"]["value"] is not None
+
+
+def test_a_scenario_applies_the_floor_but_not_the_ladder(client):
+    """The same evidence rule as a measurement, from the scenario's own rows."""
+    state = FilterState.build(**LADDER_RUNG_CHANNEL)
+    rows, volume = rows_for(state), baseline_rows_for(state)
+    family = _cannibalization_rows(state)
+    targets = execution._target_keys(rows)
+    baselines = execution._baselines(volume)
+    rule = response.get_treatment_response(10)
+    counterfactual = execution.synthesize(
+        family, targets, baselines, rule.uplift_low, rule.discount_pct / 100
+    ).rows
+    detail = A.cannibalization_detail(counterfactual, _promoted_products(state))
+
+    kpi = _simulate(client, LADDER_RUNG_CHANNEL, 10)["result"]["low"]["kpis"]["cannibalization"]
+    assert kpi["comparable_events"] == detail["comparable_events"]
+    if detail["comparable_events"] >= service.CANNIBALIZATION_MIN_EVENTS:
+        assert kpi["value"] == detail["overall"]
+    else:
+        assert kpi["value"] is None
+
+
+# --- what must not have changed ---------------------------------------------
+
+
+def test_the_engine_still_reports_thin_evidence_unfiltered():
+    """The floor is OURS, not the engine's. `cannibalization_detail` is
+    unchanged and still returns a rate for a single comparable event."""
+    detail = _detail(FilterState.build(**EVENTS_1))
+    assert detail["comparable_events"] == 1
+    assert detail["overall"] is not None
+    assert not hasattr(A, "CANNIBALIZATION_MIN_EVENTS")
+    assert not hasattr(A, "cannibalization_resolution")
+
+
+@pytest.mark.parametrize("name,scope", [("offer", OFFER_SCOPE), ("thin", EVENTS_1)])
+def test_no_other_kpi_is_touched_by_the_floor_or_the_ladder(name, scope):
+    """Every other card is still a direct engine call over the same rows."""
+    state = FilterState.build(**scope)
+    rows, volume = rows_for(state), baseline_rows_for(state)
+    cards = service.kpis(state)["kpis"]
+    assert cards["trade_spend"]["value"] == A.calculate_trade_spend(rows)
+    assert cards["incremental_sales"]["value"] == A.calculate_incremental_sales(volume)
+    assert cards["promotion_roi"]["value"] == A.calculate_roi(rows, volume)
+    assert cards["margin_impact"]["value"] == A.calculate_margin(rows)
+    assert cards["pei"]["value"] == A.calculate_pei(rows, volume)
+
+
+def test_the_dataset_is_untouched():
+    """Structural guard on fact_sales and the dimensions the metric reads.
+
+    Shape rather than frozen totals, matching this suite's convention -- but
+    enough that a swapped extract or a re-ranked catalogue fails here.
+    """
+    store = get_store()
+    assert store.row_count > 0
+    ranks = {p.rank for p in store.dims.products.values()}
+    assert ranks <= {1, 2, 3, 4}, "SKU rank is the neighbour rule's whole basis"
+    assert all(p.brand for p in store.dims.products.values()), "every SKU needs a Brand Form"
+    rows = rows_for(FilterState.build(year=YEAR))
+    assert any(r.is_promoted for r in rows) and any(not r.is_promoted for r in rows)

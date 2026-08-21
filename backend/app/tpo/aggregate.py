@@ -401,7 +401,11 @@ def calculate_incremental_profit(rows: Sequence[WeekRow]) -> float | None:
 # --- ROI, margin, efficiency -----------------------------------------------
 
 
-def roi_percent(incremental_sales: float | None, trade_spend: float | None) -> float | None:
+def roi_percent(
+    incremental_sales: float | None,
+    trade_spend: float | None,
+    precision: int | None = 1,
+) -> float | None:
     """THE Promotion ROI formula. One expression, one rounding rule.
 
         ROI = (Incremental Sales - Trade Spend) / Trade Spend x 100
@@ -414,14 +418,26 @@ def roi_percent(incremental_sales: float | None, trade_spend: float | None) -> f
 
     Null — never zero, never infinite — when nothing was spent: there is no
     return to express against no investment.
+
+    `precision` rounds the RESULT and nothing else. `None` returns the same
+    arithmetic unrounded, for a period-over-period delta that must not be taken
+    from two already-rounded numbers (see `_precise`). The inputs are whatever
+    the caller passed either way — this parameter never reaches inside the
+    formula.
     """
     if incremental_sales is None or trade_spend is None:
         return None
     ratio = safe_divide(incremental_sales - trade_spend, trade_spend)
-    return None if ratio is None else _round(ratio * 100, 1)
+    if ratio is None:
+        return None
+    return ratio * 100 if precision is None else _round(ratio * 100, precision)
 
 
-def calculate_roi(rows: Sequence[WeekRow], volume_rows: Sequence[WeekRow] | None = None) -> float | None:
+def calculate_roi(
+    rows: Sequence[WeekRow],
+    volume_rows: Sequence[WeekRow] | None = None,
+    precision: int | None = 1,
+) -> float | None:
     """Promotion ROI for a whole filtered selection — the KPI card.
 
     `volume_rows` is the selection widened with the non-promoted rows the
@@ -436,10 +452,11 @@ def calculate_roi(rows: Sequence[WeekRow], volume_rows: Sequence[WeekRow] | None
     return roi_percent(
         calculate_incremental_sales(volume_rows if volume_rows is not None else rows),
         calculate_trade_spend(rows),
+        precision=precision,
     )
 
 
-def calculate_margin(rows: Sequence[WeekRow]) -> float | None:
+def calculate_margin(rows: Sequence[WeekRow], precision: int | None = 1) -> float | None:
     """Gross margin retained across the filtered period.
 
         Sum(Actual_Revenue - Total_Cost) / Sum(Actual_Revenue) x 100
@@ -452,7 +469,10 @@ def calculate_margin(rows: Sequence[WeekRow]) -> float | None:
         return None
     revenue = _sum(rows, lambda r: r.actual_revenue)
     ratio = safe_divide(revenue - _sum(rows, lambda r: r.total_cost), revenue)
-    return None if ratio is None else _round(ratio * 100, 1)
+    if ratio is None:
+        return None
+    # `precision` rounds the RESULT only — see roi_percent.
+    return ratio * 100 if precision is None else _round(ratio * 100, precision)
 
 
 def calculate_trade_spend_efficiency(
@@ -789,7 +809,11 @@ def cannibalization_score(rate_pct: float | None) -> float | None:
 # --- PEI -------------------------------------------------------------------
 
 
-def calculate_pei(rows: Sequence[WeekRow], volume_rows: Sequence[WeekRow] | None = None) -> float | None:
+def calculate_pei(
+    rows: Sequence[WeekRow],
+    volume_rows: Sequence[WeekRow] | None = None,
+    precision: int | None = 0,
+) -> float | None:
     """0-100 composite, computed LAST — every component is one of the KPIs
     above, not a parallel calculation.
 
@@ -827,7 +851,12 @@ def calculate_pei(rows: Sequence[WeekRow], volume_rows: Sequence[WeekRow] | None
         return None
     total_weight = sum(w for _, w in components)
     weighted = sum(s * w for s, w in components)
-    return _round(safe_divide(weighted, total_weight), 0)
+    index = safe_divide(weighted, total_weight)
+    # `precision` rounds the RESULT only. The three COMPONENTS keep their own
+    # rounding whatever is asked for here: they are the KPIs as this project
+    # defines them, and re-deriving the index from unrounded components would
+    # be a different composite -- and would move the score on the card.
+    return index if precision is None else _round(index, precision)
 
 
 # --- period-over-period ----------------------------------------------------
@@ -850,6 +879,31 @@ def calculate_growth(value: float | None, previous: float | None) -> KpiMetric:
         previous_year=previous,
         difference=round(difference, 4),
         growth=round(difference / abs(previous) * 100, 1),
+    )
+
+
+def _precise(current: float | None, previous: float | None, digits: int) -> KpiMetric:
+    """A KPI and its movement, with the MOVEMENT TAKEN BEFORE ROUNDING.
+
+    Two rounded numbers make a wrong ratio. PEI is reported as a whole number,
+    so a delta computed from the reported pair moved by up to 0.4 percentage
+    points against the same delta taken from the underlying values -- and ROI
+    and Margin Impact, reported to one decimal, moved by up to 0.1.
+
+    So the pair arrives here unrounded, the growth is taken from it, and only
+    the REPORTED values are rounded afterwards. The card's value is unchanged
+    by construction: rounding the unrounded result to the same precision the
+    KPI function used is the same number it already returned.
+
+    `_cannibalization_metric` below has always worked this way; this is that
+    pattern, applied to the KPIs that were still dividing rounded figures.
+    """
+    metric = calculate_growth(current, previous)
+    return KpiMetric(
+        value=_round(current, digits),
+        previous_year=_round(previous, digits),
+        difference=_round(metric.difference, 4),
+        growth=metric.growth,
     )
 
 
@@ -1012,8 +1066,20 @@ def calculate_kpis(
         incremental_quantity=volume(calculate_incremental_quantity),
         incremental_quantity_percent=volume(calculate_incremental_quantity_percent),
         incremental_sales=volume(calculate_incremental_sales),
-        roi=paired(calculate_roi),
-        margin_impact=both(calculate_margin),
+        # ROI, Margin Impact and PEI take their delta from the unrounded pair
+        # -- see `_precise`. Trade Spend and Incremental Sales stay on the
+        # generic path: they are rounded to 2dp on figures in the hundreds of
+        # millions, so the reported delta is already the full-precision one.
+        roi=_precise(
+            calculate_roi(rows, vrows, precision=None),
+            calculate_roi(previous_rows, prior_vrows, precision=None),
+            1,
+        ),
+        margin_impact=_precise(
+            calculate_margin(rows, precision=None),
+            calculate_margin(previous_rows, precision=None),
+            1,
+        ),
         trade_spend_efficiency=paired(calculate_trade_spend_efficiency),
         cannibalization=_cannibalization_metric(cannib_rows, cannib_prior, promoted_products),
         cannibalization_score=cannibalization_score(
@@ -1022,6 +1088,10 @@ def calculate_kpis(
         # PEI reads `rows` — the selection as filtered. Its three components
         # are all computed off that same selection, so the family-widening
         # applied to cannibalization does not reach PEI.
-        pei=paired(calculate_pei),
+        pei=_precise(
+            calculate_pei(rows, vrows, precision=None),
+            calculate_pei(previous_rows, prior_vrows, precision=None),
+            0,
+        ),
         debug=build_debug(rows, cannib_rows, promoted_products, vrows),
     )

@@ -2,6 +2,82 @@ import { Icon } from '../../icons'
 import { InfoPopover, Table, Th, Td } from '../ui'
 import type { SimulationKpi, SimulationKpiKey, SimulationRunResponse } from '../../types/simulation'
 
+const events = (n: number) => `${n.toLocaleString()} comparable event${n === 1 ? '' : 's'}`
+
+/** Whether a cannibalization cell has a figure to show in place of the gap.
+ *
+ *  When it does, the engine's long "no comparable promotion event…" sentence
+ *  is left to the tooltip: the line that replaces it already says the rate
+ *  could not be measured HERE by naming the scope where it could, and printing
+ *  both put a paragraph of prose above a one-line answer. */
+export function hasCannibalizationFallback(kpi: SimulationKpi, measured?: SimulationKpi | null) {
+  return Boolean(kpi.measured_at || measured?.available || measured?.measured_at)
+}
+
+/** THE EVIDENCE BEHIND A CANNIBALIZATION RATE.
+ *
+ *  A rate is a share of promotion events, and how many stood behind it decides
+ *  whether it means anything — so the count travels with the number rather
+ *  than hiding in a payload.
+ *
+ *  WHEN THE SELECTION CANNOT SUPPORT ONE, the backend offers the narrowest
+ *  WIDER scope that can (see service.cannibalization_resolution). That figure
+ *  is real and engine-produced, but it is NOT this selection's, so it is
+ *  always printed with the scope it belongs to. Never render `value` from it.
+ *
+ *  `measured` is the MEASURED cannibalization KPI, passed in by a scenario
+ *  column. A scenario never resolves a wider scope of its own — widening would
+ *  hand it a different population to re-base, which Phase A does not model —
+ *  so a scenario cell points at what was measured instead.
+ */
+export function CannibalizationEvidence({
+  kpi,
+  measured,
+}: {
+  kpi: SimulationKpi
+  measured?: SimulationKpi | null
+}) {
+  if (kpi.available) {
+    if (kpi.comparable_events == null) return null
+    return (
+      <div className="mt-0.5 text-[10.5px] leading-[1.4] text-ink-muted">
+        {events(kpi.comparable_events)}
+      </div>
+    )
+  }
+
+  // Its own resolved scope (the measured column), or the measured figure a
+  // scenario column defers to.
+  const own = kpi.measured_at
+  if (own) {
+    return (
+      <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+        <span className="font-bold text-ink-secondary">{own.display_value}</span> across{' '}
+        {own.scope_label} · {events(own.comparable_events)}
+      </div>
+    )
+  }
+  if (!measured) return null
+  if (measured.available) {
+    return (
+      <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+        Measured for this selection:{' '}
+        <span className="font-bold text-ink-secondary">{measured.display_value}</span>
+        {measured.comparable_events != null && ` · ${events(measured.comparable_events)}`}
+      </div>
+    )
+  }
+  const wider = measured.measured_at
+  if (!wider) return null
+  return (
+    <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+      Measured across {wider.scope_label}:{' '}
+      <span className="font-bold text-ink-secondary">{wider.display_value}</span> ·{' '}
+      {events(wider.comparable_events)}
+    </div>
+  )
+}
+
 /** The order the seven figures are read in: what was invested, what it moved,
  *  what it returned, what it cost elsewhere. */
 const KPI_ORDER: SimulationKpiKey[] = [
@@ -67,11 +143,12 @@ export function KpiTable({ kpis, targetRoiPct }: { kpis: Record<SimulationKpiKey
                     —
                   </span>
                 )}
-                {!kpi.available && kpi.unavailable_reason && (
+                {!kpi.available && kpi.unavailable_reason && !hasCannibalizationFallback(kpi) && (
                   <div className="mt-0.5 max-w-[320px] text-[11px] leading-[1.45] text-ink-muted">
                     {kpi.unavailable_reason}
                   </div>
                 )}
+                {key === 'cannibalization' && <CannibalizationEvidence kpi={kpi} />}
               </Td>
             </tr>
           )

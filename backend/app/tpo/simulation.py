@@ -151,6 +151,14 @@ def _kpis(state: FilterState, currency: str) -> dict[str, Any]:
                 "unavailable_reason": card["unavailable_reason"],
                 "formula": card["info"]["formula"],
             }
+            # Cannibalization carries its EVIDENCE: how many comparable events
+            # stood behind the rate, and -- when this scope could not support
+            # one -- the wider scope `service.cannibalization_resolution`
+            # settled on. Copied rather than recomputed, so the studio and the
+            # Command Center cannot disagree about either.
+            for extra in ("comparable_events", "measured_at"):
+                if extra in card:
+                    out[kpi.key][extra] = card[extra]
             continue
 
         value = _incremental_units(state)

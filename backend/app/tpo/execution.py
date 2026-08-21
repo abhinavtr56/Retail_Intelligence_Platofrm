@@ -231,6 +231,20 @@ def _kpis_from_bundle(bundle: A.KpiBundle, currency: str) -> dict[str, Any]:
             label, unit, formula = spec.label, spec.unit, spec.formula
             reason = None if metric.value is not None else service._why_unavailable(kpi.card_key, bundle)
             value = metric.value
+            if kpi.card_key == "cannibalization_rate":
+                # THE EVIDENCE FLOOR, and only the floor. A scenario's rate is
+                # reported on the same terms as a measured one -- a share
+                # computed over one or two comparable events is not a rate.
+                #
+                # The MEASUREMENT LADDER deliberately does not run here.
+                # Widening the scope would hand this scenario a different
+                # population to re-base, and Phase A models no scenario
+                # response over rows the user did not select. The studio shows
+                # the resolved MEASURED figure beside these cells instead.
+                comparable = bundle.debug.get("comparable_events", 0)
+                if comparable < service.CANNIBALIZATION_MIN_EVENTS:
+                    value = None
+                    reason = service._thin_evidence_reason(comparable, bundle)
         else:
             value = bundle.incremental_quantity.value
             label, unit, formula = kpi.label, kpi.unit, kpi.formula
@@ -248,6 +262,7 @@ def _kpis_from_bundle(bundle: A.KpiBundle, currency: str) -> dict[str, Any]:
         }
         if kpi.key == "cannibalization":
             entry["note"] = CANNIBALIZATION_NOTE
+            entry["comparable_events"] = bundle.debug.get("comparable_events", 0)
         out[kpi.key] = entry
     return out
 

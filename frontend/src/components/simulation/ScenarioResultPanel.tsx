@@ -1,6 +1,7 @@
 import { Icon } from '../../icons'
 import { InfoPopover, Table, Th, Td } from '../ui'
-import type { SimulateResponse, SimulationKpiKey } from '../../types/simulation'
+import { CannibalizationEvidence, hasCannibalizationFallback } from './panels'
+import type { SimulateResponse, SimulationKpi, SimulationKpiKey } from '../../types/simulation'
 
 const KPI_ORDER: SimulationKpiKey[] = [
   'trade_spend',
@@ -24,7 +25,17 @@ const KPI_ORDER: SimulationKpiKey[] = [
  *  against the dataset — not uncertainty estimated from variation. The header
  *  says so and the provenance popover repeats it.
  */
-export function ScenarioResultPanel({ simulation }: { simulation: SimulateResponse }) {
+export function ScenarioResultPanel({
+  simulation,
+  measuredCannibalization,
+}: {
+  simulation: SimulateResponse
+  /** The MEASURED cannibalization figure for this scope, which the scenario's
+   *  own cells defer to when the scenario cannot report one. A scenario never
+   *  widens its scope to find a rate: the widening would give it rows the user
+   *  did not select to re-base, and Phase A models no response over those. */
+  measuredCannibalization?: SimulationKpi | null
+}) {
   const { low, high } = simulation.result
 
   return (
@@ -85,8 +96,8 @@ export function ScenarioResultPanel({ simulation }: { simulation: SimulateRespon
                       </InfoPopover>
                     </div>
                   </Td>
-                  <Value kpi={l} />
-                  <Value kpi={h} />
+                  <Value kpi={l} measured={key === 'cannibalization' ? measuredCannibalization : null} />
+                  <Value kpi={h} measured={key === 'cannibalization' ? measuredCannibalization : null} />
                 </tr>
               )
             })}
@@ -103,7 +114,17 @@ export function ScenarioResultPanel({ simulation }: { simulation: SimulateRespon
   )
 }
 
-function Value({ kpi }: { kpi: SimulateResponse['result']['low']['kpis'][SimulationKpiKey] }) {
+function Value({
+  kpi,
+  measured,
+}: {
+  kpi: SimulateResponse['result']['low']['kpis'][SimulationKpiKey]
+  measured?: SimulationKpi | null
+}) {
+  const isCannibalization = kpi.key === 'cannibalization'
+  // The engine's reason stays reachable on the dash even when the cell shows a
+  // resolved figure instead of printing it.
+  const deferred = isCannibalization && hasCannibalizationFallback(kpi, measured)
   return (
     <Td className="text-right align-top">
       {kpi.available ? (
@@ -112,14 +133,17 @@ function Value({ kpi }: { kpi: SimulateResponse['result']['low']['kpis'][Simulat
         </span>
       ) : (
         <>
-          <span className="text-sm text-ink-muted">—</span>
-          {kpi.unavailable_reason && (
+          <span className="cursor-help text-sm text-ink-muted" title={kpi.unavailable_reason ?? undefined}>
+            —
+          </span>
+          {kpi.unavailable_reason && !deferred && (
             <div className="mt-0.5 max-w-[260px] text-[10.5px] leading-[1.4] text-ink-muted">
               {kpi.unavailable_reason}
             </div>
           )}
         </>
       )}
+      {isCannibalization && <CannibalizationEvidence kpi={kpi} measured={measured} />}
     </Td>
   )
 }
