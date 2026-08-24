@@ -46,6 +46,11 @@ import {
   useUnderperforming,
 } from '../hooks/useCommandCenter'
 import { useCommandFilters } from '../store/commandFilters'
+import { ExportReportButton } from '../components/reports/ExportReportButton'
+// The SAME CommandFilters -> API filter-dict converter the Simulation Studio
+// posts with. Reused rather than rewritten: a second implementation is how an
+// export starts describing a different selection from the screen.
+import { toSimulationFilters as toReportScope } from '../hooks/useSimulation'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import type { RiskAlert, UnderperformingRow } from '../types/commandCenter'
 import type { KpiCard } from '../types/commandCenter'
@@ -317,8 +322,19 @@ export function CommandCenter() {
             Real-time overview of promotions, performance and risks · {calendarYear(meta.period)}
           </p>
         </div>
-        <div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <FilterBar options={options.data} onRefresh={handleRefresh} refreshing={refreshing} />
+          {/* EXPORTS WHAT THE SCREEN IS SHOWING. `scope` is read at click time
+              from the same `commandFilters` store every card, chart and table on
+              this page reads, so a report can never describe a different
+              selection from the one on screen. */}
+          <ExportReportButton
+            module="command-center"
+            scope={() => toReportScope(useCommandFilters.getState().filters)}
+            currency={meta.currency}
+            disabled={isEmpty}
+            disabledReason="This filter selection matches no sales rows, so there is nothing to report."
+          />
         </div>
       </div>
 

@@ -18,7 +18,12 @@ import { create } from 'zustand'
  *  be a number nobody chose. The mode resets to Investigation Simulation on a
  *  fresh load for the same reason.
  */
-export type SimulationMode = 'investigation' | 'general'
+/** ADDITIVE: `rescue` joins the union for the Simulation Studio's third mode.
+ *  This type is the PAGE's mode enum rather than General Optimization's own
+ *  state, which is why it lives here and why extending it changes nothing
+ *  below — every selector, control and default in this store is untouched.
+ *  Target Rescue keeps its controls in store/targetRescue.ts. */
+export type SimulationMode = 'investigation' | 'general' | 'rescue'
 
 export interface OptimizationControls {
   /** dim_product Category values, or null for every category. */

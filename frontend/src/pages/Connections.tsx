@@ -31,8 +31,16 @@ export function Connections() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary">
-            <Icon name="download" /> Export Catalog
+          {/* NOT AN EXPORT. This had no handler at all — an enabled button that
+              did nothing. Data Connections holds connector configuration, not a
+              reportable dataset, so the brief's report export does not belong
+              here; the control is disabled and says why rather than pretending. */}
+          <Button
+            variant="secondary"
+            disabled
+            title="Connector configuration is not a reportable dataset. Report export is available on Command Center, Simulation Studio and Decision Center."
+          >
+            <Icon name="download" /> Export Catalog — not available
           </Button>
           <Button variant="primary" onClick={() => show('Opening connector catalog…')}>
             <Icon name="plus" /> Add Source

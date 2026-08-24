@@ -15,7 +15,7 @@ import {
   toComparisonRequest,
 } from '../hooks/useSimulation'
 import { useInvestigationContext, toInvestigationContextRequest } from '../hooks/useInvestigationContext'
-import { useCommandFilters } from '../store/commandFilters'
+import { useCommandFilters, type CommandFilters } from '../store/commandFilters'
 import { useScenarioStore } from '../store/simulationScenarios'
 import { useDecisionDraftStore, draftSignature } from '../store/decisionDraft'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
@@ -33,8 +33,11 @@ import { LeverPanel } from '../components/simulation/LeverPanel'
 import { ScenarioResultPanel, NotSimulatedPanel } from '../components/simulation/ScenarioResultPanel'
 import { KpiTable, NoDataPanel } from '../components/simulation/panels'
 import { GeneralOptimization } from '../components/optimization/GeneralOptimization'
+import { TargetRescue } from '../components/rescue/TargetRescue'
 import { useGeneralOptimizationStore, type SimulationMode } from '../store/generalOptimization'
 import { useFilterOptions } from '../hooks/useCommandCenter'
+import { ExportReportButton } from '../components/reports/ExportReportButton'
+import { useTargetRescueStore } from '../store/targetRescue'
 
 /** TPO Simulation Studio.
  *
@@ -373,11 +376,25 @@ export function Simulation() {
           <p className="mt-1.5 text-sm text-ink-muted">
             {mode === 'general'
               ? 'Allocate a trade-spend budget across a category and channel, at approved discount depths.'
-              : 'The measured promotion plan for the current selection, and what an approved treatment would do to it.'}
+              : mode === 'rescue'
+                ? 'Check monthly target progress and recover an at-risk target with the least aggressive approved intervention.'
+                : 'The measured promotion plan for the current selection, and what an approved treatment would do to it.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <ModeSwitch mode={mode} onChange={setMode} />
+          {/* THE EXPORT FOLLOWS THE ACTIVE MODE. `module`, `scope` and `options`
+              are all derived from `mode`, and the scope/options callbacks read
+              each mode's OWN store at click time — so a Target Rescue export can
+              never carry General Optimization's product plan, and switching modes
+              needs no cache to invalidate. */}
+          <ExportReportButton
+            key={mode}
+            module={exportModule(mode)}
+            scope={() => exportScope(mode, filters)}
+            options={() => exportOptions(mode, activeId, scenarios)}
+            currency={currency}
+          />
           {mode === 'investigation' && (
             <Button variant="secondary" onClick={() => run.mutate(body, { onSuccess: (d) => seed(scopeKey, d.scenarios) })} disabled={run.isPending}>
               <Icon name="refresh" /> <span>Recalculate</span>
@@ -386,13 +403,18 @@ export function Simulation() {
         </div>
       </div>
 
-      {/* THE TWO MODES. General Optimization renders INSTEAD of the
-          investigation workspace, never beside it -- one page shell, one
-          router entry, two workspaces. Nothing below is duplicated for it,
-          and nothing below changed to make room. */}
+      {/* THE THREE MODES. General Optimization and Target Rescue each render
+          INSTEAD of the investigation workspace, never beside it -- one page
+          shell, one router entry, three workspaces. Nothing below is duplicated
+          for either, and nothing below changed to make room. Each mode owns its
+          own store, so switching cannot carry one mode's scope into another. */}
       {mode === 'general' ? (
         <div className="mt-4">
           <GeneralOptimization options={filterOptions.data} />
+        </div>
+      ) : mode === 'rescue' ? (
+        <div className="mt-4">
+          <TargetRescue options={filterOptions.data} />
         </div>
       ) : (
         <>
@@ -716,12 +738,92 @@ export function Simulation() {
   )
 }
 
-/** INVESTIGATION SIMULATION | GENERAL OPTIMIZATION.
+/** WHICH REPORT THE EXPORT CONTROL ASKS FOR, per active mode.
  *
- *  A segmented control, not a router: both modes are this page, so switching
- *  cannot lose the investigation's scope, its question or a scenario the user
- *  has already run. The default is Investigation Simulation and the store does
- *  not persist the choice, so a fresh load always opens on it.
+ *  One switch, so the three modes cannot drift apart or fall through to a
+ *  default that would silently export the wrong workspace.
+ */
+function exportModule(mode: SimulationMode) {
+  if (mode === 'general') return 'simulation-general-optimization' as const
+  if (mode === 'rescue') return 'simulation-target-rescue' as const
+  return 'simulation-investigation' as const
+}
+
+/** THE SCOPE EACH MODE ACTUALLY WORKS OVER — read at click time.
+ *
+ *  Investigation Simulation scopes from the Command Center's FilterState (or the
+ *  RCA hand-off that narrowed it), exactly as its own /run and /simulate calls
+ *  do. General Optimization and Target Rescue each own their controls, and each
+ *  store is read directly here, so an export reflects that mode's selection and
+ *  no other's. This is the same state isolation the three modes already keep.
+ */
+function exportScope(mode: SimulationMode, filters: CommandFilters): Record<string, unknown> {
+  if (mode === 'general') {
+    const c = useGeneralOptimizationStore.getState().controls
+    return {
+      month: c.month ?? undefined,
+      channel: c.channel ? [c.channel] : undefined,
+      category: c.category ? [c.category] : undefined,
+    }
+  }
+  if (mode === 'rescue') {
+    const c = useTargetRescueStore.getState().controls
+    return {
+      year: c.year ?? undefined,
+      month: c.month,
+      channel: c.channel ? [c.channel] : undefined,
+      category: c.category ? [c.category] : undefined,
+      product: c.product ? [c.product] : undefined,
+    }
+  }
+  return toSimulationFilters(filters) as Record<string, unknown>
+}
+
+/** THE CONTROL VALUES each module's authoritative service needs as INPUTS.
+ *
+ *  Never results: the server re-runs the same service the screen called and
+ *  produces its own figures. What travels is only what the user set.
+ */
+function exportOptions(
+  mode: SimulationMode,
+  activeId: string,
+  scenarios: { id: string; name: string; levers: { discount_pct?: number | null } }[],
+): Record<string, unknown> {
+  if (mode === 'general') {
+    const c = useGeneralOptimizationStore.getState().controls
+    return {
+      max_trade_spend: c.maxTradeSpend ?? undefined,
+      min_discount_pct: c.minDiscountPct,
+      max_discount_pct: c.maxDiscountPct,
+    }
+  }
+  if (mode === 'rescue') {
+    const c = useTargetRescueStore.getState().controls
+    return {
+      target_units: c.targetUnits ?? undefined,
+      current_discount_pct: c.currentDiscountPct,
+      checkpoint: c.checkpoint,
+      max_additional_trade_spend: c.maxAdditionalTradeSpend ?? undefined,
+    }
+  }
+  const active = scenarios.find((s) => s.id === activeId) ?? scenarios[0]
+  return {
+    scenario_id: active?.id,
+    scenario_name: active?.name,
+    discount_pct: active?.levers?.discount_pct ?? undefined,
+    filename_hint: active?.name,
+  }
+}
+
+/** INVESTIGATION SIMULATION | GENERAL OPTIMIZATION | TARGET RESCUE.
+ *
+ *  A segmented control, not a router: all three modes are this page, so
+ *  switching cannot lose the investigation's scope, its question or a scenario
+ *  the user has already run. The default is Investigation Simulation and the
+ *  store does not persist the choice, so a fresh load always opens on it.
+ *
+ *  Each mode's controls live in its own store, so switching away and back
+ *  restores what the user had without any mode observing another's selection.
  */
 function ModeSwitch({
   mode,
@@ -730,9 +832,22 @@ function ModeSwitch({
   mode: SimulationMode
   onChange: (mode: SimulationMode) => void
 }) {
-  const modes: { key: SimulationMode; label: string }[] = [
-    { key: 'investigation', label: 'Investigation Simulation' },
-    { key: 'general', label: 'General Optimization' },
+  const modes: { key: SimulationMode; label: string; title: string }[] = [
+    {
+      key: 'investigation',
+      label: 'Investigation Simulation',
+      title: 'Measure the current plan and simulate an approved treatment over it.',
+    },
+    {
+      key: 'general',
+      label: 'General Optimization',
+      title: 'Allocate a trade-spend budget across a category, channel and month.',
+    },
+    {
+      key: 'rescue',
+      label: 'Target Rescue',
+      title: 'Identify monthly target risk and recommend recovery actions.',
+    },
   ]
   return (
     <div
@@ -748,6 +863,7 @@ function ModeSwitch({
             type="button"
             role="tab"
             aria-selected={on}
+            title={m.title}
             onClick={() => onChange(m.key)}
             className={`cursor-pointer whitespace-nowrap rounded-[var(--r-sm)] px-3 py-1.5 text-[12px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
               on

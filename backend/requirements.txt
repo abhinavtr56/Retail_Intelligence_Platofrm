@@ -2,3 +2,13 @@ fastapi>=0.115
 uvicorn[standard]>=0.32
 pydantic>=2.9
 httpx>=0.28
+
+# Report export. Real .xlsx and real .pdf cannot be produced without them: a CSV
+# renamed .xlsx is not a workbook and HTML renamed .pdf is not a PDF, and both
+# are ruled out by the report brief.
+openpyxl>=3.1        # the .xlsx writer, named by the brief
+reportlab>=4.0       # the .pdf writer
+
+# Test only: reads generated PDFs back so the report tests can assert on page
+# count, metadata and extracted text rather than on a status code.
+pypdf>=4.0

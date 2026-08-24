@@ -5,6 +5,7 @@ import { Button, Card, CardBody, LiveStatus, Spinner, useLiveStatus } from '../c
 import { InfoPopover } from '../components/ui/InfoPopover'
 import { Icon } from '../icons'
 import { useDecisionRecord } from '../hooks/useDecision'
+import { ExportReportButton } from '../components/reports/ExportReportButton'
 import { saveBriefing, useDecisionBriefing } from '../hooks/useBriefing'
 import { useDecisionDraftStore } from '../store/decisionDraft'
 import { useSavedRefsStore } from '../store/savedRefs'
@@ -141,6 +142,32 @@ export function Decision() {
             {saveDecision.isPending ? <Spinner /> : <Icon name="checkCircle" />}
             <span>{saveDecision.isPending ? 'Saving…' : 'Save Decision'}</span>
           </Button>
+          {/* THE DECISION RECORD, EXPORTED — assembled server-side from the same
+              five payloads this page already posted to /api/decision/record, so
+              the file and the screen are the same record. Draft and approval
+              semantics travel with it verbatim: this control does not decide
+              anything about approval and the report does not claim any. */}
+          <ExportReportButton
+            module="decision-center"
+            scope={() =>
+              (draft?.simulation as { scope?: { filters_applied?: Record<string, unknown> } })
+                ?.scope?.filters_applied ?? {}
+            }
+            options={() => ({
+              record: draft
+                ? {
+                    context: draft.context,
+                    simulation: draft.simulation,
+                    recommendation: draft.recommendation,
+                    risk: draft.risk,
+                    weekly: draft.weekly ?? undefined,
+                  }
+                : undefined,
+              filename_hint: (draft?.simulation as { scenario_id?: string })?.scenario_id,
+            })}
+            disabled={!draft || !shown}
+            disabledReason="Carry a scenario here first — there is no decision record to export yet."
+          />
           <Button
             variant="primary"
             onClick={() => shown && generateBriefing(shown)}

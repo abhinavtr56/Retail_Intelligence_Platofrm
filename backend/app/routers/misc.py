@@ -12,9 +12,14 @@ def get_calendar() -> dict[str, Any]:
     return load("calendar")
 
 
-@router.get("/reports")
-def get_reports() -> list[dict[str, Any]]:
-    return load("reports")
+# GET /api/reports WAS HERE, and it served app/data/reports.json -- six authored
+# rows ("Sanjay Kumar", "4.2 MB", "Just now") with no artifact behind any of
+# them. It is removed rather than left dead beside the real one, for two reasons:
+# a fake-data endpoint on the same path would SHADOW the Report Center's own
+# listing (this router is registered first), and the Report Center's whole
+# contract is that every row corresponds to a stored artifact. See
+# app/routers/reports.py. `app/data/reports.json` is left on disk; nothing reads
+# it.
 
 
 @router.get("/connections")

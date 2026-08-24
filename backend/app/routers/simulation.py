@@ -15,7 +15,7 @@ construction rather than by coincidence.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -26,6 +26,7 @@ from app.tpo import (
     investigation,
     optimization,
     recommendation,
+    rescue,
     risk,
     simulation,
     weekly,
@@ -528,4 +529,169 @@ def general_optimization(body: GeneralOptimizationRequest) -> dict[str, Any]:
     except optimization.InvalidConstraints as exc:
         # 422: the scope is well-formed and the constraints contradict each
         # other. A clamped or emptied plan would hide the contradiction.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+# --- Target Rescue ----------------------------------------------------------
+#
+# A THIRD, SEPARATE MODE. It shares the ONE FilterState, the approved promotion
+# economics and the validated KPI definitions with the two modes above, and
+# nothing else: no route here calls /run, /simulate, /compare, /recommend,
+# /weekly, /risk or /general-optimization, and none of those changed to make
+# room for these two.
+#
+# It RECOMMENDS ONLY. Neither route writes anything -- no promotion is created,
+# no calendar or fact row is touched, no discount is activated. Execution stays
+# a Decision Center action.
+
+
+class TargetRescueScopeRequest(BaseModel):
+    """The scope controls, before a target has been entered.
+
+    Deliberately NOT a `SimulationFilters`: this mode offers month, year and the
+    channel -> category -> product hierarchy, and accepting the other eight would
+    let a caller build a scope whose progress the screen cannot narrate. The
+    fields are handed to the same `FilterState.build`, so they are the same
+    dimensions the rest of the project filters on.
+
+    `category` and `product` are a HIERARCHY, not two independent filters. A
+    product outside the selected category is rejected rather than resolved to an
+    empty scope -- see `rescue.validate_selection`.
+
+    `month` IS REQUIRED. A monthly target is a statement about one month, and a
+    rescue evaluated across twelve of them would have no days elapsed to count.
+
+    `year` is optional and resolved server-side to the most recent year the data
+    holds. It is present at all -- where General Optimization deliberately omits
+    it -- because this mode counts DAYS, and January 2024 covers 37 of them
+    where January 2025 covers 36. Averaging two calendars would put "day 20 of
+    36.5" on screen, which is not a day in any month.
+
+    `checkpoint` is a COMPLETED BUSINESS WEEK, not a day. Progress in this dataset
+    is knowable at complete-week boundaries and nowhere finer, so the control
+    addresses a week ordinal:
+
+        "auto"    resolve from the channel's promotion cadence -- the latest
+                  completed week for a WEEKLY channel, the mid-month week for a
+                  MONTHLY one
+        "latest"  the latest completed business week
+        1 .. N    that business week of the month
+
+    A week the month does not contain is REJECTED with the month's real week
+    count, never clamped to the last one: week 6 of a four-week month is a
+    question about a week that does not exist.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    month: Annotated[int, Field(ge=1, le=12)]
+    year: int | None = None
+    channel: list[str] | None = None
+    category: list[str] | None = None
+    #: Product_id values. Below `category` in the hierarchy, so a product from
+    #: another category is a 422 rather than a scope that selects nothing.
+    product: list[str] | None = None
+    #: `strict=True` on the int arm so a bool or a numeric string is a 422 rather
+    #: than a silent week 1. A checkpoint is the one control here whose value the
+    #: whole evaluation hangs on; coercing a client's mistake into a valid week
+    #: would answer a question nobody asked.
+    checkpoint: Annotated[int, Field(ge=1, strict=True)] | Literal["auto", "latest"] | None = None
+    currency: Annotated[str, Field(pattern="^(INR|USD|inr|usd)$")] = "INR"
+
+    def to_state(self) -> FilterState:
+        return FilterState.build(
+            year=self.year,
+            month=self.month,
+            channel=self.channel,
+            category=self.category,
+            product=self.product,
+        )
+
+
+class TargetRescueRequest(TargetRescueScopeRequest):
+    """The scope plus the target and the treatment currently running.
+
+    `target_units` must be POSITIVE. A target of zero is not a target that has
+    been met -- attainment against it is undefined, not 100% -- so it is rejected
+    at the contract boundary rather than divided by.
+
+    `current_discount_pct` is bounded at 0 and at `rescue.MAX_DISCOUNT_PCT`,
+    which is the deepest APPROVED treatment depth read from the approved rules.
+    A caller sending 30% gets a 422 naming the ceiling, because there is no
+    approved uplift band beyond it and this mode will not price one.
+
+    `max_additional_trade_spend` is optional. When present it is a HARD limit:
+    an intervention needing more is reported as blocked with the amount it
+    needed, and never recommended.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_units: Annotated[float, Field(gt=0)]
+    current_discount_pct: Annotated[float, Field(ge=0, le=rescue.MAX_DISCOUNT_PCT)] = 0.0
+    max_additional_trade_spend: Annotated[float | None, Field(ge=0)] = None
+
+
+@router.post("/target-rescue/scope")
+def target_rescue_scope(body: TargetRescueScopeRequest) -> dict[str, Any]:
+    """Measure the selected month so its controls can be bounded.
+
+    Four things the client cannot work out for itself: the CASCADE -- which
+    categories trade in the selected channel and month, and which products trade
+    in the selected category; which business weeks the month holds and therefore
+    which checkpoints exist; the prior-year actual for THIS scope, so the target
+    input starts from a measured figure rather than an invented one; and the depth
+    the elapsed weeks actually ran at.
+
+    Evaluates no target and recommends nothing.
+    """
+    try:
+        state = body.to_state()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        return rescue.scope(state, checkpoint=body.checkpoint, currency=body.currency)
+    except rescue.ImpossibleCheckpoint as exc:
+        # 422: the scope is well-formed and the checkpoint names a week the month
+        # does not have. Clamping it would answer a different question.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except rescue.InvalidSelection as exc:
+        # 422: the selection names a dimension value the data does not contain, or
+        # a product outside the selected category. Told which, not handed a
+        # no-data assessment that would read as "this scope traded nothing".
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/target-rescue")
+def target_rescue(body: TargetRescueRequest) -> dict[str, Any]:
+    """Assess one month's unit target and recommend the least aggressive
+    approved recovery.
+
+    Progress is measured in COMPLETED BUSINESS WEEKS -- the finest grain this
+    dataset supports, since fact_sales carries a scrambled Date on three channels
+    -- and the checkpoint that is read follows the channel's promotion cadence:
+    the latest completed week for a WEEKLY channel, the mid-month week for a
+    MONTHLY one. The pace projection and the intervention ladder are reported side
+    by side and never merged: one is division, the other is a counterfactual over
+    the month's REMAINING business weeks under an approved treatment. Completed
+    weeks are never re-priced.
+
+    Nothing is created, activated or written. A scope with no rows comes back as
+    a status with the reason and NO numbers -- a zeroed assessment would read as
+    a missed target rather than an unmeasured one.
+    """
+    try:
+        state = body.to_state()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        return rescue.rescue(
+            state,
+            target_units=body.target_units,
+            current_discount_pct=body.current_discount_pct,
+            checkpoint=body.checkpoint,
+            max_additional_trade_spend=body.max_additional_trade_spend,
+            currency=body.currency,
+        )
+    except (rescue.ImpossibleCheckpoint, rescue.InvalidSelection) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

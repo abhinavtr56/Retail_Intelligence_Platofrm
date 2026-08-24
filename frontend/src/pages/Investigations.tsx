@@ -250,11 +250,14 @@ export function Investigations() {
           />
           <Dropdown
             selected=""
-            options={[
-              { label: 'Export to PDF' },
-              { label: 'Duplicate investigation' },
-              { label: 'Archive' },
-            ]}
+            // "Export to PDF" WAS HERE AND HAS BEEN REMOVED. Investigations is
+            // served from authored content in app/data/investigations.json, not
+            // from the validated KPI engine, so there is no authoritative result
+            // for a report to be generated from. Offering the item and answering
+            // with a toast advertised a capability this module cannot honestly
+            // provide; the modules that do have computed results carry the real
+            // Export Report control instead.
+            options={[{ label: 'Duplicate investigation' }, { label: 'Archive' }]}
             onSelect={(val) => show(`${val} is not yet available`)}
             trigger={<IconButton icon="more" title="More" />}
           />
