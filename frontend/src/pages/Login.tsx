@@ -42,7 +42,12 @@ export function Login() {
           {error && <div className="rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-[12.5px] text-[#B91C1C]">{error}</div>}
 
           <Field label="Work email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="abhinav@transorg.com" autoComplete="username" />
+            {/* An INSTRUCTION, not a specimen address. The placeholder used to be
+                a realistic personal email, which renders as grey text inside an
+                otherwise-empty field and reads as a value somebody had already
+                filled in. `autoComplete="username"` is deliberately kept — the
+                browser's own saved-credential fill is a feature, not a bug. */}
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email address" autoComplete="username" />
           </Field>
           <Field label="Password">
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
