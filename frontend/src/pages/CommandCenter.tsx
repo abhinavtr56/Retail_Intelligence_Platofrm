@@ -25,7 +25,7 @@ import { calendarYear } from '../lib/labels'
 import { FilterBar } from '../components/command/FilterBar'
 import { PromotionMixCard } from '../components/command/PromotionMixCard'
 import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
-import { topPriorityAlert } from '../components/command/riskRanking'
+import { ALERT_FETCH_LIMIT, topPriorityAlert } from '../components/command/riskRanking'
 import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
 import { TrendPanels } from '../components/command/TrendPanels'
 import {
@@ -52,7 +52,8 @@ import { ExportReportButton } from '../components/reports/ExportReportButton'
 // export starts describing a different selection from the screen.
 import { toSimulationFilters as toReportScope } from '../hooks/useSimulation'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
-import type { RiskAlert, UnderperformingRow } from '../types/commandCenter'
+import { useAlertHandoff } from '../hooks/useAlertHandoff'
+import type { UnderperformingRow } from '../types/commandCenter'
 import type { KpiCard } from '../types/commandCenter'
 
 const GRANULARITIES = [
@@ -63,13 +64,17 @@ const GRANULARITIES = [
 // Presentation only — which glyph and tint each card wears. The label, value,
 // formula and delta all come from the backend; nothing here computes or
 // re-formats a KPI.
-const KPI_STYLE: Record<string, { icon: IconName; tint: string }> = {
-  trade_spend: { icon: 'wallet', tint: 'lavender' },
-  incremental_sales: { icon: 'barChart', tint: 'sky' },
-  promotion_roi: { icon: 'target', tint: 'violet' },
-  margin_impact: { icon: 'coins', tint: 'amber' },
-  pei: { icon: 'gauge', tint: 'mint' },
-  cannibalization_rate: { icon: 'cannib', tint: 'rose' },
+// `accent` is the hover rule along the card's bottom edge — one tone per KPI, so
+// the six cards are distinguishable on hover without any of them shouting. Every
+// value is an existing token from styles/tokens.css; no new colour is introduced,
+// and none of them touches the KPI number, the icon or the card background.
+const KPI_STYLE: Record<string, { icon: IconName; tint: string; accent: string }> = {
+  trade_spend: { icon: 'wallet', tint: 'lavender', accent: 'var(--status-warning)' },
+  incremental_sales: { icon: 'barChart', tint: 'sky', accent: 'var(--tint-mint-icon)' },
+  promotion_roi: { icon: 'target', tint: 'violet', accent: 'var(--brand-violet)' },
+  margin_impact: { icon: 'coins', tint: 'amber', accent: 'var(--brand-blue)' },
+  pei: { icon: 'gauge', tint: 'mint', accent: 'var(--tint-teal-icon)' },
+  cannibalization_rate: { icon: 'cannib', tint: 'rose', accent: 'var(--tint-peach-icon)' },
 }
 
 const KPI_ORDER = [
@@ -97,12 +102,6 @@ function cannibalizationSub(card: KpiCard): string | null {
   return `${wider.display_value} across ${wider.scope_label} · ${count(wider.comparable_events)}`
 }
 
-// The API emits ONE concatenated Critical -> High -> Medium list and truncates
-// the tail, so the top of the High band sits behind every Critical row and a
-// small `limit` cannot reach it. The whole alert set for the scope is fetched
-// and segmented client-side instead. React Query caches it per filter
-// combination, so this is one request per scope, not per render.
-const ALERT_FETCH_LIMIT = 100000
 
 // Same reason as the alerts: `/underperforming-promotions` ranks by At Stake
 // DESC, so the worst-ROI promotions are NOT at the head of its list. The full
@@ -131,6 +130,17 @@ export function CommandCenter() {
   // state is never written from here — the hand-off copies it.
   const filters = useCommandFilters((s) => s.filters)
   const startFromCommandCenter = useActiveInvestigationStore((s) => s.startFromCommandCenter)
+  /** The RCA hand-off for a risk alert. EXTRACTED to hooks/useAlertHandoff.ts
+   *  so the header's notification bell opens the same investigation this page's
+   *  own alert rows open — one definition, not two that can drift. Behaviour is
+   *  unchanged; see that file for why the week and the display names stay
+   *  labels rather than filters.
+   *
+   *  Called HERE, with the other hooks: this component returns early while the
+   *  filters and KPIs are loading, so a hook called further down would run in
+   *  some renders and not others.
+   */
+  const handOffAlert = useAlertHandoff()
 
   const options = useFilterOptions()
   const kpis = useKpis()
@@ -236,49 +246,6 @@ export function CommandCenter() {
   // genuine result.
   const isEmpty = meta.row_count === 0
 
-  /** THE COMMAND CENTER -> RCA HAND-OFF (B3.2).
-   *
-   *  These three call sites already held the clicked entity and threw it away,
-   *  navigating with nothing. They now hand over the Command Center's own
-   *  validated FilterState, narrowed only by identifiers the source ACTUALLY
-   *  provides.
-   *
-   *  BOTH SOURCES CARRY THE EVENT'S CODES — promotion, product and channel —
-   *  so all three narrow the scope. That is what makes a row's ROI and the
-   *  Simulation Studio's Current Plan describe the same population: a -3.6%
-   *  alert is one SKU in one channel, and handing over an unnarrowed selection
-   *  made Simulation answer for the whole promotion instead.
-   *
-   *  THE WEEK IS A LABEL AND STAYS ONE. It identifies the event but cannot
-   *  scope it: Incremental Sales is measured against the non-promoted rows of
-   *  the selection, the promoted week has none, and a week-narrowed scope
-   *  reports -100% instead of the row's own ROI. Display names ("Modern
-   *  Trade", not "CH002") likewise stay in `labels` — turning one back into a
-   *  code by guessing would select different rows from the ones clicked.
-   *
-   *  Nothing here recomputes anything, and the Command Center's own filter
-   *  state is not mutated — the hand-off is a copy.
-   */
-  const handOffAlert = (alert: RiskAlert) => {
-    startFromCommandCenter({
-      origin: 'risk_alert',
-      label: alert.title,
-      filters: {
-        ...filters,
-        promotion: [alert.promotion_id],
-        product: [alert.product_id],
-        channel: [alert.channel_id],
-      },
-      identifiers: {
-        promotion_id: alert.promotion_id,
-        product_id: alert.product_id,
-        channel_id: alert.channel_id,
-      },
-      labels: { product: alert.product, channel: alert.channel, week: alert.week },
-    })
-    navigate('/investigations')
-  }
-
   const handOffPromotion = (row: UnderperformingRow) => {
     startFromCommandCenter({
       origin: 'underperforming',
@@ -368,6 +335,7 @@ export function CommandCenter() {
                 trend={card.trend}
                 icon={style.icon}
                 tint={style.tint}
+                accent={style.accent}
                 delayMs={i * 60}
                 info={card.info}
                 unit={card.unit}

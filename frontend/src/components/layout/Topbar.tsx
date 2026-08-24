@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons'
 import { IconButton } from '../ui'
-import { useToast } from '../ui'
+import { NotificationBell } from '../command/NotificationBell'
 import { usePortalUserStore } from '../../store/portalUser'
 
 export interface Crumb {
@@ -15,7 +15,6 @@ export interface Crumb {
 export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuClick?: () => void }) {
   // B12: see Sidebar — the signed-in persona, not the authored one.
   const user = usePortalUserStore((s) => s.user)
-  const { show } = useToast()
   const navigate = useNavigate()
 
   return (
@@ -52,17 +51,10 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5">
-        <IconButton
-          icon="help"
-          title="Help"
-          onClick={() => show('Help center coming soon · Press / to search', { duration: 2500 })}
-        />
-        <IconButton
-          icon="bell"
-          dot
-          title="Notifications"
-          onClick={() => show('3 unread alerts · Click "View Details" on the Command Center', { duration: 3000 })}
-        />
+        {/* The Help button that sat here is gone. It opened a toast promising a
+            help centre that does not exist, and there is nothing behind it to
+            open; nothing replaces it, so the row closes up on its own. */}
+        <NotificationBell />
         <IconButton icon="settings" title="Settings" onClick={() => navigate('/settings')} />
         <div
           className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"

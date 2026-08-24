@@ -57,6 +57,7 @@ export function TpoKpiTile({
   trend,
   icon,
   tint,
+  accent,
   delayMs = 0,
   info,
   unit,
@@ -71,6 +72,9 @@ export function TpoKpiTile({
   trend: 'up' | 'down' | null
   icon: IconName
   tint: string
+  /** CSS colour for the hover accent along the card's bottom edge. Omitted
+   *  means no accent — every other surface using this tile is unchanged. */
+  accent?: string
   delayMs?: number
   info?: KpiInfo
   /** currency | percent | score — drives the tooltip's Unit line. */
@@ -125,6 +129,30 @@ export function TpoKpiTile({
           </span>
         </div>
       </div>
+
+      {/* THE HOVER ACCENT. A 3px rule along the bottom edge that grows out of the
+          centre to both sides.
+
+          `scale-x` ONLY, on an absolutely-positioned element: the bar is out of
+          flow, so it cannot move the card's box, its siblings or the grid — and
+          `transform` is off the layout path regardless. Nothing about the card's
+          size, spacing or type changes.
+
+          Inset by the card's own corner radius so the bar's ends stop short of
+          the rounded corners instead of poking past the outline — the card sets
+          no `overflow`, and clipping it would have caught the icon's hover
+          scale too.
+
+          `motion-reduce:transition-none` leaves the accent fully visible on
+          hover for a reader who has asked for less motion; only the growth
+          goes. */}
+      {accent && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-[var(--r-lg)] bottom-0 h-[3px] scale-x-0 rounded-full transition-transform duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover/kpi:scale-x-100 motion-reduce:transition-none"
+          style={{ background: accent }}
+        />
+      )}
     </div>
   )
 }

@@ -161,8 +161,68 @@ h4 { font-size: 15px; line-height: 1.4; }
 .fade-in    { animation: fadeIn 220ms var(--ease-out) both; }
 .fade-in-up { animation: fadeInUp 320ms var(--ease-out) both; }
 
+/* ---------------------------------------------------------------------------
+   THE ALERT BELL — a physical ring, while the current scope holds risk alerts.
+
+   The bell IS the indicator. No dot, no badge, no count, no ring of light: it
+   swings the way a hung bell swings when something strikes it, then stops.
+
+   IT PIVOTS FROM THE HANGER, NOT THE CENTRE. That single detail is what makes
+   it read as a bell rather than as an icon being rotated. The crown of this
+   icon sits at (12, 2) in its 24-unit viewBox — the path arcs from (6,8) up
+   over a radius-6 curve — so the origin is 50% across and 8.33% down, and both
+   the body and the clapper turn about that same point.
+
+   THE SWING IS DAMPED. Amplitudes decay 8 -> 8 -> 6 -> 5 -> 3 -> 2 -> 0 degrees
+   over 600ms, alternating sides, easing through each extreme. It is a decaying
+   oscillation rather than a symmetric shake, which is why it settles instead of
+   simply stopping.
+
+   NO SEPARATE CLAPPER MOTION, and that was a decision made by looking. This
+   icon's clapper is a 4px arc; counter-rotating it about the same pivot read as
+   the clapper DETACHING from the bell's mouth under magnification, and at the
+   18px it actually renders at the differential is sub-pixel anyway. The bell
+   swings as one piece, which is what a bell this size looks like.
+
+   IT RINGS ONCE EVERY 5 SECONDS. 600ms of motion, 4.4s of stillness: a
+   reminder, not a permanently animated icon.
+
+   TRANSFORM ONLY, so the header cannot reflow, and the icon never leaves the
+   38px button it sits in. */
+@keyframes bellSwing {
+  0%,   12%, 100% { transform: rotate(0deg); }
+  1.6%            { transform: rotate(-12deg); }
+  3.2%            { transform: rotate(10deg); }
+  4.8%            { transform: rotate(-7deg); }
+  6.4%            { transform: rotate(5deg); }
+  8%              { transform: rotate(-3deg); }
+  10%             { transform: rotate(1.5deg); }
+}
+
+.bell-ring svg {
+  transform-origin: 50% 8.33%;
+  animation: bellSwing 5s var(--ease-in-out) infinite;
+}
+
+/* PANEL OPEN — the ring holds. The user is reading the alerts; the thing that
+   pointed at them has done its job. `paused` rather than `none` so it resumes
+   mid-cycle instead of snapping back to the start. */
+.bell-wrap-open .bell-ring svg { animation-play-state: paused; }
+
 @media (prefers-reduced-motion: reduce) {
   .fade-in, .fade-in-up { animation: none; }
+
+  /* No swing at all. But a sighted reader would then have NOTHING to see, so
+     the state moves from motion into colour: the bell takes the brand accent
+     instead of the neutral header grey. Not red, not a dot, not a badge, and
+     nothing flashes — it is simply a bell that is lit while alerts exist. */
+  .bell-ring svg { animation: none; }
+  /* `.bell-ring svg` (0,1,1), not `.bell-ring` (0,1,0): the button already
+     carries Tailwind's own `text-ink-secondary`, and at equal specificity that
+     wins on source order — which left the indication invisible. Setting the
+     stroke on the icon itself also beats its `stroke="currentColor"` attribute,
+     since any rule outranks a presentation attribute. */
+  .bell-ring svg { stroke: var(--brand-violet); }
 }
 
 /* ============================================================================

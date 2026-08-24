@@ -28,14 +28,47 @@ export function rankByImpact(a: RiskAlert, b: RiskAlert): number {
   return b.at_stake - a.at_stake || (a.roi_pct ?? 0) - (b.roi_pct ?? 0)
 }
 
-/** The single highest-priority alert: severity first, then largest stake, with
- *  ROI only as a tie-break. Undefined when the selection has no alert at all.
+/** THE priority order: severity band first, then largest stake, with ROI only
+ *  as a tie-break. So a Critical always outranks a High however small, and
+ *  within Critical the most money at stake comes first.
  *
- *  So a Critical always outranks a High however small, and within Critical the
- *  banner names the event with the most money at stake. */
-export function topPriorityAlert(alerts: RiskAlert[] | undefined): RiskAlert | undefined {
-  if (!alerts?.length) return undefined
-  return [...alerts].sort(
-    (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || rankByImpact(a, b),
-  )[0]
+ *  It agrees with the ordering `service.risk_alerts` already emits — that route
+ *  concatenates Critical -> High -> Medium and sorts each band by At Stake
+ *  descending. Applying it here re-establishes that order over a set the client
+ *  may have re-segmented; it does not replace it with a different one. */
+function byPriority(a: RiskAlert, b: RiskAlert): number {
+  return SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || rankByImpact(a, b)
 }
+
+/** The `count` highest-priority alerts, in order. Empty when there are none.
+ *
+ *  The notification bell and the hero banner both read this, so the bell can
+ *  never disagree with the banner about which alert matters most. */
+export function topAlerts(alerts: RiskAlert[] | undefined, count: number): RiskAlert[] {
+  if (!alerts?.length) return []
+  return [...alerts].sort(byPriority).slice(0, count)
+}
+
+/** The single highest-priority alert. Undefined when the selection has none. */
+export function topPriorityAlert(alerts: RiskAlert[] | undefined): RiskAlert | undefined {
+  return topAlerts(alerts, 1)[0]
+}
+
+/** "ROI below target — Diwali Special 25" -> "ROI below target".
+ *
+ *  The complement of RiskAlertsPanel's `promotionOf`: that one recovers the
+ *  promotion the API appended, this one the reason it appended it to. Neither
+ *  invents a message — both split the title the backend built. */
+export function alertHeadline(alert: RiskAlert): string {
+  const dash = alert.title.indexOf('—')
+  return dash === -1 ? alert.title : alert.title.slice(0, dash).trim()
+}
+
+/** How many alerts the Command Center fetches.
+ *
+ *  DELIBERATELY THE WHOLE SET. `/risk-alerts` emits ONE concatenated
+ *  Critical -> High -> Medium list and truncates the tail, so a small `limit`
+ *  cannot reach the top of the High band. Both the Command Center panel and the
+ *  notification bell request this same figure, which means React Query serves
+ *  them from ONE cache entry and one request rather than two. */
+export const ALERT_FETCH_LIMIT = 100000
