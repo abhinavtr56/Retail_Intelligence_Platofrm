@@ -55,8 +55,27 @@ FILTER_OBJECT = {
 STAR_PLAN_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["investigation_type", "focus_label", "focus_sub", "global_filters", "specialists"],
+    "required": [
+        "answerable", "refusal_reason", "investigation_type",
+        "focus_label", "focus_sub", "global_filters", "specialists",
+    ],
     "properties": {
+        "answerable": {
+            "type": "boolean",
+            "description": (
+                "True only if this question can be answered from trade promotion data "
+                "(promotions, channels, retailers, regions, products, spend, ROI). False "
+                "for anything else — general knowledge, people, weather, chit-chat, or "
+                "other marketing channels this dataset does not cover."
+            ),
+        },
+        "refusal_reason": {
+            "type": "string",
+            "description": (
+                "When answerable is false, one plain sentence telling the user what this "
+                "data can and cannot answer. Empty string when answerable is true."
+            ),
+        },
         "investigation_type": {"type": "string", "enum": INVESTIGATION_TYPES},
         "focus_label": {"type": "string", "description": "Short name for what's investigated, e.g. 'South Modern Trade'"},
         "focus_sub": {"type": "string", "description": "Period or qualifier, e.g. '(F25)'"},
@@ -86,7 +105,24 @@ STAR_PLAN_SCHEMA = {
 STAR_PLANNER_SYSTEM = """You are the planning agent for a trade promotion intelligence platform,
 working over a finalised star schema of real promotion data.
 
-Given a business question, you must:
+FIRST, decide whether the question is answerable at all.
+
+This platform holds trade promotion data: promotions and their mechanics,
+channels, retailers, regions, states, cities, products, brands, categories,
+trade spend, incremental sales and ROI, for 2024 and 2025.
+
+Set `answerable` to false for anything outside that — questions about people,
+places, current events, weather, other marketing channels (digital, TV, social),
+or greetings and chit-chat. Give a one-sentence `refusal_reason` naming what the
+data does cover. Do NOT try to be helpful by finding some tenuous link to
+promotion data: answering "who is <person>" with a promotion ROI figure invents
+a connection that does not exist, and is far worse than saying you cannot answer.
+
+A question can be terse or oddly phrased and still be answerable — "is dussehra
+good or bad?" is a real question about promotion performance. Judge the subject,
+not the grammar.
+
+When answerable is true, continue:
 1. Classify it into one of the four investigation archetypes.
 2. Set `global_filters` to the scope the question implies (a year, a channel,
    a region). Use ONLY codes/values present in the schema summary. Set every
@@ -142,6 +178,8 @@ Analyse ONLY what is in front of you.
 
 Rules:
 - Never invent figures. Every number you cite must appear in the data given.
+- CURRENCY: every monetary figure is Indian Rupees. Write ₹ or "INR", never $ —
+  the figures are not dollars and showing them as such is a factual error.
 - `roi` is a PERCENTAGE and 50 is the target hurdle. ROI of 13.6 means the
   promotion returned well under target, not "13.6x".
 - Read `applied_filters`: your table may describe one segment, not the whole
@@ -211,6 +249,27 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
         "star_investigation_plan",
         temperature=0.1,
     )
+
+    # The question is outside what this data can answer. Stop here rather than
+    # running specialists — they would analyse promotions regardless and the
+    # synthesis would attach real figures to a subject that is not in the data.
+    if plan.get("answerable") is False:
+        reason = (plan.get("refusal_reason") or "").strip() or (
+            "This platform analyses trade promotion performance — promotions, channels, "
+            "retailers, regions, products, spend and ROI. That question falls outside it."
+        )
+        await emit("planned", {"plan": plan, "specialists": [], "totals": {}})
+        return {
+            "plan": plan,
+            "source": "star_schema",
+            "answerable": False,
+            "refusal": reason,
+            "question": question,
+            "findings": [],
+            "orchestration": None,
+            "synthesis": None,
+            "investigation_type": plan.get("investigation_type", "diagnostic"),
+        }
 
     def clean_filters(raw: dict[str, Any] | None) -> dict[str, Any]:
         """Drop empties, and drop year/month that fall outside real ranges.

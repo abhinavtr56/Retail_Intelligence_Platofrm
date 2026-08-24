@@ -169,6 +169,31 @@ function RunningState({
   )
 }
 
+/** The question was outside what promotion data can answer. Saying so is far
+ *  better than the previous behaviour, which attached real ROI figures to
+ *  whatever the question named — "Who is shahrukh khan" returned a confident
+ *  root cause about his promotions. */
+function OutOfScope({ question, reason, onReset }: { question: string; reason: string; onReset: () => void }) {
+  return (
+    <Card className="fade-in mt-4">
+      <div className="grid place-items-center gap-3 p-[36px_24px] text-center">
+        <div className="grid h-12 w-12 place-items-center rounded-xl bg-status-warning-bg text-status-warning">
+          <Icon name="info" className="h-6 w-6" />
+        </div>
+        <h2 className="text-lg font-extrabold">That's outside what this data can answer</h2>
+        <p className="max-w-[540px] text-[13px] leading-[1.6] text-ink-muted">{reason}</p>
+        <p className="max-w-[540px] text-[12px] italic leading-[1.5] text-ink-disabled">You asked: "{question}"</p>
+        <button
+          onClick={onReset}
+          className="mt-1 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-[13px] font-semibold text-white"
+        >
+          Ask something else
+        </button>
+      </div>
+    </Card>
+  )
+}
+
 type AccelState = 'queued' | 'progress' | 'done'
 
 export function Investigations() {
@@ -531,6 +556,17 @@ export function Investigations() {
 
       {!hasAsked ? (
         <AskSomething types={types} onPick={(q) => { setQueryInput(q); launch(q) }} />
+      ) : run?.status === 'done' && run.result && run.result.answerable === false ? (
+        <OutOfScope
+          question={run.question}
+          reason={run.result.refusal ?? ''}
+          onReset={() => {
+            setRunId(undefined)
+            setHasAsked(false)
+            setQueryInput('')
+            setHandoffLabel(undefined)
+          }}
+        />
       ) : !view ? (
         <RunningState
           question={queryInput || activeQuestion}

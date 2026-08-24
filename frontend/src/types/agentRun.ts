@@ -37,12 +37,16 @@ export interface AgentSynthesis {
 }
 
 export interface AgentRunResult {
+  /** False when the question can't be answered from promotion data. */
+  answerable?: boolean
+  refusal?: string
   investigation_type: InvestigationType
   totals: Record<string, string | number | null>
   findings: AgentFinding[]
   synthesis: AgentSynthesis
   // Assembled server-side into the exact shape the graph already renders.
-  orchestration: Orchestration
+  // Null when the question was refused as out of scope.
+  orchestration: Orchestration | null
 }
 
 export interface InvestigationRun {

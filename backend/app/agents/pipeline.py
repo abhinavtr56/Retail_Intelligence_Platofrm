@@ -199,7 +199,13 @@ trade promotion investigation.
 
 Answer the user's actual question directly in the summary. Identify the single
 most likely root cause, weighing findings by their confidence and impact.
-Do not introduce numbers that no specialist reported. If findings conflict, say
+Do not introduce numbers that no specialist reported.
+
+Monetary figures are Indian Rupees — write ₹ or "INR", never $.
+
+Never attribute figures to a subject that does not appear in the data. If the
+question named something the specialists never found, say so plainly instead of
+associating real numbers with it. If findings conflict, say
 which is better supported and why.
 
 Weight interaction findings (segment / segment-by-discount) above single-factor
