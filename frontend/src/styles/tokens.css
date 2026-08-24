@@ -97,7 +97,13 @@
   --r-pill: 999px;
 
   /* ===== Layout ===== */
-  --sidebar-w: 240px;
+  /* The navigation has two widths. `--sidebar-rail-w` is the collapsed rail —
+     wide enough for a 20px icon inside a 40px hit target with breathing room on
+     both sides. `--sidebar-w` is the expanded width, and it is what the content
+     is inset by only when the rail is PINNED; a hover expansion floats over the
+     content instead, so nothing reflows while the pointer passes through. */
+  --sidebar-rail-w: 68px;
+  --sidebar-w: 224px;
   --topbar-h:  62px;
   --right-rail-w: 320px;
 

@@ -10,7 +10,8 @@ export interface Crumb {
 }
 
 // Ported from js/components/topbar.js + css/layout.css .topbar*. `onMenuClick` only
-// renders (and only matters) below `lg`, where Sidebar is an off-canvas drawer.
+// renders (and only matters) below `md`, where Sidebar is an off-canvas drawer; at
+// `md` and up the collapsed rail is always on screen and needs no menu button.
 export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuClick?: () => void }) {
   // B12: see Sidebar — the signed-in persona, not the authored one.
   const user = usePortalUserStore((s) => s.user)
@@ -19,7 +20,7 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
 
   return (
     <header className="sticky top-0 z-10 flex h-[var(--topbar-h)] items-center gap-2 border-b border-border-subtle bg-surface-page pl-4 pr-4 sm:gap-4 sm:pl-8 sm:pr-7">
-      {onMenuClick && <IconButton icon="menu" title="Menu" onClick={onMenuClick} className="-ml-1.5 lg:hidden" />}
+      {onMenuClick && <IconButton icon="menu" title="Menu" onClick={onMenuClick} className="-ml-1.5 md:hidden" />}
       <div className="flex min-w-0 items-center gap-2 text-sm text-ink-muted">
         {crumbs.map((c, i) => {
           const isLast = i === crumbs.length - 1
