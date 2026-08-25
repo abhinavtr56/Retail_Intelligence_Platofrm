@@ -34,7 +34,7 @@ export function useSimulationRun() {
 /** POST /api/simulation/simulate — execute ONE hypothetical scenario.
  *
  *  Also a mutation, for the same reason: running a scenario is an action, and
- *  `isPending` / `error` are the real request state. There is no timer and no
+ *  the request state is what the page shows. There is no timer and no
  *  artificial delay anywhere in the path.
  *
  *  Per-scenario state (running, result, error) lives in
@@ -42,6 +42,20 @@ export function useSimulationRun() {
  *  in the hook is exactly how two views of the same scenario start to
  *  disagree. This hook only performs the request; the page hands the outcome
  *  to the store.
+ *
+ *  CALL IT WITH `mutateAsync`, NEVER WITH `mutate`'s PER-CALL CALLBACKS.
+ *
+ *  Several scenarios can be in flight at once — a user runs one, then selects
+ *  another and runs that before the first returns. This is ONE observer shared
+ *  by all of them, and `mutate(vars, { onSuccess })` stores those callbacks on
+ *  the observer, not on the request: a second `mutate` overwrites them, and the
+ *  first scenario's `onSuccess` never fires. Its request still succeeds on the
+ *  server; nothing on the client ever hears about it, so the card sits on
+ *  "Running against the KPI engine…" forever.
+ *
+ *  `mutateAsync` returns the promise belonging to THAT execution, so each run
+ *  carries its own resolution and cannot be displaced by a later one. The page
+ *  attaches its handling to the promise. See `onRun` in pages/Simulation.tsx.
  */
 export function useSimulateScenario() {
   return useMutation<SimulateResponse, Error, SimulateRequest>({

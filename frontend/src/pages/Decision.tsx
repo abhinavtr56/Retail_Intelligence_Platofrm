@@ -1,23 +1,39 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import { Button, Card, CardBody, LiveStatus, Spinner, useLiveStatus } from '../components/ui'
 import { InfoPopover } from '../components/ui/InfoPopover'
 import { Icon } from '../icons'
 import { useDecisionRecord } from '../hooks/useDecision'
+import { ApiError } from '../lib/api'
 import { ExportReportButton } from '../components/reports/ExportReportButton'
 import { saveBriefing, useDecisionBriefing } from '../hooks/useBriefing'
 import { useDecisionDraftStore } from '../store/decisionDraft'
 import { useSavedRefsStore } from '../store/savedRefs'
 import { useSaveDecision, useStoredDecision } from '../hooks/useStore'
+import { StrategySection } from '../components/decision/StrategySection'
+import { ComparisonSection } from '../components/decision/ComparisonSection'
+import { EvidenceSection } from '../components/decision/EvidenceSection'
+import { DecisionHistory } from '../components/decision/DecisionHistory'
+import { AiDecisionBrief } from '../components/decision/AiDecisionBrief'
+import { useDecisionBrief } from '../hooks/useDecisionBrief'
 import type { StoredDecision } from '../types/store'
 import type { DecisionImpactMetric, DecisionRecord } from '../types/decision'
 import type { RiskFinding } from '../types/risk'
 
-/** Governed Promotion Decision Center — B7.
+/** Governed Promotion Decision Center.
  *
- *  Shows ONE decision record, assembled by the backend from the scenario the
- *  user carried here, its recommendation and its governance assessment.
+ *  THE LAST STAGE OF THE WORKFLOW, and an assembly rather than a dashboard.
+ *  Command Center → RCA → Simulation Studio → here. The page answers one
+ *  question: what exactly am I deciding, why was this scenario selected, what
+ *  is it expected to do, what is risky about it, and what evidence stands
+ *  behind it.
+ *
+ *  NOTHING ON THIS PAGE IS CALCULATED. Every figure is carried verbatim from
+ *  the contract that owns it — the simulation's KPI bands, the measured
+ *  baseline, the comparison, the recommendation's reason, the risk findings.
+ *  If a number here ever disagrees with the same number in Simulation Studio,
+ *  the cause is a bug in the assembly, not a second opinion.
  *
  *  WHAT THIS PAGE USED TO DO. It read `decision.json` and rendered authored
  *  content: an ROI of 2.55 in units Simulation abandoned, a "Data Confidence —
@@ -26,40 +42,75 @@ import type { RiskFinding } from '../types/risk'
  *  reporting "Budget Compliance — Compliant" and "Margin Threshold —
  *  Compliant", and an approval animation announcing that the finance team had
  *  been notified. None of it was connected to anything, and the compliance
- *  claims were made against thresholds B6 established do not exist.
- *
- *  All of that is gone. Every figure below is carried verbatim from the
- *  simulation, recommendation and risk contracts, and nothing on this page is
- *  computed.
+ *  claims were made against thresholds the risk work established do not exist.
+ *  All of it is gone.
  *
  *  RECOMMENDED IS NOT APPROVED. The record separates four states —
  *  recommended, governed, ready to review, approved — and `approved` is always
  *  false: this project defines no approval criteria, so nothing here can
- *  declare a decision approvable. No approval is executed and no notification
- *  is sent.
+ *  declare a decision approvable. No approval is executed, no reviewer is
+ *  notified and no promotion is written back anywhere.
  *
- *  NOTHING IS SAVED. `decision_id` is null and the record is assembled per
- *  request; reloading loses it. The page says so rather than implying a store.
+ *  SAVED IS REAL. A saved decision goes to the server's store, which mints the
+ *  id and appends the version. It survives a reload, it is retrievable by id,
+ *  and it carries the fingerprint of the dataset it was computed against.
  */
 export function Decision() {
   const draft = useDecisionDraftStore((s) => s.draft)
   const clearDraft = useDecisionDraftStore((s) => s.clear)
   const record = useDecisionRecord()
   const briefing = useDecisionBriefing()
+  /** The AI explanation. NEVER called on mount — see `generateAiBrief`. */
+  const aiBrief = useDecisionBrief()
 
-  // --- B10: durable storage ------------------------------------------------
+  // --- durable storage -----------------------------------------------------
   const savedDecisionId = useSavedRefsStore((s) => s.decisionId)
   const savedInvestigationId = useSavedRefsStore((s) => s.investigationId)
   const savedScenarioId = useSavedRefsStore((s) => s.scenarioId)
   const rememberDecision = useSavedRefsStore((s) => s.rememberDecision)
   const saveDecision = useSaveDecision()
+
+  /** A decision the user explicitly opened from the history list. It outranks
+   *  everything else on the page: asking for DC-000123 must show DC-000123,
+   *  even with a fresh scenario carried here. */
+  const [openedId, setOpenedId] = useState<string | null>(null)
+
+  /** Open a stored decision, and drop any explanation of the previous one.
+   *
+   *  A brief describes ONE record. Leaving the last one on screen under a
+   *  different decision's numbers would be the most misleading state this page
+   *  could reach — prose that reads as an explanation of figures it has never
+   *  seen. The same reset happens when a new scenario is carried here. */
+  const openStoredDecision = (id: string) => {
+    aiBrief.reset()
+    setOpenedId(id)
+  }
+
   /** With nothing carried here, fall back to the last decision THIS browser
    *  stored. The id is a pointer; the record itself comes from the server, so
    *  a cleared cache loses the shortcut and not the decision. */
-  const stored = useStoredDecision(!draft && savedDecisionId ? savedDecisionId : null)
+  const lookupId = openedId ?? (draft ? null : savedDecisionId)
+  const stored = useStoredDecision(lookupId)
+  const viewingStored = Boolean(lookupId && stored.data)
+
   const requested = useRef<string | null>(null)
   const live = useLiveStatus()
   const navigate = useNavigate()
+
+  /** The six payloads the record is assembled from, in one place.
+   *
+   *  The effect below, the Retry button and the report export all need exactly
+   *  this shape, and three hand-written copies of it is three chances for one
+   *  of them to quietly drop `comparison` or `baseline`. */
+  const assembleRequest = (from: NonNullable<typeof draft>) => ({
+    context: from.context,
+    simulation: from.simulation,
+    recommendation: from.recommendation,
+    risk: from.risk,
+    weekly: from.weekly ?? undefined,
+    comparison: from.comparison ?? undefined,
+    baseline: from.baseline ?? undefined,
+  })
 
   useEffect(() => {
     if (!draft) {
@@ -69,113 +120,176 @@ export function Decision() {
     }
     if (requested.current === draft.signature) return
     requested.current = draft.signature
-    record.mutate({
-      context: draft.context,
-      simulation: draft.simulation,
-      recommendation: draft.recommendation,
-      risk: draft.risk,
-      weekly: draft.weekly ?? undefined,
-    })
+    // A brief explains ONE record. Carrying a new scenario here must drop the
+    // previous explanation rather than leave it sitting under different
+    // numbers, which would be the most misleading state this page could reach.
+    aiBrief.reset()
+    record.mutate(assembleRequest(draft))
+    // THE GUARD MUST NOT SURVIVE THIS EFFECT BEING TORN DOWN.
+    //
+    // This is the bug that left the page on "Building your decision record…"
+    // forever. React's StrictMode mounts, unmounts and remounts on the first
+    // mount, and react-query drops a mutation's observer on unsubscribe without
+    // ever re-attaching it (MutationObserver has onUnsubscribe but no
+    // onSubscribe). The request fired on the DISCARDED pass therefore returns
+    // 200 to a listener nobody holds: `onSuccess` never runs, `data` never
+    // arrives, `isPending` never clears and no error is ever raised — so the
+    // page sits on the loading state with nothing to retry and nothing logged.
+    //
+    // Without this cleanup the surviving pass saw `requested.current` already
+    // equal to the signature and returned early, so the only request in flight
+    // was the one nobody was listening to. Clearing the ref lets the surviving
+    // pass issue the request it can actually receive.
+    //
+    // Still one request per signature: the deps are unchanged, and Simulation
+    // Studio's /run effect carries the same fix for the same reason.
+    return () => {
+      requested.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft?.signature])
 
-  /** Render and save both artifacts. Nothing is stored and nothing on this
-   *  page changes — success or failure, the record stays exactly as it is. */
-  const generateBriefing = (data: DecisionRecord) =>
-    briefing.mutate({ record: data }, { onSuccess: (response) => saveBriefing(response) })
-
   /** The record on screen, whether it was just assembled or read back out of
-   *  the store. The stored one is the B7 record byte for byte — the storage
-   *  facts live on the envelope beside it, never inside it. */
-  const shown: DecisionRecord | undefined = record.data ?? stored.data?.record
+   *  the store. The stored one is the assembled record byte for byte — the
+   *  storage facts live on the envelope beside it, never inside it. */
+  const shown: DecisionRecord | undefined = viewingStored ? stored.data?.record : record.data
+
+  /** What the store knows about what is on screen. Null before a save, because
+   *  before a save there is genuinely nothing to know. */
+  const envelope: StoredDecision | null = viewingStored
+    ? (stored.data ?? null)
+    : (saveDecision.data ?? null)
 
   /** Store the decision durably. Decision Center is the system of record.
    *
-   *  The record goes to the server exactly as B7 assembled it; the server
+   *  The record goes to the server exactly as it was assembled; the server
    *  mints the id and appends a version. Nothing on this page changes if the
-   *  write fails. */
+   *  write fails, and nothing historical is overwritten if it succeeds. */
   const persistDecision = () => {
-    if (!shown) return
+    // SAVES WHAT IS ON SCREEN, OR NOTHING. Viewing a stored decision while a
+    // draft happens to be assembled must not write the draft under the stored
+    // one's id — the two are different decisions.
+    if (!record.data || viewingStored) return
+    // Appending to the decision THIS BROWSER owns, and only that one. The
+    // history list can point `stored` at somebody else's record, and appending
+    // a version to it because it happened to be loaded would be a write the
+    // user never asked for.
+    const appendTo =
+      stored.data && stored.data.decision_id === savedDecisionId ? stored.data : null
     saveDecision.mutate(
       {
-        record: shown,
+        record: record.data,
         investigation_id: savedInvestigationId,
         scenario_id: savedScenarioId,
-        ...(stored.data
-          ? { decision_id: stored.data.decision_id, expected_version: stored.data.current_version }
+        // Stating the version this browser believes is current — a write
+        // against a stale expectation is refused with 409 rather than applied
+        // over work nobody here has seen.
+        ...(appendTo
+          ? { decision_id: appendTo.decision_id, expected_version: appendTo.current_version }
           : {}),
       },
       { onSuccess: (saved) => rememberDecision(saved.decision_id, saved.version) },
     )
   }
 
+  /** Render the portable briefing. IT DOES NOT DOWNLOAD ANYTHING BY ITSELF —
+   *  the artifacts appear with their own download controls, the same shape the
+   *  Report Center uses. Nothing is stored and nothing on this page changes,
+   *  success or failure. */
+  const generateBriefing = () => shown && briefing.mutate({ record: shown })
+
+  /** Ask for the AI explanation of the record ON SCREEN.
+   *
+   *  ON A CLICK, AND ONLY ON A CLICK. There is deliberately no effect that
+   *  fires this: Decision Center renders completely from the deterministic
+   *  record, and an automatic call would make the page's readiness depend on an
+   *  external service that may be slow, unconfigured or down. The explanation
+   *  arrives after the decision is already readable, or it does not arrive and
+   *  nothing else is affected. */
+  const generateAiBrief = () => shown && aiBrief.mutate({ record: shown })
+
+  /** The scope and payloads a report export reads, resolved at click time.
+   *
+   *  A REOPENED DECISION EXPORTS ITS STORED BYTES. Handing the server the four
+   *  Simulation payloads instead would re-assemble the record against today's
+   *  dataset and quietly republish a historical decision at current numbers. */
+  const exportOptions = () => ({
+    ...(viewingStored && stored.data
+      ? { decision_record: stored.data.record }
+      : { record: draft ? assembleRequest(draft) : undefined }),
+    ...(envelope
+      ? {
+          storage: {
+            decision_id: envelope.decision_id,
+            version: envelope.version,
+            dataset_version: envelope.dataset_version,
+            stale: envelope.stale,
+          },
+        }
+      : {}),
+    filename_hint: shown?.scenario.scenario_id,
+  })
+
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Decision Center' }]
+  /** Save is offered only for a record this page assembled and has not yet
+   *  stored. A reopened decision is already in the store, and re-saving it
+   *  would append a version identical to the one being read. */
+  const canSave = Boolean(record.data) && !viewingStored && !saveDecision.isSuccess
 
   return (
     <AppShell activeKey="decision" crumbs={crumbs}>
-      <div className="fade-in flex items-end justify-between gap-4">
+      <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">
-              Governed Promotion Decision Center <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
+              Decision Center <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
             </h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 max-w-[640px] text-sm text-ink-muted">
             One decision record, assembled from the scenario you carried here — its recommendation,
-            its expected impact and its governance position.
+            its expected impact, its governance position and the evidence behind it.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" onClick={() => navigate('/simulation')}>
             <Icon name="flow" /> <span>Back to Simulation</span>
           </Button>
-          {/* Disabled until a record exists — there is nothing to put in a
-              briefing before one is assembled, and an enabled button would
-              imply otherwise. */}
           <Button
             variant="secondary"
             onClick={persistDecision}
-            disabled={!shown || saveDecision.isPending}
-            title={shown ? undefined : 'Carry a scenario here first'}
+            disabled={!canSave || saveDecision.isPending}
+            title={
+              record.data
+                ? saveDecision.isSuccess
+                  ? 'This record is already stored'
+                  : undefined
+                : viewingStored
+                  ? 'This decision is already stored. Carry a scenario from Simulation Studio to save a new version.'
+                  : 'Carry a scenario here first'
+            }
           >
             {saveDecision.isPending ? <Spinner /> : <Icon name="checkCircle" />}
             <span>{saveDecision.isPending ? 'Saving…' : 'Save Decision'}</span>
           </Button>
-          {/* THE DECISION RECORD, EXPORTED — assembled server-side from the same
-              five payloads this page already posted to /api/decision/record, so
-              the file and the screen are the same record. Draft and approval
-              semantics travel with it verbatim: this control does not decide
-              anything about approval and the report does not claim any. */}
+          {/* THE DECISION RECORD, EXPORTED into the Report Center — generated
+              there, downloaded from the Reports page. This control decides
+              nothing about approval and the report claims none. */}
           <ExportReportButton
             module="decision-center"
-            scope={() =>
-              (draft?.simulation as { scope?: { filters_applied?: Record<string, unknown> } })
-                ?.scope?.filters_applied ?? {}
-            }
-            options={() => ({
-              record: draft
-                ? {
-                    context: draft.context,
-                    simulation: draft.simulation,
-                    recommendation: draft.recommendation,
-                    risk: draft.risk,
-                    weekly: draft.weekly ?? undefined,
-                  }
-                : undefined,
-              filename_hint: (draft?.simulation as { scenario_id?: string })?.scenario_id,
-            })}
-            disabled={!draft || !shown}
+            scope={() => (shown?.scope.filters_applied as Record<string, unknown>) ?? {}}
+            options={exportOptions}
+            disabled={!shown}
             disabledReason="Carry a scenario here first — there is no decision record to export yet."
           />
           <Button
             variant="primary"
-            onClick={() => shown && generateBriefing(shown)}
+            onClick={generateBriefing}
             disabled={!shown || briefing.isPending}
             title={shown ? undefined : 'Carry a scenario here first'}
           >
-            {briefing.isPending ? <Spinner /> : <Icon name="download" />}
-            <span>{briefing.isPending ? 'Generating…' : 'Download briefing'}</span>
+            {briefing.isPending ? <Spinner /> : <Icon name="file" />}
+            <span>{briefing.isPending ? 'Generating…' : 'Generate Briefing'}</span>
           </Button>
         </div>
       </div>
@@ -197,58 +311,47 @@ export function Decision() {
       )}
 
       {saveDecision.isSuccess && !saveDecision.isPending && (
-        <StoredBanner stored={saveDecision.data} label="Saved" />
+        <StoredBanner stored={saveDecision.data} label="Decision saved" />
       )}
 
-      {!draft && stored.data && !saveDecision.isSuccess && (
+      {viewingStored && stored.data && !saveDecision.isSuccess && (
         <StoredBanner stored={stored.data} label="Loaded from the store" />
       )}
 
-      {!draft && stored.data ? (
+      {shown ? (
         <RecordView
-          record={stored.data.record}
+          record={shown}
+          stored={envelope}
           briefing={briefing}
-          onGenerate={() => generateBriefing(stored.data.record)}
+          onGenerate={generateBriefing}
+          aiBrief={aiBrief}
+          onGenerateAi={generateAiBrief}
+          onSave={persistDecision}
+          canSave={canSave}
+          saving={saveDecision.isPending}
+          currentDecisionId={envelope?.decision_id ?? null}
+          onOpenDecision={openStoredDecision}
         />
-      ) : !draft && stored.isPending && savedDecisionId ? (
-        <div className="mt-4 grid min-h-[40vh] place-items-center">
-          <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
-            <Spinner />
-            <span>Loading the last decision this browser saved…</span>
-          </div>
-        </div>
-      ) : !draft ? (
-        <EmptyState onGo={() => navigate('/simulation')} />
-      ) : record.isError ? (
+      ) : stored.isPending && lookupId ? (
+        <Loading label="Loading the saved decision…" />
+      ) : record.isError && draft ? (
         <ErrorState
-          message={record.error.message}
-          onRetry={() =>
-            record.mutate({
-              context: draft.context,
-              simulation: draft.simulation,
-              recommendation: draft.recommendation,
-              risk: draft.risk,
-              weekly: draft.weekly ?? undefined,
-            })
-          }
+          error={record.error}
+          onRetry={() => record.mutate(assembleRequest(draft))}
           onDiscard={() => {
             clearDraft()
             navigate('/simulation')
           }}
         />
-      ) : record.data ? (
-        <RecordView
-          record={record.data}
-          briefing={briefing}
-          onGenerate={() => record.data && generateBriefing(record.data)}
-        />
+      ) : draft ? (
+        <Loading label="Building your decision record…" />
       ) : (
-        <div className="mt-4 grid min-h-[40vh] place-items-center">
-          <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
-            <Spinner />
-            <span>Assembling the decision record…</span>
-          </div>
-        </div>
+        <>
+          <EmptyState onGo={() => navigate('/simulation')} />
+          <Card className="fade-in mt-[18px]">
+            <DecisionHistory currentDecisionId={null} onOpen={openStoredDecision} />
+          </Card>
+        </>
       )}
     </AppShell>
   )
@@ -256,29 +359,59 @@ export function Decision() {
 
 type BriefingMutation = ReturnType<typeof useDecisionBriefing>
 
+/** THE PAGE, in the order a decision is actually read.
+ *
+ *  Context first — what am I looking at. Then the recommendation, because that
+ *  is the point of the page. Then how it would be executed, what it is expected
+ *  to do, and how it compares. Then what is risky, whether it is ready, and
+ *  finally where every number came from.
+ */
 function RecordView({
   record,
+  stored,
   briefing,
   onGenerate,
+  aiBrief,
+  onGenerateAi,
+  onSave,
+  canSave,
+  saving,
+  currentDecisionId,
+  onOpenDecision,
 }: {
   record: DecisionRecord
+  stored: StoredDecision | null
   briefing: BriefingMutation
   onGenerate: () => void
+  aiBrief: ReturnType<typeof useDecisionBrief>
+  onGenerateAi: () => void
+  onSave: () => void
+  canSave: boolean
+  saving: boolean
+  currentDecisionId: string | null
+  onOpenDecision: (id: string) => void
 }) {
   return (
     <>
       <Card className="fade-in mt-4">
-        <SummarySection record={record} />
+        <ContextSection record={record} stored={stored} />
       </Card>
 
-      <div className="mt-[18px] grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-4 max-[1180px]:grid-cols-1">
-        <Card className="fade-in">
-          <ImpactSection record={record} />
-        </Card>
-        <Card className="fade-in">
-          <RecommendationSection record={record} />
-        </Card>
-      </div>
+      <Card className="fade-in mt-[18px]">
+        <RecommendedPlanSection record={record} />
+      </Card>
+
+      <Card className="fade-in mt-[18px]">
+        <StrategySection strategy={record.strategy} />
+      </Card>
+
+      <Card className="fade-in mt-[18px]">
+        <ImpactSection record={record} />
+      </Card>
+
+      <Card className="fade-in mt-[18px]">
+        <ComparisonSection comparison={record.comparison} />
+      </Card>
 
       <Card className="fade-in mt-[18px]">
         <GovernanceSection record={record} />
@@ -289,28 +422,56 @@ function RecordView({
       </Card>
 
       <Card className="fade-in mt-[18px]">
-        <WorkflowSection record={record} />
+        <EvidenceSection record={record} stored={stored} />
+      </Card>
+
+      {/* AFTER the evidence, so a reader meets the computed record first and the
+          explanation of it second — never the other way round. */}
+      <Card className="fade-in mt-[18px]">
+        <AiDecisionBrief brief={aiBrief} onGenerate={onGenerateAi} />
       </Card>
 
       <Card className="fade-in mt-[18px]">
-        <BriefingSection briefing={briefing} onGenerate={onGenerate} />
+        <ActionsSection
+          briefing={briefing}
+          onGenerate={onGenerate}
+          onSave={onSave}
+          canSave={canSave}
+          saving={saving}
+          stored={stored}
+        />
       </Card>
 
-      <div className="mt-[18px] flex flex-wrap items-center justify-between gap-2 text-[11.5px] text-ink-muted">
-        <span>{record.meta.persistence_note}</span>
-        <ProvenancePopover record={record} />
+      <Card className="fade-in mt-[18px]">
+        <DecisionHistory currentDecisionId={currentDecisionId} onOpen={onOpenDecision} />
+      </Card>
+
+      <div className="mt-[18px] text-[11.5px] leading-[1.5] text-ink-muted">
+        {stored
+          ? 'This decision is stored on the server and remains retrievable by its id after a reload.'
+          : record.meta.persistence_note}
       </div>
     </>
   )
 }
 
-/** A. What is being decided. */
-function SummarySection({ record }: { record: DecisionRecord }) {
+/** WHAT IS BEING DECIDED — id, status, investigation, scope.
+ *
+ *  The first thing on the page, because a decision nobody can identify is not
+ *  a decision. Nothing here is invented: an unavailable field carries the
+ *  record's own reason, never a placeholder that could pass for a reference. */
+function ContextSection({
+  record,
+  stored,
+}: {
+  record: DecisionRecord
+  stored: StoredDecision | null
+}) {
   const { scenario, investigation, scope } = record
   return (
     <>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
-        <div>
+        <div className="min-w-0">
           <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
             Decision under review
           </div>
@@ -327,16 +488,40 @@ function SummarySection({ record }: { record: DecisionRecord }) {
             )}
           </div>
         </div>
-        <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
-          Draft · not saved
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+            {stored ? `${record.status} · saved` : `${record.status} · not saved`}
+          </span>
+          {stored?.stale && (
+            <span className="rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-warning">
+              Stale
+            </span>
+          )}
+        </div>
       </div>
 
       <CardBody>
         <div className="flex flex-wrap gap-x-8 gap-y-3">
+          <Field
+            label="Decision ID"
+            value={stored?.decision_id ?? null}
+            fallback="Not saved yet"
+            mono
+          />
+          <Field
+            label="Version"
+            value={stored ? `v${stored.version}` : null}
+            fallback="Not saved yet"
+          />
           <Field label="Period" value={scope.period} />
           <Field label="Rows in scope" value={scope.row_count?.toLocaleString() ?? null} />
           <Field label="Promoted rows" value={scope.promoted_row_count?.toLocaleString() ?? null} />
+          <Field
+            label="Excluded from scenario"
+            value={scope.excluded_rows ? scope.excluded_rows.toLocaleString() : null}
+            fallback="None"
+            reason={scope.excluded_reason}
+          />
           <Field
             label="Investigation"
             value={investigation.investigation_type}
@@ -347,6 +532,7 @@ function SummarySection({ record }: { record: DecisionRecord }) {
             value={investigation.investigation_id}
             fallback="Not assigned"
             reason={investigation.investigation_id_unavailable_reason}
+            mono
           />
         </div>
 
@@ -380,27 +566,169 @@ function SummarySection({ record }: { record: DecisionRecord }) {
   )
 }
 
-/** C. Expected impact — both ends of the approved range, never a midpoint. */
+/** THE RECOMMENDED PLAN — the point of the page.
+ *
+ *  The recommendation is carried verbatim from the decision policy that
+ *  produced it. It is not re-derived here, not reworded into a new business
+ *  recommendation, and not made to agree with the scenario the user chose:
+ *  selecting a scenario the policy did not choose does not change what the
+ *  policy chose, and the record says both things plainly. */
+function RecommendedPlanSection({ record }: { record: DecisionRecord }) {
+  const { recommendation, scenario } = record
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
+        <h3 className="text-[15px] font-bold">Recommended Plan</h3>
+        <span
+          className={`rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${
+            recommendation.is_this_scenario
+              ? 'bg-status-success-bg text-status-success'
+              : 'bg-status-warning-bg text-status-warning'
+          }`}
+        >
+          {recommendation.is_this_scenario ? 'Selected is recommended' : 'Selected differs'}
+        </span>
+      </div>
+      <CardBody>
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 max-[900px]:grid-cols-1">
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+              Selected scenario
+            </div>
+            <div className="mt-1 text-[15px] font-extrabold text-ink-primary">{scenario.name}</div>
+            <div className="mt-0.5 text-[12px] text-ink-secondary">
+              {scenario.treatment} · {scenario.discount_pct}%
+            </div>
+
+            <div className="mt-3 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+              Recommended scenario
+            </div>
+            {/* The NAME a person gave it, resolved from the comparison. This
+                card used to print `scenario-b` — a session-local id — at a
+                commercial director. */}
+            <div className="mt-1 text-[13px] font-bold text-ink-primary">
+              {recommendation.recommended_scenario_name ??
+                recommendation.recommended_scenario_id ??
+                'None recommended'}
+            </div>
+            {recommendation.recommended_scenario_id && (
+              <div className="mt-0.5 font-mono text-[10.5px] text-ink-muted">
+                {recommendation.recommended_scenario_id}
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+              Why this scenario?
+            </div>
+            <div className="mt-1 text-[12.5px] leading-[1.6] text-ink-secondary">
+              {recommendation.reason}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-ink-muted">
+              <span>
+                <span className="font-semibold">Policy:</span> v{recommendation.policy_version}
+              </span>
+              <span>
+                <span className="font-semibold">Objective:</span> {recommendation.objective}
+              </span>
+              <span>
+                <span className="font-semibold">Primary:</span>{' '}
+                {recommendation.primary_metric?.replace(/_/g, ' ')} at the{' '}
+                {recommendation.primary_endpoint} end
+              </span>
+            </div>
+            <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+              {recommendation.note}
+            </div>
+          </div>
+        </div>
+      </CardBody>
+    </>
+  )
+}
+
+/** EXPECTED IMPACT — both ends of the approved range, never a midpoint. */
 function ImpactSection({ record }: { record: DecisionRecord }) {
   return (
     <>
-      <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Expected Impact</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
+        <div className="flex items-center gap-2">
+          <h3 className="text-[15px] font-bold">Expected Impact</h3>
+          {/* Said once, in the header, so no reader can take a row below for a
+              historical actual. */}
+          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+            Simulated
+          </span>
+        </div>
         <span className="text-[11px] text-ink-muted">
           {record.scenario.range_label} · low – high
         </span>
       </div>
       <div className="px-5 py-3">
-        {record.expected_impact.map((metric) => (
-          <ImpactRow key={metric.metric} metric={metric} />
-        ))}
+        <ExcludedRowsNote scope={record.scope} />
+        <div className="grid grid-cols-2 gap-x-8 max-[760px]:grid-cols-1">
+          {record.expected_impact.map((metric) => (
+            <ImpactRow key={metric.metric} metric={metric} />
+          ))}
+        </div>
         <div className="mt-2 border-t border-border-subtle pt-2.5 text-[11px] leading-[1.5] text-ink-muted">
           Both ends of the treatment&apos;s approved uplift range are shown. There is no midpoint and
-          no expected value between them, and this is not a confidence interval.
+          no expected value between them, and this is not a confidence interval. These are
+          simulated values for a hypothetical scenario — the measured figures for this scope are in
+          the Current column of the comparison below.
         </div>
         <WeeklyNote record={record} />
       </div>
     </>
+  )
+}
+
+/** What the engine could not re-base — and why a zero below may not mean zero.
+ *
+ *  THE MOST DANGEROUS NUMBER ON THIS PAGE IS A ZERO NOBODY EXPLAINED. The
+ *  simulation excludes promoted rows whose (product, channel) has no
+ *  non-promoted row to form a baseline from. When some are excluded the
+ *  scenario covers less than the scope suggests; when ALL of them are, the
+ *  engine returns a row of zeros because there was nothing left to compute
+ *  over — and an unexplained "₹0" reads as "we evaluated this promotion and it
+ *  came to nothing", which is a different and false claim.
+ *
+ *  The count was already in the record; the REASON was being dropped in
+ *  assembly. Both are carried now, and neither is computed here — the engine
+ *  reported them and this states them. */
+function ExcludedRowsNote({ scope }: { scope: DecisionRecord['scope'] }) {
+  const excluded = scope.excluded_rows ?? 0
+  if (excluded <= 0) return null
+
+  const all = scope.all_promoted_rows_excluded
+  return (
+    <div
+      className={`mb-3 flex items-start gap-2.5 rounded-[var(--r-md)] border px-3 py-2.5 ${
+        all
+          ? 'border-[rgba(245,158,11,0.4)] bg-status-warning-bg'
+          : 'border-border-subtle bg-surface-muted'
+      }`}
+    >
+      <Icon
+        name="warning"
+        className={`mt-px h-4 w-4 shrink-0 ${all ? 'text-status-warning' : 'text-ink-muted'}`}
+      />
+      <div className="min-w-0 text-[11.5px] leading-[1.55] text-ink-secondary">
+        <span className="font-bold text-ink-primary">
+          {excluded.toLocaleString()} of {(scope.promoted_row_count ?? 0).toLocaleString()} promoted
+          rows {all ? 'were all excluded' : 'were excluded'} from this scenario.
+        </span>{' '}
+        {scope.excluded_reason}
+        {all && (
+          <div className="mt-1">
+            Nothing was left for the scenario to compute over, so the figures below are the
+            absence of a simulated result rather than a measured outcome. Widen the scope — or
+            choose one with comparable non-promoted rows — to simulate this treatment.
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -413,8 +741,8 @@ function ImpactRow({ metric }: { metric: DecisionImpactMetric }) {
           {metric.display_low} – {metric.display_high}
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[13px] text-ink-muted">
-          —
+        <span className="inline-flex items-center gap-1 text-[12px] text-ink-muted">
+          Not available
           {metric.unavailable_reason && (
             <InfoPopover
               label={`Why ${metric.label ?? metric.metric} is unavailable`}
@@ -432,7 +760,7 @@ function ImpactRow({ metric }: { metric: DecisionImpactMetric }) {
   )
 }
 
-/** D. Weekly impact — carried if the user had it open, stated honestly if not. */
+/** Weekly impact — carried if the user had it open, stated honestly if not. */
 function WeeklyNote({ record }: { record: DecisionRecord }) {
   if (!record.weekly.available) {
     return (
@@ -450,56 +778,11 @@ function WeeklyNote({ record }: { record: DecisionRecord }) {
   )
 }
 
-/** B. The recommendation, verbatim. */
-function RecommendationSection({ record }: { record: DecisionRecord }) {
-  const { recommendation } = record
-  return (
-    <>
-      <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Recommendation</h3>
-        <span
-          className={`rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${
-            recommendation.is_this_scenario
-              ? 'bg-status-success-bg text-status-success'
-              : 'bg-surface-muted text-ink-muted'
-          }`}
-        >
-          {recommendation.is_this_scenario ? 'This scenario' : 'Differs'}
-        </span>
-      </div>
-      <CardBody>
-        {recommendation.is_this_scenario ? (
-          <div className="text-[13px] font-semibold text-ink-primary">
-            Recommended under the current decision policy.
-          </div>
-        ) : (
-          <div className="text-[13px] font-semibold text-ink-primary">
-            Selected scenario differs from the current recommendation
-            {recommendation.recommended_scenario_id
-              ? ` (${recommendation.recommended_scenario_id}).`
-              : '.'}
-          </div>
-        )}
-        <div className="mt-2 text-[12.5px] leading-[1.6] text-ink-secondary">
-          {recommendation.reason}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-ink-muted">
-          <span>
-            <span className="font-semibold">Policy:</span> v{recommendation.policy_version}
-          </span>
-          <span>
-            <span className="font-semibold">Primary:</span>{' '}
-            {recommendation.primary_metric?.replace(/_/g, ' ')} at the{' '}
-            {recommendation.primary_endpoint} end
-          </span>
-        </div>
-        <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">{recommendation.note}</div>
-      </CardBody>
-    </>
-  )
-}
-
-/** E. Risk & governance — B6's assessment, verbatim. */
+/** RISK & GOVERNANCE — the risk assessment, verbatim.
+ *
+ *  Nothing here converts a governance gap into a compliance verdict. Where the
+ *  project has approved no boundary, the gap travels through saying so, and no
+ *  badge claims a threshold was met that nobody ever set. */
 function GovernanceSection({ record }: { record: DecisionRecord }) {
   const { governance } = record
   const tone = {
@@ -586,7 +869,11 @@ function FindingRow({ finding }: { finding: RiskFinding }) {
   )
 }
 
-/** F. Readiness — why this is not approved. */
+/** DECISION READINESS — ready or not, and exactly what blocks it.
+ *
+ *  NOT READY is the honest answer in every record this project can produce, and
+ *  the first blocker says why: no approval criteria are defined. The approval
+ *  workflow is stated as unconfigured rather than animated as if it ran. */
 function ReadinessSection({ record }: { record: DecisionRecord }) {
   const { readiness } = record
   const states: [string, boolean][] = [
@@ -598,9 +885,9 @@ function ReadinessSection({ record }: { record: DecisionRecord }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Readiness</h3>
+        <h3 className="text-[15px] font-bold">Decision Readiness</h3>
         <span className="rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-warning">
-          Not ready for approval
+          Not ready
         </span>
       </div>
       <CardBody>
@@ -620,7 +907,7 @@ function ReadinessSection({ record }: { record: DecisionRecord }) {
         </div>
         <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">{readiness.states_note}</div>
 
-        <Group label="Blocking approval">
+        <Group label="Blockers">
           <ul className="flex flex-col gap-1.5">
             {readiness.blockers.map((blocker) => (
               <li key={blocker.id} className="text-[11.5px] leading-[1.5] text-ink-secondary">
@@ -644,57 +931,138 @@ function ReadinessSection({ record }: { record: DecisionRecord }) {
             </ul>
           </Group>
         )}
+
+        {/* APPROVAL AND EXECUTION, STATED AS UNCONFIGURED. The old version
+            animated five workflow steps and announced that the finance team had
+            been notified. Nothing was notified, nothing was submitted and no
+            promotion was ever executed from this page. */}
+        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3 border-t border-border-subtle pt-3">
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+              Approval
+            </div>
+            <div className="mt-0.5 text-[13px] font-bold text-ink-muted">Not configured</div>
+          </div>
+          <div>
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+              Execution
+            </div>
+            <div className="mt-0.5 text-[13px] font-bold text-ink-muted">Not configured</div>
+          </div>
+          <div className="max-w-[560px] text-[11px] leading-[1.5] text-ink-muted">
+            No approval workflow and no write-back exist in this application. Nothing is submitted,
+            no reviewer is notified, and no promotion is written into the calendar or the source
+            data from this page.
+          </div>
+        </div>
       </CardBody>
     </>
   )
 }
 
-/** The approval workflow, explicitly inactive.
+/** ACTIONS — save the record, and take it with you.
  *
- *  The old version animated five steps and announced that the finance team had
- *  been notified. Nothing was notified. B7 implements no approval and no
- *  notification, so the workflow is shown as the unbuilt thing it is. */
-function WorkflowSection({ record }: { record: DecisionRecord }) {
-  const steps = ['Submit for approval', 'Finance review', 'Commercial review', 'Final approval', 'Execute promotion']
+ *  GENERATING IS NOT DOWNLOADING. The briefing is rendered on request and then
+ *  offered; the browser saves a file only when a person asks for one. That is
+ *  the same shape the Report Center uses — generate, then download — and it
+ *  keeps a click that produces an artifact distinct from a click that writes to
+ *  the user's disk. */
+function ActionsSection({
+  briefing,
+  onGenerate,
+  onSave,
+  canSave,
+  saving,
+  stored,
+}: {
+  briefing: BriefingMutation
+  onGenerate: () => void
+  onSave: () => void
+  canSave: boolean
+  saving: boolean
+  stored: StoredDecision | null
+}) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Approval workflow</h3>
-        <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
-          Not active
-        </span>
+        <h3 className="text-[15px] font-bold">Actions</h3>
+        {stored && (
+          <span className="text-[11px] text-ink-muted">
+            Stored as <span className="font-mono">{stored.decision_id}</span> · version{' '}
+            {stored.version}
+          </span>
+        )}
       </div>
       <CardBody>
-        <div className="flex flex-wrap gap-2">
-          {steps.map((step, index) => (
-            <span
-              key={step}
-              className="inline-flex items-center gap-1.5 rounded-[var(--r-pill)] bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-muted"
-            >
-              <span className="font-bold">{index + 1}</span> {step}
-            </span>
-          ))}
-        </div>
-        <div className="mt-3 text-[11.5px] leading-[1.5] text-ink-muted">
-          No approval workflow is implemented. Nothing is submitted, no reviewer is notified and no
-          promotion is executed from this page. {record.readiness.reason}
+        <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+          {/* --- save */}
+          <div>
+            <div className="text-[13px] font-bold text-ink-primary">Save Decision</div>
+            <div className="mt-1 max-w-[420px] text-[12px] leading-[1.6] text-ink-secondary">
+              Stores this record on the server, which mints the decision id and appends a version.
+              Re-saving never overwrites: the previous version stays exactly where it was.
+            </div>
+            <Button variant="secondary" className="mt-3" onClick={onSave} disabled={!canSave || saving}>
+              {saving ? <Spinner /> : <Icon name="checkCircle" />}
+              <span>{saving ? 'Saving…' : stored ? 'Saved' : 'Save Decision'}</span>
+            </Button>
+            {stored && (
+              <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+                {stored.owner_note}
+              </div>
+            )}
+          </div>
+
+          {/* --- briefing */}
+          <div>
+            <div className="text-[13px] font-bold text-ink-primary">Generate Briefing</div>
+            <div className="mt-1 max-w-[420px] text-[12px] leading-[1.6] text-ink-secondary">
+              Renders this record as <strong>briefing.html</strong>, a self-contained page you can
+              open anywhere and print to PDF, and <strong>briefing.json</strong>, the record itself.
+              Both carry exactly what is on this page, and both state that this decision is a draft
+              and is not approved.
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button variant="secondary" onClick={onGenerate} disabled={briefing.isPending}>
+                {briefing.isPending ? <Spinner /> : <Icon name="file" />}
+                <span>{briefing.isPending ? 'Generating…' : 'Generate Briefing'}</span>
+              </Button>
+              {briefing.isSuccess && briefing.data && (
+                <Button variant="primary" onClick={() => saveBriefing(briefing.data)}>
+                  <Icon name="download" /> <span>Download</span>
+                </Button>
+              )}
+            </div>
+            {briefing.isSuccess && briefing.data && (
+              <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+                Briefing ready — {briefing.data.filenames.html} and{' '}
+                {briefing.data.filenames.json}. Nothing was stored and nobody was notified; the
+                files are written only when you download them.
+              </div>
+            )}
+            {briefing.isError && (
+              <div className="mt-2 text-[11.5px] leading-[1.5] text-status-danger">
+                Could not generate the briefing — {briefing.error.message}. The record above is
+                unchanged.
+              </div>
+            )}
+            <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+              The briefing names no author and no approver: this application has no authentication,
+              so it cannot establish who produced or reviewed it.
+            </div>
+          </div>
         </div>
       </CardBody>
     </>
   )
 }
 
-/** What the store knows about this decision — B10.
+/** What the store knows about this decision.
  *
- *  Three facts and no more: the id a person cites, the version, and whether the
- *  data it was computed from is still the data this server has loaded.
- *
- *  STALE IS REPORTED, NEVER RESOLVED. When the source CSVs have changed since
- *  the save, the banner says so and the values below stay exactly as they were
- *  stored. Nothing is recalculated and nothing is overwritten — a historical
- *  record is worth having precisely because it is historical.
- *
- *  NO OWNER. The store records none, because there is nobody to record. */
+ *  STALE IS REPORTED, NEVER RESOLVED. When the source data has changed since
+ *  the save, the banner says so and the values on the page stay exactly as they
+ *  were stored. Nothing is recalculated and nothing is overwritten — a
+ *  historical record is worth having precisely because it is historical. */
 function StoredBanner({ stored, label }: { stored: StoredDecision; label: string }) {
   return (
     <Card
@@ -720,83 +1088,8 @@ function StoredBanner({ stored, label }: { stored: StoredDecision; label: string
         <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-muted">
           {stored.stale ? stored.stale_reason : stored.owner_note}
         </div>
-        <div className="mt-1 font-mono text-[10.5px] text-ink-muted">
-          dataset {stored.dataset_version.slice(0, 16)}…
-          {stored.stale && <> · current {stored.current_dataset_version.slice(0, 16)}…</>}
-        </div>
       </CardBody>
     </Card>
-  )
-}
-
-/** The portable briefing — B8.
- *
- *  The record is assembled per request and lost on reload, and the review this
- *  decision is heading into happens outside this application. So the one thing
- *  this page can honestly offer is a file: `briefing.html`, which a browser
- *  prints to PDF, and `briefing.json`, which keeps the record machine-readable.
- *
- *  THIS IS NOT A SAVE. Nothing is stored anywhere by downloading; the record on
- *  screen is untouched by success and — deliberately — by failure too. */
-function BriefingSection({
-  briefing,
-  onGenerate,
-}: {
-  briefing: BriefingMutation
-  onGenerate: () => void
-}) {
-  const generate = onGenerate
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Take this decision with you</h3>
-        {briefing.isSuccess && !briefing.isPending && (
-          <span className="rounded-[4px] bg-status-success-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-success">
-            Briefing saved
-          </span>
-        )}
-      </div>
-      <CardBody>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="max-w-[560px] text-[12.5px] leading-[1.6] text-ink-secondary">
-            Downloads two files: <strong>briefing.html</strong>, a self-contained page you can open
-            anywhere and print to PDF, and <strong>briefing.json</strong>, the record itself. Both
-            carry exactly what is on this page — and both state that this decision is a draft, not
-            approved and not saved.
-          </div>
-          <Button variant="primary" onClick={generate} disabled={briefing.isPending}>
-            {briefing.isPending ? <Spinner /> : <Icon name="download" />}
-            <span>{briefing.isPending ? 'Generating…' : 'Download briefing'}</span>
-          </Button>
-        </div>
-
-        <div className="mt-3 text-[11px] leading-[1.5] text-ink-muted">
-          The briefing names no author and no approver: this application has no authentication, so
-          it cannot establish who produced or reviewed it. Downloading stores nothing and notifies
-          nobody.
-        </div>
-
-        {briefing.isError && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-[var(--r-md)] border border-[rgba(239,68,68,0.35)] bg-status-danger-bg px-3 py-2.5">
-            <Icon name="warning" className="mt-px h-4 w-4 shrink-0 text-status-danger" />
-            <div className="min-w-0 flex-1">
-              <div className="text-[12.5px] font-bold text-ink-primary">
-                Could not generate the briefing
-              </div>
-              <div className="mt-0.5 break-words text-[11.5px] leading-[1.5] text-ink-secondary">
-                {briefing.error.message}
-              </div>
-              <div className="mt-0.5 text-[11px] text-ink-muted">
-                The decision record above is unchanged.
-              </div>
-              <Button variant="secondary" className="mt-2" onClick={generate}>
-                <Icon name="refresh" /> Retry
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardBody>
-    </>
   )
 }
 
@@ -816,19 +1109,27 @@ function Field({
   value,
   fallback = '—',
   reason,
+  mono,
 }: {
   label: string
   value: string | null
   fallback?: string
   reason?: string | null
+  mono?: boolean
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {label}
       </div>
       {value ? (
-        <div className="mt-0.5 text-[13px] font-bold text-ink-primary">{value}</div>
+        <div
+          className={`mt-0.5 break-words text-[13px] font-bold text-ink-primary ${
+            mono ? 'font-mono text-[11.5px] font-semibold' : ''
+          }`}
+        >
+          {value}
+        </div>
       ) : (
         <div className="mt-0.5 inline-flex items-center gap-1 text-[13px] text-ink-muted">
           {fallback}
@@ -843,36 +1144,22 @@ function Field({
   )
 }
 
-function ProvenancePopover({ record }: { record: DecisionRecord }) {
-  const p = record.provenance
+function Loading({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1">
-      <Icon name="info" className="h-3 w-3" />
-      How this record was built
-      <InfoPopover label="How this record was built" title="Record provenance" width={330}>
-        <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
-          <div>{p.method}</div>
-          <div>
-            <span className="font-semibold text-ink-primary">Assembled from:</span>{' '}
-            {p.assembled_from.join(', ')}
-          </div>
-          <div>
-            <span className="font-semibold text-ink-primary">KPI engine:</span> {p.kpi_engine}
-          </div>
-          <div>
-            <span className="font-semibold text-ink-primary">Response rule:</span> {p.response_rule}
-          </div>
-          <div>
-            <span className="font-semibold text-ink-primary">Policies:</span> recommendation v
-            {p.recommendation_policy_version}, risk v{p.risk_policy_version}
-          </div>
-        </div>
-      </InfoPopover>
-    </span>
+    <div className="mt-4 grid min-h-[40vh] place-items-center">
+      <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+        <Spinner />
+        <span>{label}</span>
+      </div>
+    </div>
   )
 }
 
-/** Never authored content — the honest state when nothing was carried here. */
+/** Never authored content — the honest state when nothing was carried here.
+ *
+ *  NO FAKE KPI CARDS. A Decision Center opened directly, with no scenario and
+ *  nothing saved, has no decision to describe, and rendering plausible-looking
+ *  cards for one would be the worst kind of lie this page could tell. */
 function EmptyState({ onGo }: { onGo: () => void }) {
   return (
     <Card className="fade-in mt-4">
@@ -880,28 +1167,44 @@ function EmptyState({ onGo }: { onGo: () => void }) {
         <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
           <Icon name="checkCircle" />
         </div>
-        <div className="text-sm font-bold text-ink-primary">No decision record</div>
+        <div className="text-sm font-bold text-ink-primary">No scenario has been carried here</div>
         <div className="mx-auto mt-1.5 max-w-[460px] text-[12.5px] leading-[1.55] text-ink-secondary">
-          No scenario has been carried here. Run and select a scenario in Simulation Studio, then
-          choose Open Decision Center.
+          Run and select a scenario in Simulation Studio, then choose Open Decision Center — or
+          reopen one of the saved decisions below.
         </div>
         <Button variant="primary" className="mt-4" onClick={onGo}>
-          <Icon name="flow" /> Go to Simulation Studio
+          <Icon name="flow" /> Back to Simulation Studio
         </Button>
       </div>
     </Card>
   )
 }
 
+/** The error state — and it never shows a partial record.
+ *
+ *  A DECISION RECORD IS ALL OF ITS SECTIONS OR NONE OF THEM. The backend
+ *  refuses to merge sections that describe different scenarios or different
+ *  scopes, and the right response to that refusal is this card rather than a
+ *  page rendered with a hole in it — a half-assembled record would look
+ *  authoritative and be wrong.
+ *
+ *  A 422 IS A DIFFERENT PROBLEM FROM A 500, AND SAYS SO. 422 means the payloads
+ *  the page carried do not agree with each other: the scenario, its
+ *  recommendation and its risk assessment describe different things. Retrying
+ *  cannot fix that — the fix is to reopen the scenario in Simulation Studio —
+ *  so the card leads with that instead of a Retry the user would press three
+ *  times. The server's own message names which two sections disagree, and is
+ *  shown verbatim underneath. */
 function ErrorState({
-  message,
+  error,
   onRetry,
   onDiscard,
 }: {
-  message: string
+  error: Error
   onRetry: () => void
   onDiscard: () => void
 }) {
+  const inconsistent = error instanceof ApiError && error.status === 422
   return (
     <Card className="fade-in mt-4 border-[1.5px] border-[rgba(239,68,68,0.35)]">
       <CardBody>
@@ -911,16 +1214,44 @@ function ErrorState({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[13px] font-bold text-ink-primary">
-              Could not assemble the decision record
+              Unable to build the decision record
             </div>
-            <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{message}</div>
-            <div className="mt-3 flex gap-2">
-              <Button variant="secondary" onClick={onRetry}>
-                <Icon name="refresh" /> Retry
-              </Button>
-              <Button variant="secondary" onClick={onDiscard}>
-                <Icon name="flow" /> Back to Simulation
-              </Button>
+            {inconsistent ? (
+              <div className="mt-1 max-w-[680px] text-[12.5px] leading-[1.55] text-ink-secondary">
+                Scenario data is inconsistent. Please return to Simulation Studio and reopen the
+                selected scenario.
+              </div>
+            ) : (
+              <div className="mt-1 max-w-[680px] text-[12.5px] leading-[1.55] text-ink-secondary">
+                The record could not be assembled from the results carried here.
+              </div>
+            )}
+            <div className="mt-1.5 break-words text-[11.5px] leading-[1.5] text-ink-muted">
+              {error.message}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {/* Ordered by what will actually help. A mismatch does not resolve
+                  itself on a second attempt, so Retry is the secondary action
+                  there and the primary one everywhere else. */}
+              {inconsistent ? (
+                <>
+                  <Button variant="primary" onClick={onDiscard}>
+                    <Icon name="flow" /> Back to Simulation Studio
+                  </Button>
+                  <Button variant="secondary" onClick={onRetry}>
+                    <Icon name="refresh" /> Retry
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="primary" onClick={onRetry}>
+                    <Icon name="refresh" /> Retry
+                  </Button>
+                  <Button variant="secondary" onClick={onDiscard}>
+                    <Icon name="flow" /> Back to Simulation Studio
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

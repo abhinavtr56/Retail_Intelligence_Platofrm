@@ -159,6 +159,26 @@ class Candidate:
     baseline_units: float
     list_price: float
 
+    # --- the CURRENT side, appended with defaults on purpose -----------------
+    #
+    # LAST, AND DEFAULTED, so constructing a Candidate for a solver test -- where
+    # the historical side is irrelevant -- stays a short call. The one production
+    # call site in `_candidates` always passes all three explicitly, and
+    # `test_general_optimization_current_vs_optimized.py` re-derives every one of
+    # them from the fact rows, so a call site that forgot would fail there rather
+    # than quietly report a promoted product as unpromoted.
+
+    #: What this (product, channel) ACTUALLY ran at in the selected scope: the
+    #: measured depth, read from prices exactly as `_historical` reads it for the
+    #: whole selection. 0.0 when nothing here was promoted. A RATIO, so it is
+    #: never divided by the reference-year count.
+    base_discount_pct: float = 0.0
+    #: Whether the scope carries any promoted row for this candidate, and which
+    #: promotions they were. "Not promoted" and "promoted at 0%" are different
+    #: statements, and the row keeps them apart.
+    base_promoted: bool = False
+    base_promotions: tuple[str, ...] = ()
+
     @property
     def base_gross(self) -> float:
         """The counterfactual's un-promoted volume valued at list."""
@@ -298,6 +318,17 @@ def _candidates(state: FilterState) -> tuple[list[Candidate], list[dict[str, Any
             })
             continue
 
+        # THE MEASURED DEPTH THIS CANDIDATE ACTUALLY RAN AT.
+        #
+        # The SAME rule `_historical` applies to the whole selection, applied to
+        # one candidate's own rows: given-away revenue over gross revenue, read
+        # from prices rather than from a promotion's name. Not a new formula and
+        # not an inference from the optimizer's answer -- this is the "before"
+        # the plan is recommending a change to.
+        gross = sum(r.actual_revenue + r.discount_value for r in rows)
+        given = sum(r.discount_value for r in rows)
+        promotions = tuple(sorted({r.promotion_id for r in rows if r.is_promoted}))
+
         candidates.append(Candidate(
             product_id=product_id,
             product_name=(product.name.strip() if product else product_id),
@@ -308,6 +339,9 @@ def _candidates(state: FilterState) -> tuple[list[Candidate], list[dict[str, Any
             base_units=sum(r.actual_quantity for r in rows) / years,
             base_revenue=sum(r.actual_revenue for r in rows) / years,
             base_trade_spend=sum(r.discount_value + r.promotion_cost for r in rows) / years,
+            base_discount_pct=(given / gross * 100) if gross else 0.0,
+            base_promoted=bool(promotions),
+            base_promotions=promotions,
             baseline_units=baseline * transactions / years,
             list_price=price,
         ))
@@ -933,11 +967,26 @@ def optimize(
 
 
 def _row(candidate: Candidate, option: Option, currency: str) -> dict[str, Any]:
-    """One line of the optimized product plan.
+    """One line of the optimized product plan: the CURRENT state and the
+    RECOMMENDED one, side by side.
 
     Business labels only. `treatment` and the uplift band travel too, because a
     row that says "15%" without saying which approved rule priced it is a
     number without a provenance.
+
+    EVERY FIGURE IS PREFIXED WITH WHICH SIDE IT BELONGS TO. `base_*` is
+    measured from the rows in scope; `optimized_*` is what the chosen treatment
+    would do to them. The two were previously distinguishable only by name in
+    some places and not at all in others -- a column headed "Discount" carrying
+    `option.discount_pct` reads as the product's discount, when it is the one
+    the optimizer is PROPOSING. A reader cannot check a recommendation they
+    cannot see the "before" of.
+
+    THE COMMONEST CASE THIS MAKES LEGIBLE: a product with a real current
+    discount that the optimizer recommends NOT promoting. Its optimized units
+    fall below its base units -- correctly, because the un-promoted option
+    returns it to its ordinary demand and its base units include the promoted
+    weeks. Without the current column that row reads as an error.
     """
     return {
         "product_id": candidate.product_id,
@@ -953,6 +1002,10 @@ def _row(candidate: Candidate, option: Option, currency: str) -> dict[str, Any]:
         "base_revenue_display": F.money(candidate.base_revenue, currency),
         "base_trade_spend": candidate.base_trade_spend,
         "base_trade_spend_display": F.money(candidate.base_trade_spend, currency),
+        "base_discount_pct": round(candidate.base_discount_pct, 1),
+        "base_discount_display": F.percent(round(candidate.base_discount_pct, 1)),
+        "base_promoted": candidate.base_promoted,
+        "base_promotions": list(candidate.base_promotions),
 
         "promoted": option.promoted,
         "treatment": option.treatment,

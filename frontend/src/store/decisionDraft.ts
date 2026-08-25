@@ -4,6 +4,8 @@ import type { SimulateResponse } from '../types/simulation'
 import type { Recommendation } from '../types/recommendation'
 import type { RiskAssessment } from '../types/risk'
 import type { WeeklyResponse } from '../types/weekly'
+import type { ScenarioComparison } from '../types/comparison'
+import type { SimulationRunResponse } from '../types/simulation'
 
 /** The Simulation → Decision Center handoff — B7.
  *
@@ -32,6 +34,15 @@ export interface DecisionDraft {
   recommendation: Recommendation
   risk: RiskAssessment
   weekly: WeeklyResponse | null
+  /** The scenario comparison, when more than one scenario has been run. It is
+   *  what lets Decision Center show the scenarios side by side WITHOUT
+   *  re-running anything — every value in it is the one /simulation/compare
+   *  already produced. */
+  comparison: ScenarioComparison | null
+  /** The MEASURED baseline for the same scope, from /simulation/run. The only
+   *  source of a historical value on the decision page: everything else the
+   *  record carries is simulated, and the two must never be confused. */
+  baseline: SimulationRunResponse | null
 }
 
 export interface DecisionDraftStore {

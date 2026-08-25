@@ -381,7 +381,10 @@ function Result({ result }: { result: OptimizationResponse }) {
       <Card className="fade-in">
         <CardHeader
           title="Optimized Product Plan"
-          subtitle={`${rows.length} products · ${result.scope.brand_form_count} brand forms`}
+          subtitle={
+            `${rows.length} products · ${result.scope.brand_form_count} brand forms · ` +
+            'current is measured from the rows in scope, optimized is what the plan proposes'
+          }
         />
         {/* Fixed-height internal scroller so the card keeps its shape whatever
             the product count, and `overflow-x` on the same element so a narrow
@@ -397,8 +400,16 @@ function Result({ result }: { result: OptimizationResponse }) {
                 <Th className="text-right">Optimized Units</Th>
                 <Th className="text-right">Base Revenue</Th>
                 <Th className="text-right">Optimized Revenue</Th>
-                <Th className="text-right">Discount</Th>
-                <Th className="text-right">Trade Spend</Th>
+                {/* CURRENT AND OPTIMIZED ARE SEPARATE COLUMNS, not one
+                    ambiguous "Discount". The old single column carried the
+                    OPTIMIZER's proposed depth, which reads as the product's own
+                    — and left the measured depth, already in the payload,
+                    invisible. A recommendation you cannot see the "before" of
+                    is not checkable. */}
+                <Th className="text-right">Current Discount</Th>
+                <Th className="text-right">Optimized Discount</Th>
+                <Th className="text-right">Current Trade Spend</Th>
+                <Th className="text-right">Optimized Trade Spend</Th>
               </tr>
             </thead>
             <tbody>
@@ -434,6 +445,23 @@ function PlanRow({ row, showChannel }: { row: OptimizationRow; showChannel: bool
       <Td className="whitespace-nowrap text-right tabular-nums">{row.optimized_units.display}</Td>
       <Td className="whitespace-nowrap text-right tabular-nums">{row.base_revenue_display}</Td>
       <Td className="whitespace-nowrap text-right tabular-nums">{row.optimized_revenue.display}</Td>
+      {/* CURRENT — what this product actually ran at, measured from the rows
+          in scope. A product nobody promoted says so rather than showing 0%:
+          "not promoted" and "promoted at nothing" are different facts. */}
+      <Td className="whitespace-nowrap text-right">
+        {row.base_promoted ? (
+          <span
+            className="inline-flex items-center rounded-[var(--r-pill)] bg-surface-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-secondary"
+            title={`Measured depth over the rows in scope · ${row.base_promotions.join(', ')}`}
+          >
+            {row.base_discount_display}
+          </span>
+        ) : (
+          <span className="text-[11px] text-ink-muted">Not promoted</span>
+        )}
+      </Td>
+
+      {/* OPTIMIZED — what the optimizer proposes. */}
       <Td className="whitespace-nowrap text-right">
         {row.promoted ? (
           <span
@@ -447,6 +475,10 @@ function PlanRow({ row, showChannel }: { row: OptimizationRow; showChannel: bool
           // saying so is different from saying it was given a zero one.
           <span className="text-[11px] text-ink-muted">Not promoted</span>
         )}
+      </Td>
+
+      <Td className="whitespace-nowrap text-right tabular-nums text-ink-secondary">
+        {row.base_trade_spend_display}
       </Td>
       <Td className="whitespace-nowrap text-right tabular-nums">{row.optimized_trade_spend.display}</Td>
     </Tr>

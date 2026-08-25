@@ -124,10 +124,23 @@ export interface OptimizationRow {
   base_revenue_display: string
   base_trade_spend: number
   base_trade_spend_display: string
+  /** The depth this (product, channel) ACTUALLY ran at in the selected scope,
+   *  measured from prices. 0 when nothing here was promoted. This is the
+   *  "before" the plan recommends changing — never the optimizer's answer. */
+  base_discount_pct: number
+  base_discount_display: string
+  /** Whether the scope carries any promoted row for this product. "Not
+   *  promoted" and "promoted at 0%" are different statements. */
+  base_promoted: boolean
+  /** Which promotions actually ran, e.g. ["PR001", "PR002"]. */
+  base_promotions: string[]
+  /** Whether the OPTIMIZER chose to place a treatment. Distinct from
+   *  `base_promoted`, which is what history did. */
   promoted: boolean
   /** The approved treatment key (PR001 … PB001), or null when the product was
    *  left at its base allocation. */
   treatment: string | null
+  /** The OPTIMIZED depth — what the optimizer proposes, not what ran. */
   discount_pct: number
   discount_display: string
   uplift: { low: number; high: number }

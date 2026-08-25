@@ -902,28 +902,44 @@ def _calendar_days(year: Any, month: Any) -> int:
 def decision_center(state: FilterState, currency: str, options: dict[str, Any]) -> ReportDoc:
     """The current decision record, with its draft semantics preserved.
 
-    The record is assembled by `app/tpo/decision.build_record`, the same function
-    `/api/decision/record` calls, from simulation payloads the client already
-    holds. This adapter does not decide anything about approval — it prints what
-    the record says, and the record says this project has no approval criteria.
-    """
-    payloads = options.get("record") or {}
-    required = ("context", "simulation", "recommendation", "risk")
-    missing = [k for k in required if not payloads.get(k)]
-    if missing:
-        raise ValueError(
-            "A decision record needs the Simulation Studio results it is assembled "
-            f"from. Missing: {', '.join(missing)}. Open the decision in Decision "
-            "Center before exporting."
-        )
+    TWO WAYS IN, ONE RECORD OUT.
 
-    record = decision_service.build_record(
-        context=payloads["context"],
-        scenario=payloads["simulation"],
-        recommendation=payloads["recommendation"],
-        risk=payloads["risk"],
-        weekly=payloads.get("weekly"),
-    )
+      * `options["decision_record"]` -- a record that ALREADY exists, handed
+        over whole. This is what a decision read back out of the store carries:
+        the stored bytes, which must be exported exactly as they were saved.
+        Re-assembling one from a live dataset would silently republish a
+        historical decision at today's numbers, which is the one thing the
+        dataset fingerprint exists to prevent.
+      * `options["record"]` -- the four Simulation Studio payloads, assembled
+        here by `app/tpo/decision.build_record`, the SAME function
+        `/api/decision/record` calls. This is the live path.
+
+    Either way this adapter decides nothing about approval -- it prints what the
+    record says, and the record says this project has no approval criteria.
+    """
+    assembled = options.get("decision_record")
+    if isinstance(assembled, dict) and assembled.get("expected_impact") is not None:
+        record = assembled
+    else:
+        payloads = options.get("record") or {}
+        required = ("context", "simulation", "recommendation", "risk")
+        missing = [k for k in required if not payloads.get(k)]
+        if missing:
+            raise ValueError(
+                "A decision record needs the Simulation Studio results it is assembled "
+                f"from. Missing: {', '.join(missing)}. Open the decision in Decision "
+                "Center before exporting."
+            )
+
+        record = decision_service.build_record(
+            context=payloads["context"],
+            scenario=payloads["simulation"],
+            recommendation=payloads["recommendation"],
+            risk=payloads["risk"],
+            weekly=payloads.get("weekly"),
+            comparison=payloads.get("comparison"),
+            baseline=payloads.get("baseline"),
+        )
 
     doc = ReportDoc(
         module="Decision Center",
@@ -944,38 +960,281 @@ def decision_center(state: FilterState, currency: str, options: dict[str, Any]) 
             "Simulated values are scenario estimates and are not historical actuals.",
         ),
     )
-    doc.sections = _decision_sections(record)
+    doc.sections = _decision_sections(record, options)
     return doc
 
 
-def _decision_sections(record: dict[str, Any]) -> tuple[Section, ...]:
+def _text(value: Any) -> str:
+    """One cell, printed as it is -- never zero-filled and never rounded."""
+    return "" if value is None else str(value)
+
+
+def _decision_sections(
+    record: dict[str, Any], options: dict[str, Any] | None = None
+) -> tuple[Section, ...]:
     """Flatten the record into sections WITHOUT reinterpreting any of it.
 
-    Approval and persistence language is copied from the record verbatim. If the
-    record says a decision is a draft with no approval criteria, the export says
-    exactly that.
+    EVERY STRING BELOW COMES OUT OF THE RECORD. No label is rewritten, no band
+    is collapsed to a midpoint, no unavailable metric is filled with a zero and
+    no governance verdict is synthesised. Where the record has a reason instead
+    of a value, the reason is what is printed -- a blank cell beside an explained
+    absence is what makes an export honest rather than merely short.
     """
+    options = options or {}
     sections: list[Section] = []
-    header = record.get("record") or record
-    sections.append(Section("Decision", "kv", tuple(
-        (str(k).replace("_", " ").title(), str(v))
-        for k, v in header.items()
-        if isinstance(v, (str, int, float, bool)) and not str(k).startswith("_")
+
+    scenario = record.get("scenario") or {}
+    scope = record.get("scope") or {}
+    investigation = record.get("investigation") or {}
+    storage = options.get("storage") or {}
+
+    # --- 1. what is being decided
+    identity: list[tuple[str, str]] = [
+        ("Decision ID", _text(storage.get("decision_id")) or "Not saved"),
+        ("Version", _text(storage.get("version")) or "Not saved"),
+        ("Status", _text(record.get("status"))),
+        ("Scenario", _text(scenario.get("name"))),
+        ("Treatment", _text(scenario.get("treatment"))),
+        ("Discount depth", _text(scenario.get("discount_pct"))),
+        ("Investigation", _text(investigation.get("investigation_type")) or "Not specified"),
+        ("Investigation question",
+         _text(investigation.get("question"))
+         or _text(investigation.get("question_unavailable_reason"))
+         or "Not recorded"),
+        ("Investigation ID",
+         _text(investigation.get("investigation_id"))
+         or _text(investigation.get("investigation_id_unavailable_reason"))
+         or "Not assigned"),
+        ("Period", _text(scope.get("period"))),
+        ("Rows in scope", _text(scope.get("row_count"))),
+        ("Promoted rows", _text(scope.get("promoted_row_count"))),
+    ]
+    # The same fact the screen shows above the impact figures. A report that
+    # printed the zeros without it would be the version that outlives the page.
+    if scope.get("excluded_rows"):
+        identity.append(("Excluded from scenario", _text(scope.get("excluded_rows"))))
+        identity.append(("Exclusion reason", _text(scope.get("excluded_reason"))))
+        if scope.get("all_promoted_rows_excluded"):
+            identity.append((
+                "Note",
+                "Every promoted row was excluded, so this scenario had nothing to "
+                "compute over. The expected-impact figures below are the absence of a "
+                "simulated result, not a measured outcome.",
+            ))
+    if storage.get("dataset_version"):
+        identity.append(("Dataset version", _text(storage.get("dataset_version"))))
+        identity.append(("Data freshness", "Stale" if storage.get("stale") else "Current"))
+    sections.append(Section("Decision", "kv", tuple(identity)))
+
+    # --- 2. strategy, only the levers the scenario actually carries
+    strategy = record.get("strategy") or {}
+    if strategy.get("levers"):
+        sections.append(Section(
+            "Strategy", "table",
+            table=Table(
+                columns=(
+                    Column("lever", "Lever"),
+                    Column("current", "Current (measured)"),
+                    Column("selected", "Selected"),
+                    Column("recommended", "Recommended"),
+                    Column("basis", "Basis"),
+                ),
+                rows=tuple(
+                    {
+                        "lever": _text(lever.get("label")),
+                        "current": (
+                            _text(lever.get("current_display"))
+                            if lever.get("current_available")
+                            else _text(lever.get("current_unavailable_reason"))
+                        ),
+                        "selected": (
+                            _text(lever.get("selected_value"))
+                            if lever.get("selected_available")
+                            else _text(lever.get("selected_unavailable_reason"))
+                        ),
+                        "recommended": (
+                            (_text(lever.get("recommended_display"))
+                             or _text(lever.get("recommended_value")))
+                            + (" (measured plan)"
+                               if lever.get("recommended_is_measured_plan") else "")
+                            if lever.get("recommended_available")
+                            else _text(lever.get("recommended_unavailable_reason"))
+                        ),
+                        "basis": _text(lever.get("note") or lever.get("current_derivation")),
+                    }
+                    for lever in strategy["levers"]
+                ),
+                note=_text(strategy.get("note")),
+            ),
+        ))
+
+    # --- 3. expected impact, BOTH ends of the band
+    impact = record.get("expected_impact") or []
+    if impact:
+        sections.append(Section(
+            "Expected impact (simulated)", "table",
+            table=Table(
+                columns=(
+                    Column("metric", "Metric"),
+                    Column("low", "Low"),
+                    Column("high", "High"),
+                    Column("note", "Note"),
+                ),
+                rows=tuple(
+                    {
+                        "metric": _text(metric.get("label") or metric.get("metric")),
+                        "low": _text(metric.get("display_low")) if metric.get("available") else "",
+                        "high": _text(metric.get("display_high")) if metric.get("available") else "",
+                        "note": "" if metric.get("available") else _text(metric.get("unavailable_reason")),
+                    }
+                    for metric in impact
+                ),
+                note=(
+                    "Both ends of the approved uplift range. There is no midpoint and no "
+                    "expected value between them, and this is not a confidence interval. "
+                    "These are simulated values, not historical actuals."
+                ),
+            ),
+        ))
+
+    # --- 4. scenario comparison, measured baseline beside simulated bands
+    comparison = record.get("comparison") or {}
+    if comparison.get("available") and comparison.get("metrics"):
+        entries = [
+            entry for entry in comparison.get("scenarios", [])
+            if entry.get("status") != "excluded"
+        ]
+        columns = [Column("metric", "Metric"), Column("baseline", "Current (measured)")]
+        for entry in entries:
+            columns.append(Column(
+                f"s_{entry.get('scenario_id')}",
+                f"{entry.get('name')}{' (selected)' if entry.get('is_selected') else ''}",
+            ))
+        rows = []
+        for metric in comparison["metrics"]:
+            baseline_side = metric.get("baseline") or {}
+            row = {
+                "metric": _text(metric.get("label")),
+                "baseline": (
+                    _text(baseline_side.get("display_value"))
+                    if baseline_side.get("available") else ""
+                ),
+            }
+            by_id = {m.get("scenario_id"): m for m in metric.get("scenarios", [])}
+            for entry in entries:
+                cell = by_id.get(entry.get("scenario_id")) or {}
+                low, high = cell.get("low") or {}, cell.get("high") or {}
+                if low.get("available") and high.get("available"):
+                    text = f"{low.get('display_value')} - {high.get('display_value')}"
+                elif low.get("available"):
+                    text = _text(low.get("display_value"))
+                else:
+                    text = ""
+                row[f"s_{entry.get('scenario_id')}"] = text
+            rows.append(row)
+        sections.append(Section(
+            "Scenario comparison", "table", landscape=True,
+            table=Table(
+                columns=tuple(columns), rows=tuple(rows),
+                note=_text(comparison.get("measured_note")),
+            ),
+        ))
+
+    # --- 5. recommendation, verbatim
+    recommendation = record.get("recommendation") or {}
+    sections.append(Section("Recommendation", "kv", tuple(
+        (label, _text(value)) for label, value in (
+            ("Recommended scenario", recommendation.get("recommended_scenario_name")
+             or recommendation.get("recommended_scenario_id")),
+            ("Recommended scenario id", recommendation.get("recommended_scenario_id")),
+            ("Is this scenario", "Yes" if recommendation.get("is_this_scenario") else "No"),
+            ("Objective", recommendation.get("objective")),
+            ("Primary metric", recommendation.get("primary_metric")),
+            ("Primary endpoint", recommendation.get("primary_endpoint")),
+            ("Policy version", recommendation.get("policy_version")),
+            ("Reason", recommendation.get("reason")),
+            ("Note", recommendation.get("note")),
+        )
     )))
 
-    for key in ("status", "governance", "approval"):
-        block = record.get(key)
-        if isinstance(block, dict):
-            sections.append(Section(key.title(), "kv", tuple(
-                (str(k).replace("_", " ").title(), str(v))
-                for k, v in block.items() if isinstance(v, (str, int, float, bool))
-            )))
+    # --- 6. risk and governance, B6's own findings
+    governance = record.get("governance") or {}
+    sections.append(Section("Risk and governance", "kv", tuple(
+        (label, _text(value)) for label, value in (
+            ("Overall status", governance.get("overall_status")),
+            ("Rule", governance.get("overall_status_rule")),
+            ("Summary", governance.get("summary")),
+            ("Policy version", governance.get("policy_version")),
+        )
+    )))
+    if governance.get("findings"):
+        sections.append(Section(
+            "Risk findings", "table",
+            table=Table(
+                columns=(
+                    Column("finding", "Finding"), Column("severity", "Severity"),
+                    Column("status", "Status"), Column("reason", "Reason"),
+                ),
+                rows=tuple(
+                    {
+                        "finding": _text(f.get("title")),
+                        "severity": _text(f.get("severity")),
+                        "status": _text(f.get("status")),
+                        "reason": _text(f.get("reason")),
+                    }
+                    for f in governance["findings"]
+                ),
+            ),
+        ))
+    if governance.get("governance_gaps"):
+        sections.append(Section(
+            "Governance considerations", "text",
+            tuple(
+                f"{gap.get('label')} - {gap.get('statement')}"
+                for gap in governance["governance_gaps"]
+            ),
+            note=(
+                "These boundaries are not defined anywhere in this project, so nothing "
+                "above is judged against them."
+            ),
+        ))
 
-    notes = [
-        str(v) for k, v in record.items()
-        if isinstance(v, str) and k in ("method", "assembled_from", "no_approval_criteria",
-                                        "disclaimer", "note")
-    ]
-    if notes:
-        sections.append(Section("Record provenance and limits", "text", tuple(notes)))
+    # --- 7. readiness, and why nothing here is approved
+    readiness = record.get("readiness") or {}
+    states = readiness.get("states") or {}
+    sections.append(Section("Decision readiness", "kv", tuple(
+        (label, _text(value)) for label, value in (
+            ("Can be approved", "Yes" if readiness.get("can_be_approved") else "No"),
+            ("Reason", readiness.get("reason")),
+            ("Recommended", "Yes" if states.get("recommended") else "No"),
+            ("Governed", "Yes" if states.get("governed") else "No"),
+            ("Ready to review", "Yes" if states.get("ready_to_review") else "No"),
+            ("Approved", "Yes" if states.get("approved") else "No"),
+            ("Note", readiness.get("states_note")),
+        )
+    )))
+    if readiness.get("blockers"):
+        sections.append(Section(
+            "Blocking approval", "text",
+            tuple(f"{b.get('title')} - {b.get('detail')}" for b in readiness["blockers"]),
+        ))
+    if readiness.get("unverified"):
+        sections.append(Section(
+            "Unverified before execution", "text",
+            tuple(f"{u.get('title')} - {u.get('detail')}" for u in readiness["unverified"]),
+        ))
+
+    # --- 8. provenance
+    provenance = record.get("provenance") or {}
+    sections.append(Section("Record provenance and limits", "kv", tuple(
+        (label, _text(value)) for label, value in (
+            ("Assembled from", ", ".join(provenance.get("assembled_from") or [])),
+            ("KPI engine", provenance.get("kpi_engine")),
+            ("Response rule", provenance.get("response_rule")),
+            ("Recommendation policy", provenance.get("recommendation_policy_version")),
+            ("Risk policy", provenance.get("risk_policy_version")),
+            ("Method", provenance.get("method")),
+            ("Persistence", (record.get("meta") or {}).get("persistence_note")),
+        )
+    )))
     return tuple(sections)

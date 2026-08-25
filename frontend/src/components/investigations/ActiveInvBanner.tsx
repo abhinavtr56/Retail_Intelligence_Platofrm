@@ -26,9 +26,17 @@ export function ActiveInvBanner({
 }: {
   typeMeta: InvestigationTypeMeta
   question: string
-  proceedTo: string
-  proceedLabel: string
-  proceedIcon: IconName
+  /** OPTIONAL, and omitted where a plain link would be the wrong control.
+   *
+   *  This renders a `<Link>`: it navigates and nothing else. On a page whose
+   *  own action has to CARRY state with it — Simulation Studio hands the
+   *  scenario, its recommendation and its risk assessment to Decision Center —
+   *  a second button with the same label that only navigates lands the user on
+   *  an empty page. So the caller passes these only when navigation alone is
+   *  genuinely the whole action. */
+  proceedTo?: string
+  proceedLabel?: string
+  proceedIcon?: IconName
 }) {
   return (
     <div
@@ -41,12 +49,16 @@ export function ActiveInvBanner({
       <Link to="/investigations" className="text-[13px] font-semibold text-brand-violet whitespace-nowrap">
         ← Back to Investigation
       </Link>
-      <Link
-        to={proceedTo}
-        className="inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] bg-brand-violet px-3 text-xs font-semibold text-white shadow-[var(--shadow-violet)] hover:bg-brand-violet-600"
-      >
-        <Icon name={proceedIcon} className="h-3.5 w-3.5" /> {proceedLabel}
-      </Link>
+      {proceedTo && proceedLabel ? (
+        <Link
+          to={proceedTo}
+          className="inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] bg-brand-violet px-3 text-xs font-semibold text-white shadow-[var(--shadow-violet)] hover:bg-brand-violet-600"
+        >
+          {proceedIcon && <Icon name={proceedIcon} className="h-3.5 w-3.5" />} {proceedLabel}
+        </Link>
+      ) : (
+        <span />
+      )}
     </div>
   )
 }

@@ -42,6 +42,13 @@ class DecisionRecordRequest(BaseModel):
     risk: dict[str, Any]
     #: /api/simulation/weekly, when the weekly view was open.
     weekly: dict[str, Any] | None = None
+    #: /api/simulation/compare, when more than one scenario has been run.
+    #: OPTIONAL and additive -- a record assembled without it says so rather
+    #: than showing an empty comparison.
+    comparison: dict[str, Any] | None = None
+    #: /api/simulation/run -- the MEASURED baseline for the same scope. Optional
+    #: for the same reason, and the only source of a measured value on this page.
+    baseline: dict[str, Any] | None = None
 
 
 @router.post("/record")
@@ -63,6 +70,8 @@ def decision_record(body: DecisionRecordRequest) -> dict[str, Any]:
             recommendation=body.recommendation,
             risk=body.risk,
             weekly=body.weekly,
+            comparison=body.comparison,
+            baseline=body.baseline,
         )
     except decision.SectionMismatch as exc:
         # 422, not 500: the request is well-formed but internally inconsistent,

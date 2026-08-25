@@ -78,6 +78,7 @@ from app.routers import (  # noqa: E402
     connectors,
     datasets,
     decision,
+    decision_brief,
     intelligence,
     investigations,
     misc,
@@ -90,7 +91,7 @@ from app.routers import (  # noqa: E402
 )
 
 for r in (nav, command, command_center, investigations, pages, misc, connectors,
-          promotion_calendar, simulation, decision, briefing, store, reports,
+          promotion_calendar, simulation, decision, decision_brief, briefing, store, reports,
           auth, datasets, intelligence):
     app.include_router(r.router)
 

@@ -206,6 +206,26 @@ export function Simulation() {
       scenario_id: active0.id,
       discount_pct: active0.simulation.discount_pct,
     })
+    // THE GUARD MUST NOT SURVIVE THIS EFFECT BEING TORN DOWN — the same rule
+    // the /run effect above already follows, for the same reason.
+    //
+    // It matters HERE and not there because of where the key comes from. The
+    // scenario store is a module-level zustand store, so it survives an
+    // unmount: coming back from Decision Center, `active0.simulation` is
+    // already populated on the very first render, `weeklyKey` is non-null
+    // immediately, and StrictMode's discarded first pass fires this mutation
+    // and then throws away its observer. Without this cleanup the surviving
+    // pass saw the ref already set, returned early, and the panel sat on
+    // "Decomposing the scenario…" against a request nobody was listening to.
+    //
+    // It recovered once /run reseeded the store and the `!weeklyKey` branch
+    // above cleared the ref — but it did not recover if that run failed, and a
+    // spinner that depends on an unrelated request succeeding is not a state
+    // worth keeping. Clearing the ref lets the surviving pass issue the
+    // request it can actually receive.
+    return () => {
+      weeklyFor.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weeklyKey])
 
@@ -235,6 +255,13 @@ export function Simulation() {
       recommendation: recommendation.data ?? null,
       weekly_included: Boolean(weekly.data),
     })
+    // Same cleanup, same reason as the weekly effect above — and this one is
+    // the more damaging of the two, because `canCarryDecision` requires
+    // `risk.data`. An orphaned assessment leaves "Open Decision Center"
+    // disabled with no error to explain it.
+    return () => {
+      riskFor.current = null
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riskKey])
 
@@ -265,6 +292,24 @@ export function Simulation() {
   const canCarryDecision = Boolean(
     currentSignature && active0?.simulation && context.data && recommendation.data && risk.data,
   )
+
+  /** Why Open Decision Center is disabled, in terms of what the user can do.
+   *
+   *  Decision Center assembles its record from the scenario, its recommendation
+   *  and its risk assessment — all three, because a record missing any of them
+   *  would be refused by the contract. So any of the three failing disables the
+   *  handoff, and each one needs a different sentence. */
+  const handoffBlocker = !active0?.simulation
+    ? 'Run and select a scenario to carry it to the Decision Center.'
+    : recommendation.isError
+      ? 'The recommendation could not be produced, and a decision record needs it. Retry it above.'
+      : risk.isError
+        ? 'The risk assessment could not be produced, and a decision record needs it. Retry it above.'
+        : !context.data
+          ? 'Loading the investigation context…'
+          : recommendation.isPending || risk.isPending || !recommendation.data || !risk.data
+            ? 'Waiting for the recommendation and the risk assessment…'
+            : 'Run and select a scenario to carry it to the Decision Center.'
 
   // --- B10: durable storage ------------------------------------------------
   const saveScenario = useSaveScenario()
@@ -313,6 +358,13 @@ export function Simulation() {
       recommendation: recommendation.data,
       risk: risk.data,
       weekly: weekly.data?.scenario_id === active0.id ? weekly.data : null,
+      // Both are results this page ALREADY holds, carried across unchanged so
+      // the decision record can state a measured value beside a simulated one
+      // and show the scenarios side by side. Neither is recomputed, here or on
+      // the server, and a scope that produced neither carries null rather than
+      // a stand-in.
+      comparison: compare.data ?? null,
+      baseline: run.data ?? null,
     })
     navigate('/decision')
   }
@@ -350,17 +402,63 @@ export function Simulation() {
 
     const discount = active.levers.discount_pct
     if (discount == null) return
-    startRun(active.id)
-    simulate.mutate(
-      { filters: body.filters, currency, scenario_id: active.id, discount_pct: discount },
-      {
-        onSuccess: (data) => {
-          applyResult(active.id, data)
-          show(`${active.name} simulated — ${data.treatment} at ${data.discount_pct}%`, { duration: 3000 })
-        },
-        onError: (error) => failRun(active.id, error.message),
-      },
-    )
+    // EVERYTHING THIS RUN NEEDS, CAPTURED BEFORE IT STARTS. By the time the
+    // response lands the user may have selected another scenario, so `active`
+    // is the wrong thing to read from — the run belongs to the scenario it was
+    // started for and to the scope it was started under.
+    const requestedId = active.id
+    const requestedName = active.name
+    const requestedScope = scopeKey
+    startRun(requestedId)
+
+    // `mutateAsync`, NOT `mutate` WITH CALLBACKS.
+    //
+    // THE BUG THIS FIXES: run scenario A, then select B and run it before A
+    // returns. `mutate`'s per-call callbacks live on the shared observer, so
+    // B's replaced A's, A's `onSuccess` never fired, `applyResult` never ran,
+    // and A's card sat on "Running against the KPI engine…" indefinitely —
+    // even though its request had succeeded.
+    //
+    // The promise `mutateAsync` returns belongs to THIS execution and cannot be
+    // displaced, so every concurrent run resolves on its own and settles its own
+    // scenario. Nothing here polls, waits or forces a state: the request's own
+    // success or failure is what ends it.
+    simulate
+      .mutateAsync({
+        filters: body.filters,
+        currency,
+        scenario_id: requestedId,
+        discount_pct: discount,
+      })
+      .then((data) => {
+        // A RESULT FROM A SUPERSEDED SCOPE IS DISCARDED, NOT APPLIED. A scope
+        // change reseeds the store from a fresh /run; a scenario result computed
+        // over the previous rows means nothing against the new ones, and the
+        // scenario ids are stable enough that it would land silently.
+        if (useScenarioStore.getState().scopeKey !== requestedScope) return
+
+        // THE RESULT MUST BE THE ONE WE ASKED FOR. The backend echoes the
+        // scenario_id it was given, so this can only fail if a response were
+        // ever routed to the wrong scenario — and attaching it anyway would
+        // put one scenario's KPIs under another's name, which is the single
+        // most damaging thing this page could do. Refused rather than shown.
+        if (data.scenario_id !== requestedId) {
+          failRun(
+            requestedId,
+            'Simulation result does not match the selected scenario. Nothing has been ' +
+              'applied — run the scenario again.',
+          )
+          return
+        }
+        applyResult(requestedId, data)
+        show(`${requestedName} simulated — ${data.treatment} at ${data.discount_pct}%`, {
+          duration: 3000,
+        })
+      })
+      .catch((error: Error) => {
+        if (useScenarioStore.getState().scopeKey !== requestedScope) return
+        failRun(requestedId, error.message)
+      })
   }
 
   return (
@@ -426,9 +524,17 @@ export function Simulation() {
               // itself with an example, and this banner sitting next to the
               // context bar showing "no question yet" would contradict it.
               question={context.data?.question.value ?? 'No investigation question yet'}
-              proceedTo="/decision"
-              proceedLabel="Open Decision Center"
-              proceedIcon="checkCircle"
+              // NO "Open Decision Center" HERE.
+              //
+              // This banner offered a second button with that exact label, and
+              // it was a plain <Link>: it navigated without carrying the
+              // scenario, its recommendation or its risk assessment. A user who
+              // ran a scenario and clicked THIS one arrived at Decision Center's
+              // "No scenario has been carried here" empty state, while the
+              // identically-labelled button at the foot of the page worked.
+              //
+              // One label, one behaviour: the handoff lives on the footer
+              // button, which calls `openDecisionCenter` and carries the draft.
             />
           </div>
         )}
@@ -714,7 +820,12 @@ export function Simulation() {
             ) : canCarryDecision ? (
               'Carrying the selected scenario, its recommendation and its governance assessment.'
             ) : (
-              'Run and select a scenario to carry it to the Decision Center.'
+              // NAME THE ACTUAL BLOCKER. The decision record is assembled from
+              // the scenario, its recommendation AND its risk assessment, so a
+              // failure in either downstream call disables this button. Saying
+              // "run and select a scenario" when a scenario has been run and
+              // selected sends the user to fix something that is not wrong.
+              handoffBlocker
             )}
           </span>
           {/* B10: a real save. Only a scenario that has actually been simulated
