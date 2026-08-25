@@ -323,10 +323,8 @@ export function Decision() {
           record={shown}
           stored={envelope}
           briefing={briefing}
-          onGenerate={generateBriefing}
           aiBrief={aiBrief}
           onGenerateAi={generateAiBrief}
-          onSave={persistDecision}
           canSave={canSave}
           saving={saveDecision.isPending}
           currentDecisionId={envelope?.decision_id ?? null}
@@ -370,10 +368,8 @@ function RecordView({
   record,
   stored,
   briefing,
-  onGenerate,
   aiBrief,
   onGenerateAi,
-  onSave,
   canSave,
   saving,
   currentDecisionId,
@@ -382,10 +378,8 @@ function RecordView({
   record: DecisionRecord
   stored: StoredDecision | null
   briefing: BriefingMutation
-  onGenerate: () => void
   aiBrief: ReturnType<typeof useDecisionBrief>
   onGenerateAi: () => void
-  onSave: () => void
   canSave: boolean
   saving: boolean
   currentDecisionId: string | null
@@ -434,8 +428,6 @@ function RecordView({
       <Card className="fade-in mt-[18px]">
         <ActionsSection
           briefing={briefing}
-          onGenerate={onGenerate}
-          onSave={onSave}
           canSave={canSave}
           saving={saving}
           stored={stored}
@@ -969,15 +961,11 @@ function ReadinessSection({ record }: { record: DecisionRecord }) {
  *  the user's disk. */
 function ActionsSection({
   briefing,
-  onGenerate,
-  onSave,
   canSave,
   saving,
   stored,
 }: {
   briefing: BriefingMutation
-  onGenerate: () => void
-  onSave: () => void
   canSave: boolean
   saving: boolean
   stored: StoredDecision | null
@@ -1002,10 +990,20 @@ function ActionsSection({
               Stores this record on the server, which mints the decision id and appends a version.
               Re-saving never overwrites: the previous version stays exactly where it was.
             </div>
-            <Button variant="secondary" className="mt-3" onClick={onSave} disabled={!canSave || saving}>
-              {saving ? <Spinner /> : <Icon name="checkCircle" />}
-              <span>{saving ? 'Saving…' : stored ? 'Saved' : 'Save Decision'}</span>
-            </Button>
+            {/* ONE BUTTON PER ACTION, IN THE ACTION BAR AT THE TOP.
+                This section explains what each action does and reports what it
+                did; the controls themselves live in the header, the same place
+                every other page in the application puts them. A second button
+                with the same label is a thing a user has to think about. */}
+            <div className="mt-2 text-[11.5px] leading-[1.5] text-ink-muted">
+              {saving
+                ? 'Saving…'
+                : stored
+                  ? `Saved as ${stored.decision_id} · version ${stored.version}.`
+                  : canSave
+                    ? 'Use Save Decision at the top of the page.'
+                    : 'Already stored — carry a scenario from Simulation Studio to save a new version.'}
+            </div>
             {stored && (
               <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
                 {stored.owner_note}
@@ -1022,15 +1020,22 @@ function ActionsSection({
               Both carry exactly what is on this page, and both state that this decision is a draft
               and is not approved.
             </div>
+            {/* DOWNLOAD ONLY. Generating is the header's job; this is where the
+                artifacts arrive, and downloading them is a different action —
+                one writes to the user's disk, the other does not. */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button variant="secondary" onClick={onGenerate} disabled={briefing.isPending}>
-                {briefing.isPending ? <Spinner /> : <Icon name="file" />}
-                <span>{briefing.isPending ? 'Generating…' : 'Generate Briefing'}</span>
-              </Button>
-              {briefing.isSuccess && briefing.data && (
+              {briefing.isPending ? (
+                <span className="inline-flex items-center gap-2 text-[12px] text-ink-secondary">
+                  <Spinner /> Generating…
+                </span>
+              ) : briefing.isSuccess && briefing.data ? (
                 <Button variant="primary" onClick={() => saveBriefing(briefing.data)}>
                   <Icon name="download" /> <span>Download</span>
                 </Button>
+              ) : (
+                <span className="text-[11.5px] text-ink-muted">
+                  Use Generate Briefing at the top of the page.
+                </span>
               )}
             </div>
             {briefing.isSuccess && briefing.data && (
