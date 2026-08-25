@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons'
 import { IconButton } from '../ui'
 import { NotificationBell } from '../command/NotificationBell'
-import { usePortalUserStore } from '../../store/portalUser'
+import { useCurrentUser } from '../../hooks/useAuth'
 
 export interface Crumb {
   label: string
@@ -13,8 +13,8 @@ export interface Crumb {
 // renders (and only matters) below `md`, where Sidebar is an off-canvas drawer; at
 // `md` and up the collapsed rail is always on screen and needs no menu button.
 export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuClick?: () => void }) {
-  // B12: see Sidebar — the signed-in persona, not the authored one.
-  const user = usePortalUserStore((s) => s.user)
+  // B12: see Sidebar — the real signed-in session, not the authored persona.
+  const { data: user } = useCurrentUser()
   const navigate = useNavigate()
 
   return (
@@ -58,9 +58,9 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
         <IconButton icon="settings" title="Settings" onClick={() => navigate('/settings')} />
         <div
           className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"
-          title={`${user.name} — signed in locally, not verified`}
+          title={user ? `${user.name} — signed in` : 'Not signed in'}
         >
-          {user.initials}
+          {user?.initials}
         </div>
       </div>
     </header>

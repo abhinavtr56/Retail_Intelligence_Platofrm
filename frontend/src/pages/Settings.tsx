@@ -2,7 +2,7 @@ import { AppShell } from '../components/layout/AppShell'
 import { Button, Card, CardHeader, Pill } from '../components/ui'
 import { Icon } from '../icons'
 import { useSettings } from '../hooks/useMisc'
-import { usePortalUserStore } from '../store/portalUser'
+import { useCurrentUser } from '../hooks/useAuth'
 
 /** Ported from js/pages/settings.js.
  *
@@ -21,7 +21,7 @@ import { usePortalUserStore } from '../store/portalUser'
  *  Not connected. */
 export function Settings() {
   const { data: D, isLoading } = useSettings()
-  const user = usePortalUserStore((s) => s.user)
+  const { data: user } = useCurrentUser()
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Settings' }]
 
   if (isLoading || !D) {
@@ -45,12 +45,12 @@ export function Settings() {
           <div className="p-5">
             <div className="mb-3.5 flex items-center gap-3.5 border-b border-border-subtle pb-4">
               <div className="grid h-[54px] w-[54px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#7C5CFF,#4F7CFF)] text-lg font-extrabold text-white">
-                {user.initials}
+                {user?.initials}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-base font-extrabold text-ink-primary">{user.name}</div>
+                <div className="text-base font-extrabold text-ink-primary">{user?.name}</div>
                 <div className="truncate text-sm text-ink-muted">
-                  {user.email || 'No email recorded'}
+                  {user?.email || 'No email recorded'}
                 </div>
                 <div className="mt-0.5 text-[11px] text-ink-muted">
                   Signed in locally — this application has no identity provider, so nothing

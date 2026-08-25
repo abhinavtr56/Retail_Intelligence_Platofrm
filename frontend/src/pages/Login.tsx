@@ -1,20 +1,28 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Field, Input, Pill, useToast } from '../components/ui'
-import { usePortalUserStore } from '../store/portalUser'
+import { useCurrentUser, useLogin } from '../hooks/useAuth'
+import { ApiError } from '../lib/api'
 
-// Ported from login.html + js/portal.js's Portal.initLogin(). No real identity
-// provider yet — any non-empty email/password signs into a local workspace, same
-// client-side stand-in as the vanilla app.
+// Ported from login.html + js/portal.js's Portal.initLogin(), now backed by real
+// FastAPI auth (POST /api/auth/login — see backend/app/auth_store.py) instead of a
+// client-side stand-in. First login for a given email creates the account on the
+// spot (frictionless demo signup, same as before); every login after that actually
+// checks the password.
 export function Login() {
-  const signIn = usePortalUserStore((s) => s.signIn)
+  const { data: currentUser } = useCurrentUser()
+  const login = useLogin()
   const { show } = useToast()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+
+  // Already signed in (valid session cookie) — skip straight past the form.
+  useEffect(() => {
+    if (currentUser) navigate('/home', { replace: true })
+  }, [currentUser, navigate])
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,9 +31,15 @@ export function Login() {
       return
     }
     setError('')
-    signIn(email.trim())
-    setSubmitting(true)
-    window.setTimeout(() => navigate('/home'), 450)
+    login.mutate(
+      { email: email.trim(), password },
+      {
+        onSuccess: () => navigate('/home'),
+        onError: (err) => {
+          setError(err instanceof ApiError ? err.message : "Couldn't reach the server — is the backend running?")
+        },
+      },
+    )
   }
 
   return (
@@ -66,8 +80,8 @@ export function Login() {
             </button>
           </div>
 
-          <Button type="submit" variant="primary" size="lg" block disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
+          <Button type="submit" variant="primary" size="lg" block disabled={login.isPending}>
+            {login.isPending ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
 
@@ -76,7 +90,7 @@ export function Login() {
             V1 · Local dev
           </Pill>
           <br />
-          Authentication isn't wired to a real identity provider yet — any email/password signs you into a local workspace.
+          First sign-in creates your workspace — after that, your password is checked for real.
         </div>
       </div>
     </div>

@@ -33,9 +33,24 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return unwrap<T>(res);
 }
 
+// Multipart upload. Deliberately does NOT set Content-Type — the browser has
+// to generate it so the multipart boundary matches the body it builds.
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method: "POST", body: formData });
+  return unwrap<T>(res);
+}
+
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
+  return unwrap<T>(res);
+}
+
 /** FastAPI reports errors as `{"detail": ...}`, where `detail` is a string for
  *  an HTTPException and a list of field errors for a 422. Surfacing the raw
- *  JSON of a validation failure is unreadable, so pull out the message. */
+ *  JSON of a validation failure is unreadable, so pull out the message.
+ *
+ *  Every verb above funnels through here, so a caller — the login form, the
+ *  dataset uploader — gets the same clean `ApiError` regardless of method. */
 async function unwrap<T>(res: Response): Promise<T> {
   if (res.ok) return res.json() as Promise<T>;
   const text = await res.text().catch(() => "");

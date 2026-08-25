@@ -5,9 +5,14 @@ import type { CommandFilters } from './commandFilters'
 
 // Ported from data.js's window.getActiveInvType/setActiveInvType/addActiveInv, which
 // read/wrote localStorage directly. Same persisted shape and default question, now as
-// a Zustand store — pages read it with useActiveInvestigation() instead of calling
-// global functions, and the "last N investigations" list still round-trips to
-// localStorage across full page reloads.
+// a Zustand store — pages read it with useActiveInvestigationStore() instead of calling
+// global functions.
+//
+// `list` is the CLIENT-side recent-investigation trail. The SHARED, cross-device
+// history now lives on the backend — see useRecentInvestigations() in
+// hooks/useInvestigations.ts, which is what the Investigations page renders. This
+// local copy is kept because Simulation.tsx still passes it as descriptive
+// investigation context (it carries no KPI value).
 export interface ActiveInvEntry {
   type: InvestigationType
   question: string
@@ -63,7 +68,16 @@ interface ActiveInvestigationState {
   clearScope: () => void
 }
 
-const DEFAULT_QUESTION = 'Why did South Modern Trade Push underperform despite increased trade spend?'
+// Empty by design. A pre-filled question makes the Investigations page render
+// an answer nobody asked for; the page now starts blank until the user asks
+// something or arrives from an "Ask why" handoff.
+const DEFAULT_QUESTION = ''
+
+// The old default question is still sitting in localStorage for anyone who
+// used the app before, and persisted state wins over the initial value — so
+// clearing the constant alone would fix nothing for existing users. Version 2
+// drops it on load.
+const OLD_DEFAULT = 'Why did South Modern Trade Push underperform despite increased trade spend?'
 
 export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
   persist(
@@ -80,6 +94,16 @@ export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
       startFromCommandCenter: (scope) => set({ scope: { ...scope, at: Date.now() } }),
       clearScope: () => set({ scope: null }),
     }),
-    { name: 'tiq.activeInvestigation' },
+    {
+      name: 'tiq.activeInvestigation',
+      version: 2,
+      migrate: (persisted) => {
+        const state = (persisted ?? {}) as Partial<ActiveInvestigationState>
+        if (state.activeQuestion === OLD_DEFAULT) {
+          return { ...state, activeQuestion: '' } as ActiveInvestigationState
+        }
+        return state as ActiveInvestigationState
+      },
+    },
   ),
 )

@@ -1,18 +1,22 @@
-"""The unauthenticated surface, disclosed -- B11 (deferred).
+"""The unauthenticated surface, disclosed -- B11, and the auth that followed.
 
-B11 was DEFERRED: this project has no identity provider, and authorization
-built on a self-asserted email would be an enforcement claim with nothing behind
-it. So nothing was guarded. What WAS done is disclosure -- the API docs and the
-README say plainly that every route is open, including the two that write.
+B11 was DEFERRED: at the time this project had no identity provider, and
+authorization built on a self-asserted email would have been an enforcement
+claim with nothing behind it. So nothing was guarded, and what was done instead
+was disclosure -- the API docs and the README say plainly that the /api/store
+routes are open, including the two that write.
 
-THESE TESTS PIN THE DISCLOSURE, NOT A PERMISSION MODEL. They assert that the
-warning is present and that no fake identity crept in behind it. They do not
-assert that anything is protected, because nothing is.
+REAL AUTHENTICATION NOW EXISTS for the session surface (app/auth_store.py,
+app/routers/auth.py, app/deps.py): PBKDF2-SHA256 password hashing, constant-time
+comparison, and an httpOnly session cookie. Per B11's own instruction --
+"if authentication is ever implemented, these tests should be REPLACED by tests
+of the real thing, not deleted" -- the assertion that NO auth existed has been
+replaced by the assertions below that the real thing behaves correctly.
 
-The failure they exist to prevent is a quiet one: someone adds a guard, or a
-future reader assumes there is one, and the honest warning disappears while the
-exposure stays. If authentication is ever implemented, these tests should be
-REPLACED by tests of the real thing -- not deleted.
+THE /api/store ROUTES ARE STILL UNGUARDED, so the disclosure tests still stand
+and still pass. The failure they exist to prevent is a quiet one: the exposure
+staying while the honest warning disappears -- or, now, the reverse, the
+disclosure going stale because a guard was added and never documented.
 
 Run with:
 
@@ -93,33 +97,45 @@ def test_the_readme_warns_before_anyone_hosts_this():
 # --- nothing fake crept in ----------------------------------------------------
 
 
-def test_no_authentication_was_added(openapi):
-    """B11 built no auth. This asserts the absence, so a later 'small helper'
-    cannot quietly become a login."""
-    assert "securitySchemes" not in openapi.get("components", {})
-    assert not any("security" in operation
-                   for path in openapi["paths"].values()
-                   for operation in path.values()
-                   if isinstance(operation, dict))
+def test_authentication_rejects_an_anonymous_caller():
+    """The real thing, asserted where B11 used to assert its absence.
 
-    # Matched on WORD BOUNDARIES, not substrings: "concentration" contains
-    # "entra" and "central" does too, and B6's weekly_concentration gap would
-    # otherwise read as an identity provider.
-    import re
+    /auth/me is the session surface. Without a cookie it must be a 401 -- not a
+    bare null, and not a default persona -- because the frontend reads that
+    error as "signed out" and redirects to /login.
+    """
+    from app.main import app as fresh_app
 
-    for name in ("jwt", "jwks", "oauth", "oidc", "msal", "entra", "bearer_token",
-                 "session_cookie", "get_current_user", "authenticate"):
-        pattern = re.compile(rf"\b{name}\b", re.I)
-        found = [
-            path for path in Path("app").rglob("*.py")
-            # connectors.py holds THIRD-PARTY credentials the user supplies for
-            # Databricks/Power BI. They authenticate to those services, never
-            # to this application.
-            if "connectors" not in path.name
-            and pattern.search(path.read_text(encoding="utf-8"))
-            and "UNAUTHENTICATED" not in path.read_text(encoding="utf-8")
-        ]
-        assert not found, (name, [str(p) for p in found])
+    with TestClient(fresh_app) as anonymous:
+        response = anonymous.get("/api/auth/me")
+    assert response.status_code == 401, response.text
+
+
+def test_passwords_are_hashed_with_a_salt_and_compared_in_constant_time():
+    """Asserted on the source, so a later refactor cannot quietly downgrade it
+    to a plain hash, a bare == comparison, or a stored plaintext password."""
+    source = (Path("app") / "auth_store.py").read_text(encoding="utf-8")
+    assert "pbkdf2_hmac" in source
+    assert "hmac.compare_digest" in source
+    assert "secrets.token" in source
+    # The password itself is never persisted -- only its derivation.
+    assert '"password"' not in source
+
+
+def test_the_store_routes_are_still_open_so_the_disclosure_stays_true():
+    """The disclosure above is only honest while it matches reality.
+
+    Auth exists now, so the new quiet failure is the opposite of B11's: a guard
+    lands on /api/store, the README keeps saying the routes are open, and a
+    reader trusts a warning that no longer describes the system. These endpoints
+    must therefore answer an anonymous caller with anything EXCEPT 401.
+    """
+    from app.main import app as fresh_app
+
+    with TestClient(fresh_app) as anonymous:
+        for _, path in WRITE_ENDPOINTS:
+            assert anonymous.post(path, json={}).status_code != 401, path
+        assert anonymous.get("/api/store/decisions").status_code != 401
 
 
 def test_requirements_gained_no_auth_dependency():

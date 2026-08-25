@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useNav } from '../../hooks/useNav'
-import { usePortalUserStore } from '../../store/portalUser'
+import { useCurrentUser } from '../../hooks/useAuth'
 import { useSidebarStore } from '../../store/sidebar'
 import { Icon, type IconName } from '../../icons'
 
@@ -58,11 +58,13 @@ export function Sidebar({
   const { data: nav } = useNav()
   // B12: the signed-in persona, not user.json's hard-coded "Sanjay Kumar ·
   // Commercial Analyst". The chrome used to name a different person from the
-  // one who signed in, and to print a ROLE this project has no authorization
-  // model behind — B9 removed both from Settings for the same reason. This is
-  // presentation only: no identity is created, and the name shown is still the
-  // unverified one the visitor typed at sign-in.
-  const user = usePortalUserStore((s) => s.user)
+  // one who signed in.
+  //
+  // This now reads the REAL session (GET /auth/me behind an httpOnly cookie)
+  // rather than the old client-only portalUser store, so the name shown is a
+  // verified account rather than whatever the visitor typed. `user` is
+  // undefined while that request is in flight and when signed out.
+  const { data: user } = useCurrentUser()
   const pinned = useSidebarStore((s) => s.pinned)
   const togglePinned = useSidebarStore((s) => s.togglePinned)
 
@@ -196,15 +198,15 @@ export function Sidebar({
         <div className="shrink-0 border-t border-white/[0.06] p-3">
           <div
             className="flex items-center gap-2.5 overflow-hidden rounded-[var(--r-md)] p-1.5 transition-colors duration-150 hover:bg-white/[0.05]"
-            title={`${user.name} — signed in locally`}
+            title={user ? `${user.name} — signed in` : 'Not signed in'}
           >
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-[11px] font-bold text-white">
-              {user.initials}
+              {user?.initials}
             </div>
             <Reveal expanded={labelled} className="flex min-w-0 flex-1 items-center gap-2">
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[13px] font-semibold text-sidebar-brand">
-                  {user.name}
+                  {user?.name}
                 </span>
                 <span className="truncate text-[11px] text-sidebar-brand-sub">
                   Signed in locally

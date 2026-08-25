@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { IconButton, Pill, useToast } from '../components/ui'
-import { usePortalUserStore } from '../store/portalUser'
+import { Link, useNavigate } from 'react-router-dom'
+import { Dropdown, IconButton, Pill, useToast } from '../components/ui'
+import { useCurrentUser, useLogout } from '../hooks/useAuth'
+import { useDatasets } from '../hooks/useDatasets'
 import { HeroArt } from '../components/portal/HeroArt'
 import { ModuleGrid } from '../components/portal/ModuleGrid'
 import { ConnectorRail } from '../components/portal/ConnectorRail'
@@ -28,7 +29,10 @@ const DISCONNECT_KIND: Record<ConnectorSpecial, string> = {
 // grid/connector rail/advisor layout as the vanilla app, state-driven instead of
 // direct DOM mutation.
 export function Home() {
-  const { user } = usePortalUserStore()
+  const { data: user } = useCurrentUser()
+  const { data: datasets } = useDatasets()
+  const logout = useLogout()
+  const navigate = useNavigate()
   const { show } = useToast()
   const [connectors, setConnectors] = useState<PortalConnector[]>(INITIAL_CONNECTORS)
   const [modal, setModal] = useState<ConnectorSpecial | 'upload' | null>(null)
@@ -42,6 +46,26 @@ export function Home() {
       setConnectors((prev) => prev.map((c) => (c.key === 'azure' ? { ...c, on: true, detail: c.detail || 'Saved session' } : c)))
     }
   }, [])
+
+  // Excel / Shared Drives reflects real ingested data, not a hardcoded flag —
+  // it's "connected" exactly when this user has uploaded at least one dataset.
+  useEffect(() => {
+    if (!datasets) return
+    const rows = datasets.reduce((sum, d) => sum + d.rows, 0)
+    setConnectors((prev) =>
+      prev.map((c) =>
+        c.key === 'xls'
+          ? {
+              ...c,
+              on: datasets.length > 0,
+              detail: datasets.length
+                ? `${datasets.length} file${datasets.length > 1 ? 's' : ''} · ${rows.toLocaleString()} rows`
+                : undefined,
+            }
+          : c,
+      ),
+    )
+  }, [datasets])
 
   const updateConnector = (key: string, patch: Partial<PortalConnector>) => {
     setConnectors((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)))
@@ -68,6 +92,14 @@ export function Home() {
 
   const onConnected = (key: string) => (detail: string) => updateConnector(key, { on: true, detail })
 
+  const signOut = () => {
+    logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
+  }
+
+  // RequireAuth (see App.tsx) only mounts this page once /auth/me has already
+  // resolved, so this is effectively always populated — just a type-safety guard.
+  if (!user) return null
+
   return (
     <div className="min-h-screen bg-surface-page">
       <header className="flex h-[72px] items-center gap-3 border-b border-border-subtle bg-surface-card px-4 sm:px-8">
@@ -85,13 +117,22 @@ export function Home() {
           </div>
           <IconButton icon="bell" onClick={() => show('No notifications yet — this is a fresh workspace.')} title="Notifications" />
           <IconButton icon="help" onClick={() => show('Help center coming soon.')} title="Help" />
-          <div
-            onClick={() => show('Profile & sign-out coming soon.')}
-            className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-[linear-gradient(135deg,#6B47FF,#8C6EFF)] text-xs font-bold text-white"
-            title="Profile"
-          >
-            {user.initials}
-          </div>
+          <Dropdown
+            selected=""
+            options={[{ label: `Signed in as ${user.email}`, value: 'noop' }, { label: 'Sign out' }]}
+            onSelect={(val) => {
+              if (val === 'noop') return
+              signOut()
+            }}
+            trigger={
+              <div
+                className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-[linear-gradient(135deg,#6B47FF,#8C6EFF)] text-xs font-bold text-white"
+                title={user.name}
+              >
+                {user.initials}
+              </div>
+            }
+          />
         </div>
       </header>
 

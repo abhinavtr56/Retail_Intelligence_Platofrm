@@ -2,13 +2,24 @@ fastapi>=0.115
 uvicorn[standard]>=0.32
 pydantic>=2.9
 httpx>=0.28
-
 # Report export. Real .xlsx and real .pdf cannot be produced without them: a CSV
 # renamed .xlsx is not a workbook and HTML renamed .pdf is not a PDF, and both
-# are ruled out by the report brief.
+# are ruled out by the report brief. openpyxl doubles as the reader for uploaded
+# .xlsx datasets (app/dataset_store.py).
 openpyxl>=3.1        # the .xlsx writer, named by the brief
 reportlab>=4.0       # the .pdf writer
 
 # Test only: reads generated PDFs back so the report tests can assert on page
 # count, metadata and extracted text rather than on a status code.
 pypdf>=4.0
+
+# Dataset ingestion (app/dataset_store.py) — parsing uploaded CSV/Excel and
+# profiling it into the schema + aggregates the investigation agents read.
+pandas>=2.2
+python-multipart>=0.0.9
+# Investigation agents (app/agents/) — OpenAI client + .env loading for the
+# server-side API key. The key is NEVER sent from the browser.
+openai>=1.60
+python-dotenv>=1.0
+# Test suite (backend/tests/)
+pytest>=8.0

@@ -25,6 +25,7 @@ import { calendarYear } from '../lib/labels'
 import { FilterBar } from '../components/command/FilterBar'
 import { PromotionMixCard } from '../components/command/PromotionMixCard'
 import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
+import { ASK_WHY_STATE_KEY, buildAskWhyIntent } from '../lib/askWhy'
 import { ALERT_FETCH_LIMIT, topPriorityAlert } from '../components/command/riskRanking'
 import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
 import { TrendPanels } from '../components/command/TrendPanels'
@@ -458,7 +459,7 @@ export function CommandCenter() {
             <RiskAlertsPanel
               data={alerts.data}
               onSelect={(a) => {
-                show(`Opening "${a.title}" investigation...`, { duration: 1500 })
+                show(`Investigating "${a.title}"…`, { duration: 1500 })
                 window.setTimeout(() => handOffAlert(a), 700)
               }}
             />
@@ -539,15 +540,20 @@ export function CommandCenter() {
                     </Td>
                     <Td>
                       {/* The recommended action rides as the tooltip so the
-                          control stays one line — the row itself already opens
-                          the RCA view, and this makes that affordance explicit. */}
-                      <span
+                          control stays one line. This button is the RCA entry
+                          point — it hands the row's context to Investigations. */}
+                      <button
                         title={p.action}
+                        onClick={() =>
+                          navigate('/investigations', {
+                            state: { [ASK_WHY_STATE_KEY]: buildAskWhyIntent(p) },
+                          })
+                        }
                         className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
                       >
                         Ask why
                         <Icon name="arrowRight" />
-                      </span>
+                      </button>
                     </Td>
                   </Tr>
                 ))}

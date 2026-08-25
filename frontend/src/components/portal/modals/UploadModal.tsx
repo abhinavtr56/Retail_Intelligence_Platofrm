@@ -2,11 +2,15 @@ import { useRef, useState } from 'react'
 import { Icon } from '../../../icons'
 import { Modal, Button, IconButton, useToast, BrandLogo } from '../../ui'
 import { fmtSize } from '../../../lib/portalConnectors'
+import { useUploadDatasets } from '../../../hooks/useDatasets'
+import { ApiError } from '../../../lib/api'
 import type { PortalConnector } from '../../../types/portal'
 
 // Ported from js/portal.js's openUploadModal + css/portal.css .dropzone/.file-chip.
-// Local dev build — files are staged here for review, same as the vanilla app; wiring
-// to a real Excel connector endpoint is a data-connectors follow-up, not this port.
+// Files now genuinely upload (POST /api/datasets): the backend parses them with
+// pandas and caches a schema + distribution profile, which is what the
+// investigation agents read. Previously this was a 1.1s setTimeout and nothing
+// ever left the browser.
 export function UploadModal({
   connector,
   onClose,
@@ -18,9 +22,11 @@ export function UploadModal({
 }) {
   const [files, setFiles] = useState<File[]>([])
   const [dragging, setDragging] = useState(false)
-  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const { show } = useToast()
+  const upload = useUploadDatasets()
+  const processing = upload.isPending
 
   const addFiles = (list: FileList | null) => {
     if (!list) return
@@ -28,13 +34,30 @@ export function UploadModal({
   }
 
   const go = () => {
-    const n = files.length
-    setProcessing(true)
-    window.setTimeout(() => {
-      onConnected(`${n} file${n > 1 ? 's' : ''}`)
-      show(`${n} file${n > 1 ? 's' : ''} staged from Excel / Shared Drives — ready for backend processing.`)
-      onClose()
-    }, 1100)
+    setError('')
+    upload.mutate(files, {
+      onSuccess: (result) => {
+        const ok = result.datasets.length
+        const totalRows = result.datasets.reduce((sum, d) => sum + d.rows, 0)
+        if (ok) {
+          onConnected(`${ok} file${ok > 1 ? 's' : ''} · ${totalRows.toLocaleString()} rows`)
+          show(`${ok} file${ok > 1 ? 's' : ''} ingested · ${totalRows.toLocaleString()} rows ready to investigate`, {
+            duration: 3500,
+          })
+        }
+        // Partial success: some files parsed, others didn't. Keep the modal open
+        // with the failures named rather than silently dropping them.
+        if (result.errors.length) {
+          setError(result.errors.map((e) => `${e.filename}: ${e.error}`).join(' · '))
+          setFiles([])
+          return
+        }
+        onClose()
+      },
+      onError: (e) => {
+        setError(e instanceof ApiError ? e.message : "Couldn't reach the server — is the backend running?")
+      },
+    })
   }
 
   return (
@@ -112,9 +135,15 @@ export function UploadModal({
           </div>
         )}
 
+        {error && (
+          <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_12px] text-[11.5px] leading-[1.5] text-[#B91C1C]">
+            {error}
+          </div>
+        )}
+
         <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
           <Icon name="info" />
-          <span>Local dev build — files are staged here for review. Wiring this to the real Excel connector is the first task in the data-connectors workstream.</span>
+          <span>Files are parsed on upload — columns, ranges and distributions are profiled so investigations can analyse them.</span>
         </div>
       </div>
 
@@ -123,7 +152,7 @@ export function UploadModal({
           Cancel
         </Button>
         <Button variant="primary" onClick={go} disabled={files.length === 0 || processing}>
-          <Icon name="plus" /> {processing ? 'Processing…' : `Upload & Process${files.length ? ` ${files.length} file${files.length > 1 ? 's' : ''}` : ''}`}
+          <Icon name="plus" /> {processing ? 'Uploading…' : `Upload & Process${files.length ? ` ${files.length} file${files.length > 1 ? 's' : ''}` : ''}`}
         </Button>
       </div>
     </Modal>

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useCommandFilters } from '../store/commandFilters'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
+import { ASK_WHY_STATE_KEY, buildAskWhyIntent } from '../lib/askWhy'
 import type { RiskAlert } from '../types/commandCenter'
 
 /** THE COMMAND CENTER -> RCA HAND-OFF for a risk alert (B3.2).
@@ -30,6 +31,14 @@ import type { RiskAlert } from '../types/commandCenter'
  *
  *  Nothing here recomputes anything, and the Command Center's own filter state
  *  is not mutated — the hand-off is a copy.
+ *
+ *  TWO CONSUMERS, ONE CLICK. The scope above is what the Simulation Studio
+ *  reads, so its Current Plan describes the population that was clicked. The
+ *  Investigations page reads neither the store nor the filters — it takes the
+ *  composed question from router state (lib/askWhy) — so the hand-off carries
+ *  that too. Sending only one of the pair leaves the other page guessing: the
+ *  RCA falls back to a blank prompt, or Simulation answers for the whole
+ *  promotion instead of the one SKU in the alert.
  */
 export function useAlertHandoff(): (alert: RiskAlert) => void {
   const navigate = useNavigate()
@@ -54,6 +63,17 @@ export function useAlertHandoff(): (alert: RiskAlert) => void {
       },
       labels: { product: alert.product, channel: alert.channel, week: alert.week },
     })
-    navigate('/investigations')
+    // `week` is this payload's name for the period; without it the question
+    // loses its timeframe.
+    const intent = buildAskWhyIntent({
+      promotion: alert.title?.split('—').pop()?.trim() ?? alert.title,
+      product: alert.product,
+      channel: alert.channel,
+      period: alert.week,
+      roi_pct: alert.roi_pct,
+      title: alert.title,
+      description: alert.description,
+    })
+    navigate('/investigations', { state: { [ASK_WHY_STATE_KEY]: intent } })
   }
 }
