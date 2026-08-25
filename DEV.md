@@ -17,6 +17,32 @@ local projects on this machine when this was scaffolded. Change it in both
 `app/main.py`'s CORS origins and `frontend/vite.config.ts`'s proxy target if
 you need to move it back.
 
+## 1b. Agent API key (first time only)
+
+The agent-backed features call OpenAI from the server, and the key lives in
+`backend/.env`:
+
+```
+cp backend/.env.example backend/.env     # then paste your key into it
+```
+
+`backend/.env` is **gitignored**, so it is never carried by a branch, a clone or
+a merge — every machine creates its own. A missing key is not a broken checkout;
+it surfaces in the UI as:
+
+> Investigation failed — No OPENAI_API_KEY configured. Add it to backend/.env and restart the server.
+
+The server reads it once at import (`app/agents/client.py`), so **restart
+uvicorn after editing the file**. Keep the key server-side: anything put in a
+`VITE_*` variable is inlined into the bundle and shipped to the browser.
+
+What actually depends on it:
+
+| Needs the key | Works without it |
+| --- | --- |
+| Investigations (the whole module) | Command Center, Simulation, Decision, Reports, Calendar |
+| Promotion Intelligence — "Go deeper" analysis | Promotion Intelligence — facts, KPIs, charts (`/facts`, `/context`) |
+
 ## 2. Frontend (Vite + React)
 
 ```
