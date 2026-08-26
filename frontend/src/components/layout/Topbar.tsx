@@ -1,8 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../icons'
-import { IconButton } from '../ui'
+import { Dropdown, IconButton, ThemeToggle } from '../ui'
 import { NotificationBell } from '../command/NotificationBell'
-import { useCurrentUser } from '../../hooks/useAuth'
+import { useCurrentUser, useLogout } from '../../hooks/useAuth'
 
 export interface Crumb {
   label: string
@@ -15,7 +15,17 @@ export interface Crumb {
 export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuClick?: () => void }) {
   // B12: see Sidebar — the real signed-in session, not the authored persona.
   const { data: user } = useCurrentUser()
+  const logout = useLogout()
   const navigate = useNavigate()
+
+  // The avatar used to be `cursor-pointer` with nothing behind it — it looked
+  // clickable on every TPO page and did nothing. Same account menu the portal
+  // header (pages/Home.tsx) already had, so the gesture means the same thing
+  // wherever the avatar appears.
+  const onAccountSelect = (value: string) => {
+    if (value === 'settings') navigate('/settings')
+    else if (value === 'signout') logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
+  }
 
   return (
     <header className="sticky top-0 z-10 flex h-[var(--topbar-h)] items-center gap-2 border-b border-border-subtle bg-surface-page pl-4 pr-4 sm:gap-4 sm:pl-8 sm:pr-7">
@@ -54,14 +64,26 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
         {/* The Help button that sat here is gone. It opened a toast promising a
             help centre that does not exist, and there is nothing behind it to
             open; nothing replaces it, so the row closes up on its own. */}
+        <ThemeToggle />
         <NotificationBell />
         <IconButton icon="settings" title="Settings" onClick={() => navigate('/settings')} />
-        <div
-          className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"
-          title={user ? `${user.name} — signed in` : 'Not signed in'}
-        >
-          {user?.initials}
-        </div>
+        <Dropdown
+          selected=""
+          options={[
+            { label: user ? `Signed in as ${user.email}` : 'Not signed in', value: 'noop' },
+            { label: 'Profile & settings', value: 'settings' },
+            { label: 'Sign out', value: 'signout' },
+          ]}
+          onSelect={onAccountSelect}
+          trigger={
+            <div
+              className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"
+              title={user ? `${user.name} — signed in` : 'Not signed in'}
+            >
+              {user?.initials}
+            </div>
+          }
+        />
       </div>
     </header>
   )

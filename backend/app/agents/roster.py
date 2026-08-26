@@ -34,7 +34,12 @@ from typing import Any, Callable
 from app.tpo import service
 from app.tpo.filters import FilterState
 
-from app.agents.star_tools import build_filter_state, run_analysis, segment_kpis
+from app.agents.star_tools import (
+    build_filter_state,
+    neighbour_sales_decline,
+    run_analysis,
+    segment_kpis,
+)
 
 
 def _kpi_compare(filters: dict[str, Any]) -> dict[str, Any]:
@@ -113,13 +118,35 @@ def _fetch_geography(f: dict[str, Any]) -> dict[str, Any]:
 
 
 def _fetch_cannibalization(f: dict[str, Any]) -> dict[str, Any]:
+    """Neighbour sales during the promotion, plus the validated rate for context.
+
+    THE PRIMARY EVIDENCE IS `neighbour_analysis`: what the promoted product's
+    same-brand-form neighbours sold while it was on promotion, against their own
+    ordinary level. See star_tools.neighbour_sales_decline for where every input
+    comes from.
+
+    `kpis.segment.cannibalization` is the Command Center's validated rate and is
+    UNCHANGED. It answers a different question -- what share of the promoted
+    SKU's uplift came out of its adjacent pack sizes, in quantity -- so it is
+    carried alongside rather than replaced. The two can legitimately disagree,
+    and the specialist is told which one answers which question.
+    """
     return {
-        "question_this_answers": "Is the reported lift genuinely incremental, or stolen from the rest of the portfolio?",
+        "question_this_answers": (
+            "Did neighbouring products in the same brand form lose sales while this "
+            "promotion was running?"
+        ),
+        "neighbour_analysis": neighbour_sales_decline(f),
         "kpis": _kpi_compare(f),
         "note": (
-            "cannibalization_rate is a percentage of the lift taken from other products. "
-            "pei is the Promotion Efficiency Index. A high headline lift with a high "
-            "cannibalization rate is not real growth."
+            "TWO DIFFERENT MEASURES, DO NOT CONFLATE THEM. `neighbour_analysis` is the "
+            "primary business explanation for this lens: the SALES change of "
+            "same-brand-form neighbours during the promotion weeks, where a NEGATIVE "
+            "neighbour_sales_change_pct means they sold LESS. "
+            "`kpis.segment.cannibalization` is the separate validated Cannibalization "
+            "Rate, measured in quantity against adjacent pack sizes only. Report the "
+            "neighbour figure as the finding and use the rate as corroboration. Neither "
+            "establishes causation."
         ),
         "units_by_brand": run_analysis(f, "brand", "incremental_units").get("groups"),
         "units_by_category": run_analysis(f, "category", "incremental_units").get("groups"),
@@ -164,7 +191,7 @@ class Specialist:
 ROSTER: tuple[Specialist, ...] = (
     Specialist(
         key="benchmark",
-        name="Benchmark Analyst",
+        name="Benchmarking Agent",
         desc="Compares the segment against the whole business",
         icon="target",
         role="Establishes whether there is a problem at all, by comparing the segment to the business norm and to peer channels/regions.",
@@ -193,7 +220,7 @@ ROSTER: tuple[Specialist, ...] = (
     ),
     Specialist(
         key="mechanic_efficiency",
-        name="Mechanic Efficiency Analyst",
+        name="Effectiveness Agent",
         desc="Which offer mechanics convert spend into sales",
         icon="tag",
         role="Tests whether the offer TYPE (discount depth, BOGO, bundle) is the inefficiency.",
@@ -208,7 +235,7 @@ ROSTER: tuple[Specialist, ...] = (
     ),
     Specialist(
         key="offer_forensics",
-        name="Offer Forensics Analyst",
+        name="Diagnostics Agent",
         desc="The specific promotion events that failed",
         icon="zoomIn",
         role="Drills to individual promotion events — the actual offers, products and weeks that lost money.",
@@ -235,7 +262,7 @@ ROSTER: tuple[Specialist, ...] = (
     ),
     Specialist(
         key="geography",
-        name="Channel & Geography Analyst",
+        name="Optimization Agent",
         desc="Which channels, regions and retailers break",
         icon="retailer",
         role="Localises the problem geographically and by trade partner.",
@@ -249,15 +276,23 @@ ROSTER: tuple[Specialist, ...] = (
     ),
     Specialist(
         key="cannibalization",
-        name="Cannibalization Analyst",
-        desc="Whether reported lift is genuinely incremental",
+        name="Cannibalization Agent",
+        desc="Whether same-brand-form neighbours lost sales during the promotion",
         icon="cannib",
-        role="Challenges the incremental sales figure itself — lift stolen from other products is not growth.",
+        role="Checks whether products sharing the promoted product's brand form sold less while it ran.",
         focus=(
-            "Your job is SCEPTICISM about the lift. Use cannibalization_rate and pei. High "
-            "reported lift with high cannibalization means the promotion moved volume "
-            "between products rather than creating it. Compare the segment's rate against "
-            "the whole business before calling it a problem."
+            "Your job is THE NEIGHBOURS. Lead with `neighbour_analysis`: the promotion, "
+            "the brand form, the promotion weeks, how many same-brand-form neighbours "
+            "there were, their baseline and promotion-period sales, and "
+            "neighbour_sales_change_pct. NEGATIVE means they sold LESS -- report a "
+            "decline of that size and call it POTENTIAL cannibalization. POSITIVE means "
+            "neighbour sales ROSE -- report the increase and say no decline was detected; "
+            "never call neighbour growth negative cannibalization. If available is false, "
+            "or a brand form reports computable false, say plainly what could not be "
+            "measured and why, and never substitute a number. Corroborate with the "
+            "validated cannibalization rate in kpis, naming it as the separate "
+            "quantity-based measure it is. NEVER claim the promotion CAUSED the change "
+            "-- this is co-movement, not attribution."
         ),
         fetch=_fetch_cannibalization,
     ),
@@ -277,7 +312,7 @@ ROSTER: tuple[Specialist, ...] = (
     ),
     Specialist(
         key="risk_exposure",
-        name="Risk Exposure Analyst",
+        name="Risk Agent",
         desc="Money still at stake and severity of exposure",
         icon="shield",
         role="Quantifies remaining downside — how many events are below target and what they put at risk.",

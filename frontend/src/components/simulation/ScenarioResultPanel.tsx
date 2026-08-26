@@ -2,6 +2,7 @@ import { Icon } from '../../icons'
 import { InfoPopover, Table, Th, Td } from '../ui'
 import { CannibalizationEvidence, hasCannibalizationFallback } from './panels'
 import type { SimulateResponse, SimulationKpi, SimulationKpiKey } from '../../types/simulation'
+import type { WeeklyWeek } from '../../types/weekly'
 
 const KPI_ORDER: SimulationKpiKey[] = [
   'trade_spend',
@@ -28,8 +29,22 @@ const KPI_ORDER: SimulationKpiKey[] = [
 export function ScenarioResultPanel({
   simulation,
   measuredCannibalization,
+  perWeek,
 }: {
   simulation: SimulateResponse
+  /** THE SAME SCENARIO, READ PER BUSINESS WEEK.
+   *
+   *  Present only when the scenario's duration lever is set to the weekly
+   *  cadence. These are the weeks `/api/simulation/weekly` returned — the
+   *  SAME counterfactual this result came from, sliced by
+   *  app/tpo/weekly.py, which states of itself that it "slices; it does not
+   *  model". Nothing is divided, averaged or scaled here: the envelope is
+   *  the lowest and highest figures the engine produced across those weeks,
+   *  and both endpoints are engine-formatted strings this component never
+   *  computes. A one-week scope collapses the envelope onto that week,
+   *  which is why weekly and monthly read alike for a promotion that traded
+   *  once. */
+  perWeek?: WeeklyWeek[] | null
   /** The MEASURED cannibalization figure for this scope, which the scenario's
    *  own cells defer to when the scenario cannot report one. A scenario never
    *  widens its scope to find a rate: the widening would give it rows the user
@@ -37,6 +52,7 @@ export function ScenarioResultPanel({
   measuredCannibalization?: SimulationKpi | null
 }) {
   const { low, high } = simulation.result
+  const weeks = perWeek ?? []
 
   return (
     <div>
@@ -48,6 +64,11 @@ export function ScenarioResultPanel({
           <span className="text-[12px] text-ink-secondary">
             {simulation.treatment} · {simulation.discount_pct}% discount
           </span>
+          {weeks.length > 0 && (
+            <span className="rounded-[4px] bg-brand-violet-50 px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-brand-violet">
+              Per week · {weeks.length} in scope
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 text-[11.5px] text-ink-muted">
           <span>
@@ -79,8 +100,11 @@ export function ScenarioResultPanel({
           </thead>
           <tbody>
             {KPI_ORDER.map((key) => {
-              const l = low.kpis[key]
-              const h = high.kpis[key]
+              const envelope = weeks.length > 0 ? weeklyEnvelope(weeks, key) : null
+              // The metric's identity (label, formula, note) always comes from
+              // the aggregate cell; only the FIGURES change to the weekly ones.
+              const l = envelope ? { ...low.kpis[key], ...envelope.low } : low.kpis[key]
+              const h = envelope ? { ...high.kpis[key], ...envelope.high } : high.kpis[key]
               if (!l) return null
               return (
                 <tr key={key}>
@@ -105,6 +129,13 @@ export function ScenarioResultPanel({
         </Table>
       </div>
 
+      {weeks.length === 1 && (
+        <div className="border-t border-border-subtle px-5 py-2.5 text-[11px] leading-[1.45] text-ink-muted">
+          This promotion traded in one business week ({weeks[0].week_label}) within the selected scope, so
+          the weekly and monthly views describe the same population and report the same figures.
+        </div>
+      )}
+
       {simulation.scope.excluded_rows > 0 && (
         <div className="border-t border-border-subtle px-5 py-2.5 text-[11px] leading-[1.45] text-ink-muted">
           {simulation.scope.excluded_rows.toLocaleString()} rows excluded — {simulation.scope.excluded_reason}
@@ -112,6 +143,32 @@ export function ScenarioResultPanel({
       )}
     </div>
   )
+}
+
+/** The lowest and highest the engine reported for one metric across the
+ *  scope's weeks.
+ *
+ *  MIN AND MAX OF MEASURED VALUES, NOT AN AVERAGE. Trade Spend and
+ *  Incremental Sales are extensive and their weekly values sum to the
+ *  aggregate; ROI and Margin are ratios that app/tpo/weekly.py computes per
+ *  week from that week's own components and explicitly refuses to average.
+ *  Taking the extremes respects both: it reports a span of figures the
+ *  engine actually produced rather than deriving a new one. `display_value`
+ *  travels with the chosen cell, so no number is formatted here.
+ */
+function weeklyEnvelope(
+  weeks: WeeklyWeek[],
+  key: SimulationKpiKey,
+): { low: Partial<SimulationKpi>; high: Partial<SimulationKpi> } | null {
+  const lows = weeks.map((w) => w.low[key as keyof typeof w.low]).filter((c) => c?.available)
+  const highs = weeks.map((w) => w.high[key as keyof typeof w.high]).filter((c) => c?.available)
+  if (!lows.length || !highs.length) return null
+  const min = lows.reduce((a, b) => ((b.value ?? 0) < (a.value ?? 0) ? b : a))
+  const max = highs.reduce((a, b) => ((b.value ?? 0) > (a.value ?? 0) ? b : a))
+  return {
+    low: { value: min.value, display_value: min.display_value, available: true, unavailable_reason: null },
+    high: { value: max.value, display_value: max.display_value, available: true, unavailable_reason: null },
+  }
 }
 
 function Value({

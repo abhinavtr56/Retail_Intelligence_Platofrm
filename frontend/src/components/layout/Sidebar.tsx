@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useNav } from '../../hooks/useNav'
-import { useCurrentUser } from '../../hooks/useAuth'
+import { useCurrentUser, useLogout } from '../../hooks/useAuth'
 import { useSidebarStore } from '../../store/sidebar'
 import { Icon, type IconName } from '../../icons'
+import { Dropdown } from '../ui'
 
 // Ported from js/components/sidebar.js + css/layout.css .sidebar*.
 // nav.json routes are stored as "#/command" (verbatim from the vanilla app); the
@@ -65,6 +66,18 @@ export function Sidebar({
   // verified account rather than whatever the visitor typed. `user` is
   // undefined while that request is in flight and when signed out.
   const { data: user } = useCurrentUser()
+  const logout = useLogout()
+  const navigate = useNavigate()
+
+  // The footer row carried a chevron and a hover state but no handler — it
+  // advertised a menu that never opened. Same account menu as the topbar
+  // avatar, so the chevron now means what it looks like it means.
+  const onAccountSelect = (value: string) => {
+    onClose()
+    if (value === 'settings') navigate('/settings')
+    else if (value === 'signout') logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
+  }
+
   const pinned = useSidebarStore((s) => s.pinned)
   const togglePinned = useSidebarStore((s) => s.togglePinned)
 
@@ -196,25 +209,36 @@ export function Sidebar({
 
         {/* ---- user -------------------------------------------------------- */}
         <div className="shrink-0 border-t border-white/[0.06] p-3">
-          <div
-            className="flex items-center gap-2.5 overflow-hidden rounded-[var(--r-md)] p-1.5 transition-colors duration-150 hover:bg-white/[0.05]"
-            title={user ? `${user.name} — signed in` : 'Not signed in'}
-          >
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-[11px] font-bold text-white">
-              {user?.initials}
-            </div>
-            <Reveal expanded={labelled} className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[13px] font-semibold text-sidebar-brand">
-                  {user?.name}
-                </span>
-                <span className="truncate text-[11px] text-sidebar-brand-sub">
-                  Signed in locally
-                </span>
-              </span>
-              <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0 text-sidebar-brand-sub" />
-            </Reveal>
-          </div>
+          <Dropdown
+            selected=""
+            options={[
+              { label: user ? `Signed in as ${user.email}` : 'Not signed in', value: 'noop' },
+              { label: 'Profile & settings', value: 'settings' },
+              { label: 'Sign out', value: 'signout' },
+            ]}
+            onSelect={onAccountSelect}
+            trigger={
+              <div
+                className="flex cursor-pointer items-center gap-2.5 overflow-hidden rounded-[var(--r-md)] p-1.5 transition-colors duration-150 hover:bg-white/[0.05]"
+                title={user ? `${user.name} — signed in` : 'Not signed in'}
+              >
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-[11px] font-bold text-white">
+                  {user?.initials}
+                </div>
+                <Reveal expanded={labelled} className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-[13px] font-semibold text-sidebar-brand">
+                      {user?.name}
+                    </span>
+                    <span className="truncate text-[11px] text-sidebar-brand-sub">
+                      Signed in locally
+                    </span>
+                  </span>
+                  <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0 text-sidebar-brand-sub" />
+                </Reveal>
+              </div>
+            }
+          />
         </div>
       </aside>
     </>

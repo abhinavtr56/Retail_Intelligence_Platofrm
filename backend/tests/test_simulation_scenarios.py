@@ -190,7 +190,9 @@ def test_editing_one_scenario_does_not_mutate_another():
     assert current["levers"]["discount_pct"] == 20.0, "editing Optimized Plan reached Current Plan"
     assert current["levers"]["duration_weeks"] == 6.0, "editing Aggressive Growth reached Current Plan"
     assert optimized["levers"]["duration_weeks"] == 6.0, "editing Aggressive Growth reached Optimized Plan"
-    assert aggressive["levers"]["discount_pct"] == 20.0, "editing Optimized Plan reached Aggressive Growth"
+    assert aggressive["levers"]["discount_pct"] == max(
+        scenarios.APPROVED_DISCOUNT_PCT
+    ), "editing Optimized Plan reached Aggressive Growth"
 
 
 def test_seed_levers_returns_a_fresh_dict_every_call():

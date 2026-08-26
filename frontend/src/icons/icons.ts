@@ -85,6 +85,9 @@ export const ICON_PATHS = {
 
   // Inline one-offs from specific pages (e.g. js/pages/command.js's refresh button,
   // which doesn't go through the shared ICONS map in the vanilla app either).
+  // Theme toggle. Lucide 'sun' and 'moon', same line style as the rest.
+  sun: `<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>`,
+  moon: `<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>`,
   refresh: `<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>`,
 
   // KPI tile icons

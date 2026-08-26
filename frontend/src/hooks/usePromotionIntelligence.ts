@@ -11,7 +11,22 @@ import type {
  *  here would mean showing figures for a wider scope than the page claims. */
 export type IntelligenceScope = Record<string, unknown>
 
-const LIST_DIMENSIONS = ['channel', 'region', 'state', 'city', 'retailer', 'category', 'brand', 'promotion_type']
+// Every list dimension /facts accepts. `product` and `promotion` are the two
+// that matter for a drill-down: an investigation started from a risk alert is
+// scoped to one promotion on one SKU, and omitting them here showed that
+// alert's heading over a whole brand form's figures.
+const LIST_DIMENSIONS = [
+  'channel',
+  'region',
+  'state',
+  'city',
+  'retailer',
+  'category',
+  'brand',
+  'product',
+  'promotion',
+  'promotion_type',
+]
 
 export type FactSection = 'core' | 'dimensions' | 'risk' | 'waterfall'
 

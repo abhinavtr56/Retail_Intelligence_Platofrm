@@ -26,6 +26,11 @@ export interface AgentFinding {
   trend: 'up' | 'down' | ''
   impact: string
   confidence: number
+  /** Raw tool output the specialist analysed. Only the fields the UI binds to
+   *  are declared; the payload's shape is the specialist's, not this type's. */
+  analysis_data?: {
+    neighbour_analysis?: { neighbour_sales_change_pct?: number | null }
+  }
 }
 
 export interface AgentSynthesis {

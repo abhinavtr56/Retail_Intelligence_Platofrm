@@ -10,6 +10,7 @@ export function InvestigationGraph({
   legend,
   revealedKeys,
   onNodeClick,
+  zoom = 1,
 }: {
   center: { label: string; sub: string }
   nodes: OrchNode[]
@@ -17,6 +18,10 @@ export function InvestigationGraph({
   /** Keys of nodes that have "arrived" — undefined means everything is revealed immediately. */
   revealedKeys?: Set<string>
   onNodeClick: (node: OrchNode, el: HTMLElement) => void
+  /** Toolbar zoom. Applied as a transform on the stage's contents so the
+   *  layout maths stays in unscaled pixels and nothing has to be recomputed
+   *  when it changes. */
+  zoom?: number
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>({ width: 720, height: 560 })
   const laidOut = size.width && size.height ? computeRadialLayout(nodes, size.width, size.height) : []
@@ -31,6 +36,13 @@ export function InvestigationGraph({
         className="relative h-[560px] overflow-hidden"
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(124,92,255,0.04), transparent 70%)' }}
       >
+        {/* ONE transform for the whole stage. Zooming a wrapper keeps the
+            layout in real pixels, so the edge geometry and the node
+            positions never have to know a zoom exists. */}
+        <div
+          className="absolute inset-0 origin-center transition-transform duration-200 ease-[var(--ease-out)]"
+          style={{ transform: `scale(${zoom})` }}
+        >
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.width} ${size.height}`}>
           <defs>
             {laidOut.map((l) => (
@@ -76,7 +88,7 @@ export function InvestigationGraph({
               key={n.key}
               data-key={n.key}
               onClick={(e) => onNodeClick(n, e.currentTarget)}
-              className={`absolute z-[1] flex h-[130px] w-[130px] cursor-pointer flex-col items-center justify-center rounded-full border-[1.5px] border-border-default bg-surface-card p-2 text-center shadow-[var(--shadow-sm)] transition-[opacity,transform,box-shadow,border-color] duration-300 hover:z-[3] hover:shadow-[var(--shadow-md)] ${
+              className={`absolute z-[1] flex h-[140px] w-[140px] cursor-pointer flex-col items-center justify-center rounded-full border-[1.5px] border-border-default bg-surface-card p-2 text-center shadow-[var(--shadow-sm)] transition-[opacity,transform,box-shadow,border-color] duration-300 hover:z-[3] hover:shadow-[var(--shadow-md)] ${
                 revealed ? 'scale-100 opacity-100 hover:scale-105' : 'pointer-events-none scale-[0.82] opacity-0'
               }`}
               style={{
@@ -92,14 +104,14 @@ export function InvestigationGraph({
               >
                 <Icon name={n.icon as IconName} />
               </div>
-              <div className="text-[10.5px] font-bold leading-tight text-ink-primary">{n.label}</div>
+              <div className="text-[12px] font-bold leading-tight text-ink-primary">{n.label}</div>
               {n.metric && (
-                <div className="mt-[3px] text-[11px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
+                <div className="mt-[3px] text-[13px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
                   {n.metric}
                 </div>
               )}
               {n.delta && (
-                <div className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-bold" style={{ color: trendColor }}>
+                <div className="mt-0.5 inline-flex items-center gap-0.5 text-[11.5px] font-bold" style={{ color: trendColor }}>
                   <Icon name={n.trend === 'down' ? 'arrowDown' : 'arrowUp'} className="h-2.5 w-2.5" />
                   <span>{n.delta}</span>
                 </div>
@@ -118,12 +130,13 @@ export function InvestigationGraph({
             boxShadow: '0 16px 32px -8px rgba(124, 92, 255, 0.55)',
           }}
         >
-          <div className="text-[15px] font-extrabold tracking-[-0.01em]">{center.label}</div>
-          <div className="mt-0.5 text-[11px] opacity-[0.78]">{center.sub}</div>
+          <div className="text-[17px] font-extrabold tracking-[-0.01em]">{center.label}</div>
+          <div className="mt-0.5 text-[12.5px] opacity-[0.78]">{center.sub}</div>
+        </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-[18px] border-t border-border-subtle p-[12px_22px] text-[11.5px] text-ink-secondary">
+      <div className="flex flex-wrap gap-[18px] border-t border-border-subtle p-[12px_22px] text-[12.5px] text-ink-secondary">
         {legend.map((l) => (
           <span key={l.label} className="inline-flex items-center gap-1.5">
             <span

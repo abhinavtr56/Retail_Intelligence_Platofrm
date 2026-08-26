@@ -33,6 +33,12 @@ import type { LeverKey, LeverValues, Scenario, SimulateResponse } from '../types
  *  showing an answer to a question nobody asked any more.
  */
 export interface ScenarioState extends Scenario {
+  /** The levers this scenario ARRIVED with, kept so Reset can return it to
+   *  its own starting point. Not necessarily the measured plan: the backend
+   *  opens Aggressive Growth at the deepest approved treatment, and resetting
+   *  that scenario to the measured depth would quietly turn it into a second
+   *  Optimized Plan. Seeded from the payload and never written to. */
+  seededLevers: LeverValues
   /** Frontend request state. Never sent to the backend. */
   running: boolean
   /** The executed result, when this scenario has been simulated. */
@@ -68,7 +74,17 @@ function copyLevers(levers: LeverValues): LeverValues {
 
 /** A scenario as it arrives from /run: never running, never simulated. */
 function fresh(scenario: Scenario): ScenarioState {
-  return { ...scenario, levers: copyLevers(scenario.levers), running: false, simulation: null, error: null }
+  return {
+    ...scenario,
+    levers: copyLevers(scenario.levers),
+    // A SECOND, SEPARATE copy — not the same object as `levers`. Sharing one
+    // would make the starting point drift with every edit, which is the one
+    // thing it must not do.
+    seededLevers: copyLevers(scenario.levers),
+    running: false,
+    simulation: null,
+    error: null,
+  }
 }
 
 /** Rebuild ONE scenario; return every other by reference. The single place
@@ -117,26 +133,27 @@ export const useScenarioStore = create<ScenarioStore>()((set, get) => ({
       ),
     })),
 
-  /** Back to the observed values this scenario was seeded with — which are the
-   *  Current Plan's levers, the only measured lever set there is. */
+  /** Back to the values THIS scenario was seeded with.
+   *
+   *  It used to reset to the Current Plan's measured levers, which was right
+   *  while every hypothetical started there. Aggressive Growth now opens at the
+   *  deepest approved treatment, and resetting it to the measured depth would
+   *  have collapsed it into a copy of Optimized Plan — undoing the one thing
+   *  that distinguishes the two. Each scenario returns to its own start. */
   resetLevers: (id) =>
-    set((state) => {
-      const measured = state.scenarios.find((s) => s.kind === 'measured')
-      if (!measured) return state
-      return {
-        scenarios: patch(state.scenarios, id, (scenario) =>
-          scenario.editable_levers
-            ? {
-                ...scenario,
-                levers: copyLevers(measured.levers),
-                simulation: null,
-                status: scenario.simulation ? 'not_simulated' : scenario.status,
-                error: null,
-              }
-            : scenario,
-        ),
-      }
-    }),
+    set((state) => ({
+      scenarios: patch(state.scenarios, id, (scenario) =>
+        scenario.editable_levers
+          ? {
+              ...scenario,
+              levers: copyLevers(scenario.seededLevers),
+              simulation: null,
+              status: scenario.simulation ? 'not_simulated' : scenario.status,
+              error: null,
+            }
+          : scenario,
+      ),
+    })),
 
   /** A new hypothetical scenario, seeded from whichever scenario is active.
    *  State creation only — a copied lever set carries no copied result. */
@@ -152,6 +169,7 @@ export const useScenarioStore = create<ScenarioStore>()((set, get) => ({
       kind: 'hypothetical',
       status: 'not_simulated',
       levers: copyLevers(source.levers),
+      seededLevers: copyLevers(source.levers),
       editable_levers: true,
       result: null,
       // Borrowed from an existing hypothetical rather than written down here:

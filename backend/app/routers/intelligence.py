@@ -44,6 +44,8 @@ def get_facts(
     retailer: str | None = None,
     category: str | None = None,
     brand: str | None = None,
+    product: str | None = None,
+    promotion: str | None = None,
     promotion_type: str | None = None,
     sections: str = "core",
     _user: dict[str, Any] = Depends(current_user),
@@ -74,6 +76,11 @@ def get_facts(
         ("retailer", retailer),
         ("category", category),
         ("brand", brand),
+        # An investigation drilled in from a risk alert is scoped to ONE
+        # promotion on ONE product. Dropping those two here is what made
+        # this page report a whole brand form under that alert's heading.
+        ("product", product),
+        ("promotion", promotion),
         ("promotion_type", promotion_type),
     ):
         values = [v.strip() for v in (raw or "").split(",") if v.strip()]

@@ -26,7 +26,7 @@ from app.agents.pipeline import (
 from app.agents.roster import BY_KEY as ROSTER_BY_KEY
 from app.agents.roster import KEYS as ROSTER_KEYS
 from app.agents.roster import roster_catalogue
-from app.agents.star_tools import _bounded_int, schema_summary, segment_kpis
+from app.agents.star_tools import FILTER_FIELDS, _bounded_int, schema_summary, segment_kpis
 
 INVESTIGATION_TYPES = ["diagnostic", "optimization", "launch", "strategic"]
 
@@ -200,7 +200,12 @@ Rules:
 - Keep headline under 60 characters; it renders on a graph node."""
 
 
-def _plan_prompt(question: str, summary: dict[str, Any], totals: dict[str, Any]) -> str:
+def _plan_prompt(
+    question: str,
+    summary: dict[str, Any],
+    totals: dict[str, Any],
+    fixed_scope: dict[str, Any] | None = None,
+) -> str:
     import json
 
     dims = summary["filter_dimensions"]
@@ -226,12 +231,36 @@ def _plan_prompt(question: str, summary: dict[str, Any], totals: dict[str, Any])
         f"BREAKDOWN DIMENSIONS: {summary['breakdown_dimensions']}",
         f"METRICS: {summary['breakdown_metrics']}",
     ]
+    if fixed_scope:
+        # The caller drilled in from a specific event and handed over the
+        # codes that event was measured on. Those ARE the scope; the planner
+        # is told so it can name the focus and brief its specialists on the
+        # right population, not so it can re-derive filters from the sentence.
+        lines += [
+            "",
+            f"SCOPE ALREADY FIXED BY THE CALLER: {json.dumps(fixed_scope)}",
+            "That scope is authoritative and is applied whatever you emit in "
+            "`global_filters`. Describe THAT population in `focus_label`, "
+            "`focus_sub` and in every specialist assignment.",
+        ]
     return "\n".join(lines)
 
 
-async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, Any]:
+async def run_star_pipeline(
+    question: str, on_event: Any = None, scope: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Investigate the star schema. Mirrors run_pipeline's return shape so the
-    router and the frontend treat both sources identically."""
+    router and the frontend treat both sources identically.
+
+    `scope` is the validated FilterState the CALLER drilled in with. A risk
+    alert and an underperforming row both carry the promotion, product and
+    channel codes of the event they measured; when that scope is supplied it
+    REPLACES the planner's `global_filters` rather than merging with them.
+    The codes are the event's own, the planner's are inferred from the
+    sentence, and an inferred brand sitting beside a real product code can
+    intersect to nothing. Without this the run — and everything downstream
+    that reads its stored scope, Promotion Intelligence included — answered
+    for a wider population than the row that was clicked."""
     import json
 
     async def emit(kind: str, payload: dict[str, Any]) -> None:
@@ -244,7 +273,7 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
     # ---- 1. Plan -----------------------------------------------------------
     plan = await complete_json(
         STAR_PLANNER_SYSTEM,
-        _plan_prompt(question, summary, overall),
+        _plan_prompt(question, summary, overall, scope),
         STAR_PLAN_SCHEMA,
         "star_investigation_plan",
         temperature=0.1,
@@ -285,23 +314,44 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
                     out.pop(key)
         return out
 
-    global_filters = clean_filters(plan.get("global_filters"))
-    specialists: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for assigned in (plan.get("specialists") or [])[:MAX_SPECIALISTS]:
+    # The caller's scope wins when there is one; otherwise the planner's guess
+    # is all there is. Both go through the same sanitiser, and unknown keys are
+    # dropped so a caller cannot widen the filter vocabulary the engine takes.
+    if scope:
+        global_filters = clean_filters({k: v for k, v in scope.items() if k in FILTER_FIELDS})
+    else:
+        global_filters = clean_filters(plan.get("global_filters"))
+    # THE STANDING PANEL. Every investigation runs these six, in this order, so
+    # the Investigation Graph shows the same six agents every time.
+    #
+    # It used to be whatever subset the planner chose, capped at MAX_SPECIALISTS.
+    # That made the panel vary run to run — an alert-driven question ("Why did X
+    # underperform?") drew five and never included cannibalization, because the
+    # planner only reached for it when the question itself said "cannibalize".
+    # The neighbour check is not an optional lens; it is part of reading a
+    # promotion, so it is no longer left to the question's wording.
+    #
+    # The planner still BRIEFS the panel: where it assigned one of the six, that
+    # assignment is kept verbatim. Only the choice of who runs is fixed.
+    PANEL: tuple[tuple[str, str], ...] = (
+        ("benchmark", "Establish whether this segment is genuinely abnormal."),
+        ("mechanic_efficiency", "Find which mechanics under- and over-perform here."),
+        ("offer_forensics", "Examine how the offers themselves were constructed."),
+        ("risk_exposure", "Quantify how much money is still at stake."),
+        ("geography", "Find where this performs best and worst."),
+        ("cannibalization", "Check whether same-brand-form neighbours lost sales while it ran."),
+    )
+    briefs: dict[str, str] = {}
+    for assigned in plan.get("specialists") or []:
         key = assigned.get("specialist")
-        spec = ROSTER_BY_KEY.get(key)
-        if spec is None or key in seen:  # unknown or duplicate assignment
-            continue
-        seen.add(key)
-        specialists.append({"spec": spec, "assignment": assigned.get("assignment", "")})
+        brief = (assigned.get("assignment") or "").strip()
+        if key and brief and key not in briefs:
+            briefs[key] = brief
 
-    if not specialists:  # planner produced nothing usable — still run a real RCA
-        specialists = [
-            {"spec": ROSTER_BY_KEY["benchmark"], "assignment": "Establish whether this segment is abnormal."},
-            {"spec": ROSTER_BY_KEY["mechanic_efficiency"], "assignment": "Find which mechanics underperform."},
-            {"spec": ROSTER_BY_KEY["spend_allocation"], "assignment": "Find where the budget concentrated."},
-        ]
+    specialists: list[dict[str, Any]] = [
+        {"spec": ROSTER_BY_KEY[key], "assignment": briefs.get(key) or fallback}
+        for key, fallback in PANEL
+    ]
 
     scoped_totals = segment_kpis(global_filters) if global_filters else overall
     await emit(
@@ -405,21 +455,70 @@ async def run_star_pipeline(question: str, on_event: Any = None) -> dict[str, An
 
     # Real fact-table size, not a literal — assemble_orchestration formats
     # `rows` with a thousands separator, so it must be a number.
-    from app.tpo.loader import get_store
+    from app.tpo.loader import MONTHS, get_store
 
     row_count = get_store().row_count
     orchestration = assemble_orchestration(plan, findings, synthesis, {"rows": row_count, **scoped_totals})
-    # Context chips read better from the star schema's own vocabulary.
+
+    # --- the Business Question card's fields -------------------------------
+    #
+    # DISPLAY METADATA, DERIVED FROM THE SCOPE THAT WAS ACTUALLY INVESTIGATED.
+    # Every value below comes from `global_filters` (the scope the specialists
+    # ran on) or from `scoped_totals` (the validated KPI bundle for that same
+    # scope). Nothing here is inferred from the question's wording and nothing
+    # is computed: `service._group_label` is the SAME code->name resolver the
+    # Command Center's breakdowns use, so a channel is named identically in
+    # both places.
+    from app.agents.star_tools import build_filter_state as _build_state
+    from app.tpo import service as _service
+    from app.tpo.filters import rows_for
+
+    store = get_store()
+
+    def _named(dimension: str, codes: Any) -> str | None:
+        """Codes -> the names a reader recognises, or None when unconstrained.
+
+        None is meaningful: it is the difference between "this scope selected
+        no region" and "the region is unknown", and the card renders the two
+        differently."""
+        values = [c for c in (codes or []) if c]
+        if not values:
+            return None
+        labels = [_service._group_label(store, dimension, str(c)) for c in values]
+        return labels[0] if len(labels) == 1 else f"{len(labels)} selected"
+
     chips: dict[str, Any] = {}
-    if global_filters.get("year"):
-        chips["period"] = summary["year_labels"].get(str(global_filters["year"]), str(global_filters["year"]))
+
+    # PERIOD. The F24/F25 shorthand is this project's internal label for a
+    # calendar year and means nothing to a reader on a projector, so the card
+    # gets the plain year, narrowed by month when the scope carries one.
+    year = global_filters.get("year")
+    month = global_filters.get("month")
+    if year and month:
+        chips["period"] = f"{MONTHS[int(month) - 1]} {year}"
+    elif year:
+        chips["period"] = f"{year} (Full Year)"
+    else:
+        chips["period"] = "All Years"
+
+    # CHANNEL / REGION. Absent before this: the card asked for them and the
+    # payload never carried them, which is why both rendered blank.
+    chips["channel"] = _named("channel", global_filters.get("channel")) or "All Channels"
+    chips["region"] = _named("region", global_filters.get("region")) or "All Regions"
+
     if scoped_totals.get("trade_spend") is not None:
         chips["spend"] = f"₹{scoped_totals['trade_spend'] / 1e7:,.1f} Cr"
     if scoped_totals.get("promotion_roi") is not None:
         chips["roi"] = f"{scoped_totals['promotion_roi']}%"
     chips["source"] = "TPO star schema"
     orchestration["contextChips"] = chips
-    orchestration["progress"]["sources"] = row_count
+
+    # RECORDS ANALYSED. The rows the SCOPE holds, not the whole fact table.
+    # `progress.sources` carried 205,920 for every investigation regardless of
+    # what it looked at, which is the size of the dataset rather than a fact
+    # about the run. `rows_for` is the same resolver the specialists' own data
+    # calls go through, so this is the population they actually read.
+    orchestration["progress"]["sources"] = len(rows_for(_build_state(global_filters)))
 
     return {
         "plan": plan,

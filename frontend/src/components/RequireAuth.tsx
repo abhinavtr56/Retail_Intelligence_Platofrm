@@ -7,7 +7,12 @@ import { Spinner } from './ui'
 // Without this, a real login would be pure theater — anyone could still reach
 // /#/home or any TPO page directly regardless of whether they'd signed in.
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { data: user, isLoading, isError } = useCurrentUser()
+  const { data: user, isLoading } = useCurrentUser()
+
+  // A session we already resolved stays resolved. Checking this BEFORE the
+  // error branch is what stops a background /auth/me failure on a later page
+  // from throwing an already-signed-in user back to the login screen.
+  if (user) return <>{children}</>
 
   if (isLoading) {
     return (
@@ -17,9 +22,5 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     )
   }
 
-  if (isError || !user) {
-    return <Navigate to="/login" replace />
-  }
-
-  return <>{children}</>
+  return <Navigate to="/login" replace />
 }

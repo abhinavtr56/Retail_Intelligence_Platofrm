@@ -25,7 +25,9 @@ export function AccelList({
   /** During the "New Investigation" staged build, overrides each row's live state;
    *  omit to just render each accelerator's own `status` field. */
   statusOverride?: Record<string, LiveState>
-  onSelect: (a: Accelerator) => void
+  /** Optional. Without it the rows render as the status readout they are,
+   *  rather than as click targets that lead nowhere. */
+  onSelect?: (a: Accelerator) => void
 }) {
   return (
     <div className="flex flex-col">
@@ -34,10 +36,10 @@ export function AccelList({
         return (
           <div
             key={a.key}
-            onClick={() => onSelect(a)}
-            className={`fade-in-up grid cursor-pointer grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-border-subtle py-3 transition-[opacity,background] duration-150 last:border-b-0 hover:bg-surface-hover ${
-              state === 'queued' ? 'opacity-50' : ''
-            }`}
+            onClick={onSelect ? () => onSelect(a) : undefined}
+            className={`fade-in-up grid grid-cols-[36px_1fr_auto] items-center gap-3 border-b border-border-subtle py-3 transition-[opacity,background] duration-150 last:border-b-0 ${
+              onSelect ? 'cursor-pointer hover:bg-surface-hover' : ''
+            } ${state === 'queued' ? 'opacity-50' : ''}`}
             style={{ animationDelay: `${i * 60}ms` }}
           >
             <div

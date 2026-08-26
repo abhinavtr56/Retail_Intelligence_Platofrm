@@ -7,8 +7,14 @@ import type { InvestigationRun } from '../types/agentRun'
 export function useStartInvestigationRun() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { question: string; dataset_id: string | null }) =>
-      apiPost<InvestigationRun>('/investigations/run', body),
+    mutationFn: (body: {
+      question: string
+      dataset_id: string | null
+      /** The scope a Command Center hand-off drilled in with, when there was
+       *  one. The backend pins the run to it instead of letting the planning
+       *  agent infer a scope from the question's wording. */
+      scope?: Record<string, unknown> | null
+    }) => apiPost<InvestigationRun>('/investigations/run', body),
     onSuccess: (run) => {
       queryClient.setQueryData(['investigation-run', run.id], run)
       queryClient.invalidateQueries({ queryKey: ['investigations', 'recent'] })

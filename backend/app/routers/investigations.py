@@ -100,9 +100,18 @@ class InvestigationRunRequest(BaseModel):
     # same data the Command Center reports on. Pass an id to investigate an
     # uploaded file instead.
     dataset_id: str | None = None
+    # The scope the caller drilled in with, as a FilterState-shaped dict.
+    # A risk alert and an underperforming row both carry the promotion,
+    # product and channel codes of the event they measured; passing them
+    # here pins the investigation to that exact event instead of leaving
+    # the planner to re-derive a scope from the question's wording.
+    # Ignored for uploaded datasets, which have no star-schema dimensions.
+    scope: dict[str, Any] | None = None
 
 
-async def _execute_run(run_id: str, question: str, dataset_id: str | None) -> None:
+async def _execute_run(
+    run_id: str, question: str, dataset_id: str | None, scope: dict[str, Any] | None = None
+) -> None:
     """Background task: run the pipeline, streaming stage updates into the
     run record so the frontend's poll shows genuine progress."""
     try:
@@ -139,7 +148,7 @@ async def _execute_run(run_id: str, question: str, dataset_id: str | None) -> No
         if dataset_id and frame is not None and record is not None:
             result = await run_pipeline(question, frame, record["profile"], record["filename"], on_event=on_event)
         else:
-            result = await run_star_pipeline(question, on_event=on_event)
+            result = await run_star_pipeline(question, on_event=on_event, scope=scope)
         update_run(run_id, status="done", stage="complete", result=result)
 
     except AgentConfigError as e:
@@ -167,7 +176,7 @@ async def start_investigation_run(
     run = create_run(question, body.dataset_id, user["email_key"])
     # Recorded in the shared history immediately so it shows up even while running.
     append_history({"type": infer_investigation_type(question), "question": question, "at": run["created_at"]})
-    asyncio.create_task(_execute_run(run["id"], question, body.dataset_id))
+    asyncio.create_task(_execute_run(run["id"], question, body.dataset_id, body.scope))
     return run
 
 

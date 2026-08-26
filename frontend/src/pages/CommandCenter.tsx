@@ -248,6 +248,14 @@ export function CommandCenter() {
   const isEmpty = meta.row_count === 0
 
   const handOffPromotion = (row: UnderperformingRow) => {
+    // ONE narrowed FilterState for both consumers — see useAlertHandoff,
+    // which does the identical thing for a risk alert.
+    const narrowed = {
+      ...filters,
+      promotion: [row.promotion_id],
+      product: [row.product_id],
+      channel: [row.channel_id],
+    }
     startFromCommandCenter({
       origin: 'underperforming',
       label: row.promotion,
@@ -259,12 +267,7 @@ export function CommandCenter() {
       // clicked. `row.period` is a week and stays a label — FilterState has no
       // week, so the scope reaches this (promotion, product, channel) and
       // pools whatever weeks it traded in.
-      filters: {
-        ...filters,
-        promotion: [row.promotion_id],
-        product: [row.product_id],
-        channel: [row.channel_id],
-      },
+      filters: narrowed,
       identifiers: {
         promotion_id: row.promotion_id,
         product_id: row.product_id,
@@ -272,7 +275,18 @@ export function CommandCenter() {
       },
       labels: { product: row.product, channel: row.channel, period: row.period },
     })
-    navigate('/investigations')
+    // THE WHOLE HAND-OFF, from either control in the row. This used to
+    // navigate with nothing but the store scope, so the RCA opened on a
+    // blank prompt, while the "Ask why" button beside it sent the question
+    // and no scope — two halves of one drill-down, each missing the other's.
+    navigate('/investigations', {
+      state: {
+        [ASK_WHY_STATE_KEY]: {
+          ...buildAskWhyIntent(row),
+          scope: toReportScope(narrowed),
+        },
+      },
+    })
   }
 
   return (
@@ -280,7 +294,14 @@ export function CommandCenter() {
       {/* Decorative ambient wash behind the header — the "lights" feel, kept to
           two very low-alpha radial gradients. */}
       <div className="cc-ambient" aria-hidden="true" />
-      <div className="fade-in flex flex-wrap items-end justify-between gap-4">
+      {/* `relative z-20` so the More Filters popover inside this row can paint
+          over the KPI cards and alert banner below it. It is needed because
+          `.fade-in` animates opacity and therefore ESTABLISHES A STACKING
+          CONTEXT — which traps the popover's own z-index inside this row, and
+          the row would otherwise paint in normal document order, i.e. beneath
+          its later siblings. Same trap components/ui/Dropdown.tsx documents.
+          No effect while the popover is closed: nothing else here overlaps. */}
+      <div className="fade-in relative z-20 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-[30px] font-extrabold tracking-[-0.025em] leading-[1.1]">TPO Command Center</h1>
@@ -428,7 +449,6 @@ export function CommandCenter() {
         <Card>
           <CardHeader
             title="Risk Alerts"
-            subtitle={`Below the ${meta.target_roi_pct}% ROI target`}
             actions={
               <div className="flex items-center gap-2">
                 {counts && (
@@ -544,11 +564,12 @@ export function CommandCenter() {
                           point — it hands the row's context to Investigations. */}
                       <button
                         title={p.action}
-                        onClick={() =>
-                          navigate('/investigations', {
-                            state: { [ASK_WHY_STATE_KEY]: buildAskWhyIntent(p) },
-                          })
-                        }
+                        onClick={(e) => {
+                          // The row behind this cell hands off too; without
+                          // this the click would run both and navigate twice.
+                          e.stopPropagation()
+                          handOffPromotion(p)
+                        }}
                         className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
                       >
                         Ask why

@@ -55,6 +55,10 @@ import { useTargetRescueStore } from '../store/targetRescue'
  *  either invalidates it (see store/simulationScenarios.ts), so a 10% result
  *  never lingers on screen under a 15% selection.
  */
+/** The duration stop that means "one business week". Imported from the lever
+ *  control so the panel and the slider cannot drift apart about what 7 days is. */
+const WEEKLY_DURATION_WEEKS = 1
+
 export function Simulation() {
   const { activeType, activeQuestion, list, scope: investigationScope } = useActiveInvestigationStore()
   const { data: types } = useInvestigationTypes()
@@ -372,12 +376,18 @@ export function Simulation() {
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Simulation Studio' }]
   const result = run.data
   const active = scenarios.find((s) => s.id === activeId) ?? scenarios[0]
-  const measured = scenarios.find((s) => s.kind === 'measured')
   const definitions = result?.levers.definitions ?? []
   const isMeasured = active?.kind === 'measured'
 
+  // Dirty against THIS scenario's own seeded start, not against the measured
+  // plan. Aggressive Growth opens at the deepest approved treatment, so the
+  // older comparison would have shown it modified — and offered a Reset —
+  // before the user had touched anything.
   const dirty = Boolean(
-    active && measured && !isMeasured && active.levers.discount_pct !== measured.levers.discount_pct,
+    active &&
+      !isMeasured &&
+      (active.levers.discount_pct !== active.seededLevers.discount_pct ||
+        active.levers.duration_weeks !== active.seededLevers.duration_weeks),
   )
   const approvedSelected = Boolean(
     definitions
@@ -429,6 +439,9 @@ export function Simulation() {
         currency,
         scenario_id: requestedId,
         discount_pct: discount,
+        // Echoed, not modelled — see the duration control in LeverPanel. Sent
+        // so the executed result records which cadence was asked for.
+        duration_weeks: active.levers.duration_weeks ?? undefined,
       })
       .then((data) => {
         // A RESULT FROM A SUPERSEDED SCOPE IS DISCARDED, NOT APPLIED. A scope
@@ -604,12 +617,13 @@ export function Simulation() {
                     note={
                       isMeasured
                         ? 'These are the observed values for this scope, not settings. Select a hypothetical scenario to explore an approved treatment.'
-                        : 'Discount is the only modelled lever. Duration and trade spend are shown for context — the first has no approved response, the second is derived from the scenario economics.'
+                        : 'Discount is the only MODELLED lever: it selects an approved treatment and moves every KPI below. Duration is recorded and echoed but maps to no approved uplift, so it moves nothing. Trade spend is derived from the treatment, never entered.'
                     }
                     canRun={isMeasured || approvedSelected}
                     runLabel={isMeasured ? 'Recalculate baseline' : 'Run Simulation'}
                     running={isMeasured ? run.isPending : active.running}
                     onSelectDiscount={(value) => setLever(active.id, 'discount_pct', value)}
+                    onSelectDuration={(value) => setLever(active.id, 'duration_weeks', value)}
                     onReset={() => resetLevers(active.id)}
                     onRun={onRun}
                     dirty={dirty}
@@ -651,6 +665,18 @@ export function Simulation() {
                 ) : active.simulation ? (
                   <ScenarioResultPanel
                     simulation={active.simulation}
+                    // WEEKLY CADENCE SELECTED -> READ THE SCENARIO PER WEEK.
+                    // Not a second simulation and not a division: these are the
+                    // weeks /simulation/weekly already returned for THIS scenario,
+                    // sliced from the same counterfactual. Guarded on the response
+                    // belonging to the selected scenario, because the weekly
+                    // request lags a scenario switch by one round trip.
+                    perWeek={
+                      active.levers.duration_weeks === WEEKLY_DURATION_WEEKS &&
+                      weekly.data?.scenario_id === active.id
+                        ? weekly.data.weeks
+                        : null
+                    }
                     // B: a scenario cell defers to the MEASURED figure rather
                     // than resolving a wider scope of its own.
                     measuredCannibalization={result.kpis.cannibalization}

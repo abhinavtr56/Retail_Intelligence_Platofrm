@@ -79,6 +79,18 @@
   --dark-text-muted: #8A93AB;
   --dark-text-dim:   #5B647A;
 
+
+  /* ===== Component washes that were hard-coded in the components =====
+     Lifted here so they follow the theme like everything else. Every LIGHT
+     value below is byte-for-byte the literal it replaced, so the light
+     palette is unchanged; only the dark override is new. */
+  --alert-bg:        #FEEEEC;
+  --alert-border:    #FBC3BD;
+  --alert-ink:       #DC2626;
+  --alert-ink-soft:  #7F1D1D;
+  --alert-cta-hover: #FEF6F5;
+  --btn-disabled-bg: #D6D9E2;
+
   /* ===== Effects ===== */
   --shadow-xs:    0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow-sm:    0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
@@ -111,4 +123,106 @@
   --ease-out:     cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out:  cubic-bezier(0.65, 0, 0.35, 1);
   --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================================================
+   DARK THEME — the SAME token names, given dark values.
+
+   THE WHOLE THEME IS THIS BLOCK. Every Tailwind colour utility in the app
+   resolves through `@theme` in index.css to one of the variables above
+   (bg-surface-card -> var(--surface-card)), and Tailwind v4 keeps that
+   `var()` in the emitted CSS rather than inlining the value. So redefining a
+   token here re-themes every component that already uses it — no page, panel
+   or shared component is edited, and none can drift out of step.
+
+   IT IS NOT AN INVERSION. Surfaces come from the dark palette this project
+   already declared (--dark-bg .. --dark-text-dim, above); status colours keep
+   their meaning and are only lifted enough to stay legible on a dark card;
+   the sidebar is untouched because it was already dark in both themes.
+
+   WHAT DELIBERATELY DOES NOT CHANGE: brand identity, spacing, radii, layout
+   dimensions and easing. A theme is a palette, not a redesign.
+============================================================================ */
+:root[data-theme='dark'] {
+  /* ===== Surfaces ===== */
+  --surface-page:     var(--dark-bg);
+  --surface-card:     var(--dark-card);
+  --surface-muted:    var(--dark-bg-2);
+  --surface-hover:    var(--dark-card-hover);
+  --surface-elevated: var(--dark-card-hover);
+
+  /* ===== Text ===== */
+  /* `--text-secondary` has no counterpart in the legacy dark palette, which
+     names only text/muted/dim. It sits between primary and muted, so it is
+     given the one value this block introduces rather than collapsing two
+     distinct roles onto one colour. */
+  --text-primary:   var(--dark-text);
+  --text-secondary: #C2C9D9;
+  --text-muted:     var(--dark-text-muted);
+  --text-disabled:  var(--dark-text-dim);
+  /* Unchanged: inverse text sits on a filled brand button in both themes. */
+
+  /* ===== Borders ===== */
+  --border-subtle:  var(--dark-border);
+  --border-default: var(--dark-border);
+  --border-strong:  var(--dark-border-strong);
+
+  /* ===== Brand =====
+     The hue is the brand's and does not change. Only the step moves: #6B47FF
+     on a #141B2E card is close to the floor for readable accent text, so dark
+     uses the lighter step the avatars already use. The two tint colours are
+     light washes meant to sit on white; on dark they become the same violet
+     at low alpha, which is what a wash IS rather than a second colour. */
+  --brand-violet:     #8C6EFF;
+  --brand-violet-600: #7A5AF0;
+  --brand-violet-50:  rgba(107, 71, 255, 0.18);
+  --brand-violet-100: rgba(107, 71, 255, 0.30);
+
+  /* ===== Status =====
+     MEANING IS PRESERVED: green is still success, red still danger. The
+     foregrounds are lifted for contrast against a dark card and the pastel
+     backgrounds become low-alpha washes of the same hue, because a pastel
+     block on #141B2E reads as a glowing panel rather than as a quiet tint. */
+  --status-success:    #4ADE80;
+  --status-success-bg: rgba(22, 163, 74, 0.18);
+  --status-warning:    #FBBF24;
+  --status-warning-bg: rgba(245, 158, 11, 0.18);
+  --status-danger:     #F87171;
+  --status-danger-bg:  rgba(220, 38, 38, 0.20);
+  --status-info:       #60A5FA;
+  --status-info-bg:    rgba(59, 130, 246, 0.18);
+  --tone-peach:        #FB923C;
+  --tone-peach-bg:     rgba(249, 115, 22, 0.18);
+
+  /* ===== KPI icon tints =====
+     The icon strokes (--tint-*-icon) are unchanged; only the container wash
+     behind them moves to low alpha, for the same reason as the status bgs. */
+  --tint-mint:     rgba(16, 185, 129, 0.16);
+  --tint-peach:    rgba(249, 115, 22, 0.16);
+  --tint-lavender: rgba(107, 71, 255, 0.20);
+  --tint-rose:     rgba(236, 72, 153, 0.16);
+  --tint-sky:      rgba(59, 130, 246, 0.16);
+  --tint-lemon:    rgba(234, 179, 8, 0.16);
+  --tint-teal:     rgba(20, 184, 166, 0.16);
+  --tint-coral:    rgba(244, 63, 94, 0.16);
+
+
+  /* ===== Component washes (see the light block) =====
+     The alert stays an alert: same red meaning, expressed as a wash on the
+     dark card instead of a pale block that would read as a lit panel. */
+  --alert-bg:        rgba(220, 38, 38, 0.14);
+  --alert-border:    rgba(248, 113, 113, 0.34);
+  --alert-ink:       #FCA5A5;
+  --alert-ink-soft:  #F0C9C9;
+  --alert-cta-hover: rgba(220, 38, 38, 0.22);
+  --btn-disabled-bg: var(--dark-border-strong);
+
+  /* ===== Effects =====
+     A shadow tuned for white surfaces is invisible on #0A0F1C. Same geometry,
+     deepened so elevation still reads. */
+  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.42), 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md:    0 4px 8px -2px rgba(0, 0, 0, 0.48), 0 2px 4px -2px rgba(0, 0, 0, 0.32);
+  --shadow-lg:    0 12px 24px -6px rgba(0, 0, 0, 0.55), 0 4px 8px -2px rgba(0, 0, 0, 0.38);
+  --shadow-card-soft: 0 1px 3px rgba(0, 0, 0, 0.35), 0 4px 16px -4px rgba(0, 0, 0, 0.42);
 }

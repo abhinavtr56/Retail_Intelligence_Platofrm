@@ -1,16 +1,27 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch, apiPost } from '../lib/api'
+import { ApiError, apiFetch, apiPost } from '../lib/api'
 import type { LoginResult, PortalUser } from '../types/portal'
 
 // The current session's user, from the httpOnly cookie FastAPI set on
-// login — not from localStorage. retry:false so an expected 401 (signed
-// out) resolves to an error immediately instead of retrying a few times
-// first; RequireAuth and Login both key off `isError` to mean "signed out."
+// login — not from localStorage. A 401 resolves to an error immediately
+// (no retries) so "signed out" is instant; RequireAuth and Login both key
+// off that to mean "signed out."
 export function useCurrentUser() {
   return useQuery({
     queryKey: ['auth', 'me'],
     queryFn: () => apiFetch<PortalUser>('/auth/me'),
-    retry: false,
+    // Only a 401 actually means "signed out", and it is final. Anything else
+    // — the backend restarting mid-navigation, a dropped connection — is
+    // transient and gets a retry instead of being read as a lost session.
+    retry: (failureCount, error) => !(error instanceof ApiError && error.status === 401) && failureCount < 2,
+    // The session lives in an httpOnly cookie with a 14-day TTL, so it cannot
+    // go stale between two route changes. Without this the query inherited the
+    // client's 30s staleTime and refetched on EVERY page mount; one hiccup on
+    // that refetch bounced the user back to /login mid-session.
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
   })
 }
 

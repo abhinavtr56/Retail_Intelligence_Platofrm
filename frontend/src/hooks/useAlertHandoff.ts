@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCommandFilters } from '../store/commandFilters'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { ASK_WHY_STATE_KEY, buildAskWhyIntent } from '../lib/askWhy'
+import { toSimulationFilters } from './useSimulation'
 import type { RiskAlert } from '../types/commandCenter'
 
 /** THE COMMAND CENTER -> RCA HAND-OFF for a risk alert (B3.2).
@@ -47,15 +48,19 @@ export function useAlertHandoff(): (alert: RiskAlert) => void {
   const startFromCommandCenter = useActiveInvestigationStore((s) => s.startFromCommandCenter)
 
   return (alert: RiskAlert) => {
+    // ONE narrowed FilterState, built once and sent to both consumers, so
+    // Simulation and the RCA cannot end up describing different populations
+    // from the same click.
+    const narrowed = {
+      ...filters,
+      promotion: [alert.promotion_id],
+      product: [alert.product_id],
+      channel: [alert.channel_id],
+    }
     startFromCommandCenter({
       origin: 'risk_alert',
       label: alert.title,
-      filters: {
-        ...filters,
-        promotion: [alert.promotion_id],
-        product: [alert.product_id],
-        channel: [alert.channel_id],
-      },
+      filters: narrowed,
       identifiers: {
         promotion_id: alert.promotion_id,
         product_id: alert.product_id,
@@ -74,6 +79,11 @@ export function useAlertHandoff(): (alert: RiskAlert) => void {
       title: alert.title,
       description: alert.description,
     })
-    navigate('/investigations', { state: { [ASK_WHY_STATE_KEY]: intent } })
+    // The same scope Simulation gets, in the shape the API takes. The RCA
+    // runs against THIS, not against whatever the planner reads out of the
+    // sentence — see AskWhyIntent.scope.
+    navigate('/investigations', {
+      state: { [ASK_WHY_STATE_KEY]: { ...intent, scope: toSimulationFilters(narrowed) } },
+    })
   }
 }

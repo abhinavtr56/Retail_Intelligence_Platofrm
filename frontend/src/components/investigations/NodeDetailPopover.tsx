@@ -75,7 +75,7 @@ export function NodeDetailPopover({
       <Link
         to="/intelligence"
         onClick={onClose}
-        className="mt-3 flex h-[30px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] bg-brand-violet-50 text-xs font-semibold text-brand-violet hover:bg-[#E6DEFF]"
+        className="mt-3 flex h-[30px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] bg-brand-violet-50 text-xs font-semibold text-brand-violet hover:bg-brand-violet-100"
       >
         View in Intelligence <Icon name="arrowRight" className="h-3.5 w-3.5" />
       </Link>

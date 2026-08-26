@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import {
   Button,
@@ -23,9 +23,9 @@ import { useStartInvestigationRun, useInvestigationRun } from '../hooks/useInves
 import { useDatasets } from '../hooks/useDatasets'
 import { ApiError } from '../lib/api'
 import { ASK_WHY_STATE_KEY, type AskWhyIntent } from '../lib/askWhy'
-import { useFocus } from '../hooks/useNav'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { InvestigationGraph } from '../components/investigations/InvestigationGraph'
+import { bindCannibalizationNode } from '../components/investigations/cannibalizationNode'
 import { NodeDetailPopover } from '../components/investigations/NodeDetailPopover'
 import { BizQuestionCard } from '../components/investigations/BizQuestionCard'
 import { AccelList } from '../components/investigations/AccelList'
@@ -34,9 +34,6 @@ import { QueryBar } from '../components/investigations/QueryBar'
 import type { Accelerator, OrchNode } from '../types/orchestration'
 import type { InvestigationType } from '../types/investigation'
 
-const PROMO_OPTIONS = ['South MT Push (Apr – Jun)', 'North GT Boost', 'Value Pack Bonanza']
-const PERIOD_OPTIONS = ['Q1 FY25', 'Q2 FY25', 'Q3 FY25', 'Q4 FY25']
-const LAYOUT_OPTIONS = ['Auto Layout', 'Radial', 'Force-directed', 'Hierarchical']
 
 // Ported from js/pages/investigations.js (PageInvestigations.render). Same data shape
 // (orchestration.nodes/accelerators/progress/nodeDetails), same interactions (query
@@ -103,6 +100,53 @@ function AskSomething({
 /** Shown while the agents are working. Previously this window rendered the
  *  static sample graph, so clicking "investigate" flashed up a finished-looking
  *  result for a different question before the real one arrived. */
+/** THE INVESTIGATION STOPPED, AND SAYS SO.
+ *
+ *  Two different failures land here and the user does not need to care which:
+ *  the request never started, or the pipeline raised and the backend recorded
+ *  the reason on the run. Either way the work is over, so the page shows a
+ *  finished state with the reason and a way to try again — rather than a
+ *  spinner over something that has already stopped moving.
+ *
+ *  The message is whatever the API said. `routers/investigations._execute_run`
+ *  stores an exception's type and message, never a traceback, and the agent's
+ *  own configuration error names the missing setting without quoting it. No
+ *  key, secret or environment value reaches this component.
+ */
+function FailedState({
+  question,
+  message,
+  onRetry,
+}: {
+  question: string
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <Card className="fade-in mt-4">
+      <div className="border-b border-border-subtle p-[16px_20px]">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full bg-status-danger-bg text-status-danger [&_svg]:h-3 [&_svg]:w-3">
+            <Icon name="warning" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-bold text-ink-primary">Investigation stopped</div>
+            <div className="mt-1 truncate text-[13.5px] text-ink-muted">{question}</div>
+          </div>
+        </div>
+      </div>
+      <div className="p-[16px_20px]">
+        <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-[12.5px] leading-[1.5] text-ink-secondary">
+          {message}
+        </div>
+        <Button variant="primary" onClick={onRetry} className="mt-3">
+          <Icon name="refresh" /> Retry investigation
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
 function RunningState({
   question,
   specialists,
@@ -120,7 +164,7 @@ function RunningState({
         <div className="flex items-center gap-2.5">
           <Spinner className="h-4 w-4 text-brand-violet" />
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-bold">
+            <div className="text-[16px] font-bold">
               {stage === 'planning' || !specialists.length
                 ? 'Planning the investigation…'
                 : `Specialist agents running — ${done} of ${specialists.length} complete`}
@@ -200,7 +244,6 @@ export function Investigations() {
   const { activeType, activeQuestion, setActive } = useActiveInvestigationStore()
   const { data: types } = useInvestigationTypes()
   const { data: legacy } = useLegacyInvestigation()
-  const { data: focus } = useFocus()
   const { show } = useToast()
   const confirm = useConfirm()
   const live = useLiveStatus()
@@ -234,12 +277,76 @@ export function Investigations() {
 
   const typeMeta = types?.find((t) => t.key === activeType) ?? types?.[0]
 
-  const [queryInput, setQueryInput] = useState(activeQuestion)
-  useEffect(() => setQueryInput(activeQuestion), [activeQuestion])
+  // THE BOX AND THE CHIP MUST COME FROM THE SAME PLACE. The chip has always
+  // been seeded from the hand-off (`handoffLabel` above) while this was seeded
+  // from the persisted store and only reached the hand-off's question later,
+  // through an effect. Any reason that effect did not run left the two
+  // disagreeing on screen: the alert you clicked named in the chip, the
+  // question you asked some time ago still sitting in the field.
+  const [queryInput, setQueryInput] = useState(intent?.question ?? activeQuestion)
 
-  const [promo, setPromo] = useState(PROMO_OPTIONS[0])
-  const [period, setPeriod] = useState('Q2 FY25')
-  const [layout, setLayout] = useState('Auto Layout')
+  // Keep the field in step with the last question actually asked — but only
+  // when that question has genuinely CHANGED since this effect last acted.
+  //
+  // IT HAS TO BE IDEMPOTENT, NOT ONCE-ONLY. A 'skip the first run' flag looks
+  // equivalent and is not: StrictMode mounts, tears down and mounts again, a
+  // ref survives that, so the discarded pass spent the flag and the real pass
+  // overwrote the hand-off's question with the store's. In dev the field went
+  // blank on a fresh workspace and showed the PREVIOUS alert's question
+  // otherwise, while the chip beside it named the alert just clicked — and
+  // none of it reproduced in a production build, where effects run once.
+  //
+  // Comparing against the last value actually synced makes a repeated run a
+  // no-op instead of a stomp, whatever invokes it and however often.
+  const syncedActiveQuestion = useRef(activeQuestion)
+  useEffect(() => {
+    if (syncedActiveQuestion.current === activeQuestion) return
+    syncedActiveQuestion.current = activeQuestion
+    setQueryInput(activeQuestion)
+  }, [activeQuestion])
+
+  // GRAPH TOOLBAR STATE. Zoom is read by <InvestigationGraph/>, so the
+  // control changes the picture rather than announcing that it did.
+  const [zoom, setZoom] = useState(1)
+  const navigate = useNavigate()
+
+  // Share actually copies now. There is no per-investigation permalink to hand
+  // out — the page holds no shareable server-side state — so what goes on the
+  // clipboard is this page's URL, and the dialog says exactly that.
+  const copyShareLink = async () => {
+    const link = window.location.href
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link)
+      } else {
+        // Clipboard API needs a secure context; fall back for plain http.
+        const ta = document.createElement('textarea')
+        ta.value = link
+        ta.setAttribute('readonly', '')
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+        if (!ok) throw new Error('copy rejected')
+      }
+      show('Link copied to clipboard')
+    } catch {
+      show('Could not copy the link — copy it from the address bar', { duration: 3000 })
+    }
+  }
+
+  // A LAUNCH THAT NEVER STARTED IS A TERMINAL STATE, NOT A SLOW ONE.
+  // `hasAsked` flips the page into its running view the moment a question is
+  // asked, and only a run id can flip it out again. So a POST that failed —
+  // backend down, session expired, agent unconfigured — left the page showing
+  // "Planning the investigation…" with a spinner, for ever, over a request
+  // that was already dead. The reason existed and was never rendered.
+  const [launchError, setLaunchError] = useState<string | null>(null)
+  // What the last attempt was, so Retry repeats THAT rather than whatever the
+  // question box happens to hold by then.
+  const lastAttempt = useRef<{ question: string; scope?: Record<string, unknown> } | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [revealedKeys, setRevealedKeys] = useState<Set<string> | undefined>(undefined)
@@ -274,25 +381,49 @@ export function Investigations() {
 
   // Always a real agent run. Omitting dataset_id investigates the built-in
   // star schema; passing one investigates that uploaded file.
-  const launch = (q: string) => {
+  // `scope` is only ever present on an "Ask why" hand-off: it is the
+  // Command Center's validated FilterState narrowed to the clicked event.
+  // Sending it pins the run to that event, so Promotion Intelligence and
+  // the Decision Center — which read the run's stored scope — describe the
+  // same population the alert did. A typed question carries none, and the
+  // planner deriving one is then the only honest option.
+  //
+  // AWAITED, NOT CALLED BACK. `startRun.mutate(vars, {onSuccess})` looks
+  // equivalent and is not: React Query drops the callbacks passed to a single
+  // `mutate` call if the mutation's observer is torn down before the request
+  // settles. StrictMode mounts, tears down and mounts again, so an
+  // EFFECT-initiated launch — which is every "Ask why" hand-off — fired the
+  // POST and then lost `setRunId(started.id)`. The run completed server-side
+  // and the page polled for nothing, sitting on "Planning the investigation…"
+  // for as long as you cared to watch. A typed question survived it only
+  // because an event handler runs after mounting has settled.
+  //
+  // `mutateAsync` resolves a plain promise, so the continuation below is an
+  // ordinary closure that no subscription lifecycle can discard.
+  const launch = async (q: string, scope?: Record<string, unknown>) => {
     setRunId(undefined)
     setHasAsked(true)
     setSubmitting(true)
-    startRun.mutate(
-      { question: q, dataset_id: datasetId ?? null },
-      {
-        onSuccess: (started) => {
-          setSubmitting(false)
-          setRunId(started.id)
-          setActive(inferTypeOffline(q), q)
-          show(`Analysing ${sourceLabel} — specialist agents running…`, { duration: 3000 })
-        },
-        onError: (e) => {
-          setSubmitting(false)
-          show(e instanceof ApiError ? e.message : "Couldn't start the investigation.", { duration: 4000 })
-        },
-      },
-    )
+    setLaunchError(null)
+    lastAttempt.current = { question: q, scope }
+    try {
+      const started = await startRun.mutateAsync({
+        question: q,
+        dataset_id: datasetId ?? null,
+        scope: scope ?? null,
+      })
+      setSubmitting(false)
+      setRunId(started.id)
+      setActive(inferTypeOffline(q), q)
+      show(`Analysing ${sourceLabel} — specialist agents running…`, { duration: 3000 })
+    } catch (e) {
+      setSubmitting(false)
+      const message = e instanceof ApiError ? e.message : "Couldn't start the investigation."
+      // Recorded as well as toasted. A toast that has already faded is not a
+      // state the page can be read from.
+      setLaunchError(message)
+      show(message, { duration: 4000 })
+    }
   }
 
   const runQuery = () => {
@@ -301,22 +432,42 @@ export function Investigations() {
       show('Type a question for TIQ to investigate', { duration: 2000 })
       return
     }
-    launch(q)
+    // A question you typed is YOUR question. The hand-off chip named the
+    // alert this page arrived from, and it used to survive the next thing
+    // you asked — so the page went on attributing a freshly typed question
+    // to a risk alert that had nothing to do with it.
+    setHandoffLabel(undefined)
+    void launch(q)
   }
 
   // Arriving from "Ask why": fill the question in and start immediately. The
   // user already expressed intent by clicking the alert; making them press
-  // enter again would be asking twice. Guarded on the intent's question so a
-  // re-render or a second handoff can't re-trigger the same run.
+  // enter again would be asking twice.
+  //
+  // GUARDED ON THE CLICK, NOT ON THE SENTENCE. This compared
+  // `intent.question` until it was found that two hand-offs from the SAME
+  // alert compose the same sentence — so re-clicking an alert after typing
+  // over the box was read as "already ran this" and silently did nothing,
+  // leaving the previous question on screen under the new alert's chip.
+  // `intent.id` is minted per click (see lib/askWhy), so it distinguishes a
+  // genuine second hand-off from a re-render, which the text never could.
+  //
+  // THE ID IS PREFERRED, NOT REQUIRED. `location.state` outlives a deploy —
+  // a reload, or a step back through history, replays an intent composed by
+  // whatever version of the app pushed it. Demanding an id meant such an
+  // intent was skipped outright and its question never reached the field,
+  // while the chip beside it still named the alert. Falling back to the
+  // question restores the older, weaker de-duplication rather than none.
   const launchedIntentRef = useRef<string | undefined>(undefined)
+  const intentKey = intent?.id ?? intent?.question
   useEffect(() => {
-    if (!intent?.question || launchedIntentRef.current === intent.question) return
-    launchedIntentRef.current = intent.question
+    if (!intent?.question || !intentKey || launchedIntentRef.current === intentKey) return
+    launchedIntentRef.current = intentKey
     setQueryInput(intent.question)
     setHandoffLabel(intent.sourceLabel)
-    if (intent.autoRun) launch(intent.question)
+    if (intent.autoRun) void launch(intent.question, intent.scope)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intent?.question])
+  }, [intentKey])
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Investigations' }]
 
@@ -334,6 +485,10 @@ export function Investigations() {
   // Only ever the live run. Falling back to the static sample here made the
   // old hardcoded graph flash up while a real investigation was still running.
   const view = liveOrch
+  // The Cannibalization Agent's node shows the figure the agent computed rather
+  // than the one it wrote about — see cannibalizationNode.ts. Every other node
+  // passes through untouched.
+  const graphNodes = view ? bindCannibalizationNode(view.nodes, run?.result?.findings ?? []) : []
   const isAgentRun = Boolean(liveOrch)
   const running = run?.status === 'running'
 
@@ -419,59 +574,20 @@ export function Investigations() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Dropdown
-            selected={promo}
-            options={PROMO_OPTIONS.map((p) => ({ label: p }))}
-            onSelect={(val) => {
-              setPromo(val)
-              show(`Investigation context → ${val.split(' (')[0]}`)
-            }}
-            trigger={
-              <Button variant="secondary" className="cursor-pointer">
-                <Icon name="calendar" /> <span>{promo}</span> <Icon name="chevronDown" />
-              </Button>
-            }
-          />
-          <Dropdown
-            selected={period}
-            options={PERIOD_OPTIONS.map((p) => ({ label: p }))}
-            onSelect={(val) => {
-              setPeriod(val)
-              show(`Period → ${val}`)
-            }}
-            trigger={
-              <Button variant="secondary" className="cursor-pointer">
-                <span>{focus?.quarter ?? period}</span> <Icon name="chevronDown" />
-              </Button>
-            }
-          />
           <IconButton
             icon="arrowUpRight"
             title="Share"
             onClick={() =>
               confirm({
                 title: 'Share Investigation',
-                body: 'Send a read-only link with current filters and findings.',
-                primaryText: 'Copy Link & Share',
+                body: 'Copies this page’s link to your clipboard.',
+                primaryText: 'Copy Link',
                 icon: 'arrowUpRight',
-                // B8: this announced a share that never happened. Nothing is
-                // sent from here and no link is copied.
-                onConfirm: () => show('Sharing is not yet available', { duration: 3000 }),
+                onConfirm: () => {
+                  void copyShareLink()
+                },
               })
             }
-          />
-          <Dropdown
-            selected=""
-            // "Export to PDF" WAS HERE AND HAS BEEN REMOVED. Investigations is
-            // served from authored content in app/data/investigations.json, not
-            // from the validated KPI engine, so there is no authoritative result
-            // for a report to be generated from. Offering the item and answering
-            // with a toast advertised a capability this module cannot honestly
-            // provide; the modules that do have computed results carry the real
-            // Export Report control instead.
-            options={[{ label: 'Duplicate investigation' }, { label: 'Archive' }]}
-            onSelect={(val) => show(`${val} is not yet available`)}
-            trigger={<IconButton icon="more" title="More" />}
           />
         </div>
       </div>
@@ -523,20 +639,23 @@ export function Investigations() {
       )}
 
       {run?.status === 'done' && run.result && (
+        // THE SUMMARY TARGET. "View Insights Summary" scrolls here rather than
+        // opening a second rendering of the synthesis this card already shows.
+        <div className="scroll-mt-6">
         <Card className="fade-in mt-3.5">
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
-                <Icon name="sparkles" className="h-4 w-4 text-brand-violet" /> Agent Findings
+                <Icon name="sparkles" className="h-5 w-5 text-brand-violet" /> Agent Findings
               </span>
             }
             actions={<Pill tone="violet">{run.result.synthesis.confidence}% confidence</Pill>}
           />
           <div className="flex flex-col gap-2.5 p-5 pt-3.5">
-            <p className="text-[13.5px] leading-[1.6] text-ink-secondary">{run.result.synthesis.summary}</p>
+            <p className="text-[15px] leading-[1.65] text-ink-secondary">{run.result.synthesis.summary}</p>
             <div className="rounded-[var(--r-md)] border border-[rgba(124,92,255,0.2)] bg-brand-violet-50 p-[10px_14px]">
               <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">Root cause</div>
-              <div className="mt-1 text-[13px] font-semibold text-ink-primary">{run.result.synthesis.root_cause}</div>
+              <div className="mt-1 text-[15px] font-semibold text-ink-primary">{run.result.synthesis.root_cause}</div>
             </div>
             {run.result.synthesis.recommendations.length > 0 && (
               <div>
@@ -545,7 +664,7 @@ export function Investigations() {
                 </div>
                 <ul className="flex flex-col gap-1.5">
                   {run.result.synthesis.recommendations.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[12.5px] leading-[1.5] text-ink-secondary">
+                    <li key={i} className="flex items-start gap-2 text-[14px] leading-[1.55] text-ink-secondary">
                       <Icon name="checkCircle" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
                       <span>{r}</span>
                     </li>
@@ -555,10 +674,11 @@ export function Investigations() {
             )}
           </div>
         </Card>
+        </div>
       )}
 
       {!hasAsked ? (
-        <AskSomething types={types} onPick={(q) => { setQueryInput(q); launch(q) }} />
+        <AskSomething types={types} onPick={(q) => { setQueryInput(q); void launch(q) }} />
       ) : run?.status === 'done' && run.result && run.result.answerable === false ? (
         <OutOfScope
           question={run.question}
@@ -568,6 +688,17 @@ export function Investigations() {
             setHasAsked(false)
             setQueryInput('')
             setHandoffLabel(undefined)
+          }}
+        />
+      ) : launchError || run?.status === 'error' ? (
+        <FailedState
+          question={queryInput || activeQuestion}
+          // The launch failure if the request never started, otherwise the
+          // reason the backend recorded on the run itself.
+          message={launchError ?? run?.error ?? 'The investigation failed.'}
+          onRetry={() => {
+            const attempt = lastAttempt.current
+            if (attempt) void launch(attempt.question, attempt.scope)
           }}
         />
       ) : !view ? (
@@ -590,30 +721,41 @@ export function Investigations() {
             }
             actions={
               <div className="flex items-center gap-1.5">
-                <Dropdown
-                  selected={layout}
-                  options={LAYOUT_OPTIONS.map((o) => ({ label: o }))}
-                  onSelect={(val) => {
-                    setLayout(val)
-                    show(`Graph layout: ${val}`)
-                  }}
-                  trigger={
-                    <Button variant="ghost" size="sm" className="cursor-pointer">
-                      {layout} <Icon name="chevronDown" />
-                    </Button>
-                  }
+                {/* Names the arrangement on screen. Not a control: there is
+                    one layout, so a picker here would be a click target that
+                    could not change anything. */}
+                <span className="mr-1 text-[12px] font-semibold text-ink-muted">Radial</span>
+                {/* Zoom is clamped so the stage can never be scaled past the
+                    point where nodes leave it or become unreadable. */}
+                <IconButton
+                  icon="zoomOut"
+                  title="Zoom out"
+                  disabled={zoom <= 0.6}
+                  onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
                 />
-                <IconButton icon="zoomOut" title="Zoom out" onClick={() => show('Zoom: 80%')} />
-                <IconButton icon="expand" title="Fit" onClick={() => show('Fit to screen')} />
-                <IconButton icon="fullscreen" title="Fullscreen" onClick={() => show('Fullscreen mode')} />
+                <span className="min-w-[42px] text-center text-[12px] font-semibold tabular-nums text-ink-muted">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <IconButton
+                  icon="zoomIn"
+                  title="Zoom in"
+                  disabled={zoom >= 1.6}
+                  onClick={() => setZoom((z) => Math.min(1.6, Math.round((z + 0.1) * 10) / 10))}
+                />
+                <IconButton
+                  icon="expand"
+                  title="Fit — reset zoom"
+                  onClick={() => setZoom(1)}
+                />
               </div>
             }
           />
           <InvestigationGraph
             center={view.center}
-            nodes={view.nodes}
+            nodes={graphNodes}
             legend={legend}
             revealedKeys={revealedKeys}
+            zoom={zoom}
             onNodeClick={(node, el) => setPopover({ node, el })}
           />
         </Card>
@@ -631,16 +773,7 @@ export function Investigations() {
             <AccelList
               accelerators={runAccelerators ?? view.accelerators}
               statusOverride={runAccelState}
-              onSelect={(a) => show(`Opening "${a.name}" details...`)}
             />
-          </div>
-          <div className="border-t border-border-subtle px-5 py-3">
-            <button
-              onClick={() => show('Opening full accelerator catalog (16 available)')}
-              className="text-[13px] font-semibold text-brand-violet"
-            >
-              View All Accelerators →
-            </button>
           </div>
         </Card>
       </div>
@@ -649,7 +782,13 @@ export function Investigations() {
         pct={progress.pct}
         sub={progress.sub}
         insights={progress.insights}
-        sources={view.progress.sources}
+        // Rows the investigated SCOPE holds — see the note in
+        // agents/star_pipeline.py. Not the size of the dataset.
+        records={view.progress.sources}
+        // Disabled until there is a synthesis to reveal, rather than
+        // scrolling to an empty card.
+        canViewSummary={Boolean(run?.result?.synthesis)}
+        onViewSummary={() => navigate('/intelligence')}
       />
 
         </>

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Dropdown, IconButton, Pill, useToast } from '../components/ui'
+import { Dropdown, IconButton, ThemeToggle, useToast } from '../components/ui'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
 import { useDatasets } from '../hooks/useDatasets'
 import { HeroArt } from '../components/portal/HeroArt'
 import { ModuleGrid } from '../components/portal/ModuleGrid'
 import { ConnectorRail } from '../components/portal/ConnectorRail'
-import { AdvisorCard } from '../components/portal/AdvisorCard'
 import { INITIAL_CONNECTORS } from '../components/portal/connectors'
 import { UploadModal } from '../components/portal/modals/UploadModal'
 import { AzureModal } from '../components/portal/modals/AzureModal'
@@ -16,6 +15,12 @@ import { PowerBiModal } from '../components/portal/modals/PowerBiModal'
 import { NielsenModal } from '../components/portal/modals/NielsenModal'
 import { clearAzureConn, loadAzureConn, clearProxyConn } from '../lib/portalConnectors'
 import type { ConnectorSpecial, PortalConnector } from '../types/portal'
+
+// Connectors the portal does not offer. A DISPLAY choice and nothing more:
+// the catalog in components/portal/connectors.ts still carries them, their
+// modals and the /api/proxy endpoints behind them are untouched, and offering
+// one again means only removing its key from here.
+const HIDDEN_ON_HOME = new Set(['sap', 'niq'])
 
 const DISCONNECT_KIND: Record<ConnectorSpecial, string> = {
   azure: 'azure',
@@ -34,7 +39,9 @@ export function Home() {
   const logout = useLogout()
   const navigate = useNavigate()
   const { show } = useToast()
-  const [connectors, setConnectors] = useState<PortalConnector[]>(INITIAL_CONNECTORS)
+  const [connectors, setConnectors] = useState<PortalConnector[]>(() =>
+    INITIAL_CONNECTORS.filter((c) => !HIDDEN_ON_HOME.has(c.key)),
+  )
   const [modal, setModal] = useState<ConnectorSpecial | 'upload' | null>(null)
   const [uploadTarget, setUploadTarget] = useState<PortalConnector | null>(null)
 
@@ -112,9 +119,7 @@ export function Home() {
         </Link>
         <div className="flex-1" />
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <div className="hidden sm:block">
-            <Pill tone="violet">V1 · Local dev</Pill>
-          </div>
+          <ThemeToggle />
           <IconButton icon="bell" onClick={() => show('No notifications yet — this is a fresh workspace.')} title="Notifications" />
           <IconButton icon="help" onClick={() => show('Help center coming soon.')} title="Help" />
           <Dropdown
@@ -163,7 +168,6 @@ export function Home() {
                 setModal('upload')
               }}
             />
-            <AdvisorCard />
           </div>
         </div>
       </main>

@@ -127,6 +127,21 @@ export function FilterBar({
   const reset = useCommandFilters((s) => s.reset)
   const reconcile = useCommandFilters((s) => s.reconcile)
 
+  // THE PANEL IS AN OVERLAY NOW, so it needs a way out other than the button.
+  // ESCAPE ONLY, DELIBERATELY. Every control inside the panel is a `Dropdown`,
+  // and Dropdown PORTALS its menu to document.body — so a click on an option in
+  // an open filter menu lands outside this panel's DOM subtree, and a naive
+  // click-outside handler would close the panel out from under the selection
+  // being made. The trigger button still toggles it shut.
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') toggleExpanded()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [expanded, toggleExpanded])
+
   // Drop any selection the current scope no longer offers. Runs whenever the
   // options change; `reconcile` is a no-op when everything selected is still
   // available, so this cannot cycle. See the store for the termination
@@ -183,73 +198,83 @@ export function FilterBar({
           <FilterMulti label="Retailer" dimension="retailer" options={options.retailers} />
         )}
 
-        <Button
-          variant={expanded ? 'primary' : 'secondary'}
-          size="md"
-          className="cursor-pointer"
-          onClick={toggleExpanded}
-          aria-expanded={expanded}
-          aria-controls="cc-more-filters"
-        >
-          <Icon name="filter" />
-          <span>More Filters{activeCount > 0 ? ` (${activeCount})` : ''}</span>
-          <Icon name="chevronDown" className={expanded ? 'rotate-180 transition-transform' : 'transition-transform'} />
-        </Button>
+        {/* THE ANCHOR. `relative` gives the panel below a containing block,
+            so it opens under the button that owns it. Before this the panel
+            was a sibling of the whole toolbar inside FilterBar's fragment —
+            and since CommandCenter wraps FilterBar in `flex flex-wrap`, a
+            fragment's children become FLEX ITEMS of that row. The panel was
+            therefore laid out beside the toolbar rather than beneath it,
+            shrink-fitted to its content, and it stretched the header row to
+            its own height — which is where the empty band came from. */}
+        <div className="relative">
+          <Button
+            variant={expanded ? 'primary' : 'secondary'}
+            size="md"
+            className="cursor-pointer"
+            onClick={toggleExpanded}
+            aria-expanded={expanded}
+            aria-controls="cc-more-filters"
+          >
+            <Icon name="filter" />
+            <span>More Filters{activeCount > 0 ? ` (${activeCount})` : ''}</span>
+            <Icon name="chevronDown" className={expanded ? 'rotate-180 transition-transform' : 'transition-transform'} />
+          </Button>
+        {expanded && (
+          <div
+            id="cc-more-filters"
+            role="region"
+            aria-label="Additional filters"
+            className="panel-enter cc-filter-surface absolute right-0 top-full z-30 mt-2 w-[min(680px,calc(100vw-2rem))] max-h-[min(70vh,560px)] overflow-y-auto rounded-[var(--r-lg)] border border-border-subtle p-4 shadow-[var(--shadow-lg)]"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="text-[13px] font-bold text-ink-primary">Additional Filters</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="cursor-pointer !text-brand-violet"
+                onClick={reset}
+                aria-label="Clear all filters"
+              >
+                <Icon name="x" />
+                Clear all
+              </Button>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-[640px]:grid-cols-1">
+              <FilterSelect label="Month" allLabel="All Months" value={filters.month ? String(filters.month) : null}
+                options={options.months} onChange={(v) => set('month', v ? Number(v) : null)} size="sm" />
+              <FilterMulti label="Category" allLabel="All Categories" dimension="category"
+                options={toOptions(options.categories)} size="sm" />
+              <FilterMulti label="Brand" dimension="brand" options={toOptions(options.brands)} size="sm" />
+              <FilterSelect label="Product" value={one(filters.product)} options={options.products}
+                onChange={(v) => setList('product', v)} size="sm" />
+              <FilterSelect label="Offer" value={one(filters.promotion)} options={options.offers}
+                onChange={(v) => setList('promotion', v)} size="sm" />
+              {/* dim_promotion.Promotion_Type — its own dimension, cascading through
+                  the same option engine as everything else. */}
+              <FilterSelect label="Promotion Type" allLabel="All Promotion Types" value={one(filters.promotion_type)}
+                options={toOptions(options.promotion_types)} onChange={(v) => setList('promotion_type', v)} size="sm" />
+              <FilterSelect label="Region" value={one(filters.region)} options={toOptions(options.regions)}
+                onChange={(v) => setList('region', v)} size="sm" />
+              <FilterSelect label="State" value={one(filters.state)} options={toOptions(options.states)}
+                onChange={(v) => setList('state', v)} size="sm" />
+              <FilterSelect label="City" allLabel="All Cities" value={one(filters.city)} options={toOptions(options.cities)}
+                onChange={(v) => setList('city', v)} size="sm" />
+              <FilterSelect label="Tier" value={one(filters.tier)} options={toOptions(options.tiers)}
+                onChange={(v) => setList('tier', v)} size="sm" />
+              {options.distributors.length >= MIN_USEFUL_OPTIONS && (
+                <FilterSelect label="Distributor" value={one(filters.distributor)}
+                  options={toOptions(options.distributors)} onChange={(v) => setList('distributor', v)} size="sm" />
+              )}
+            </div>
+          </div>
+        )}
+        </div>
 
         <CurrencyToggle currency={currency} onChange={setCurrency} />
 
         <IconButton icon="refresh" className="!h-9 !w-9" title="Refresh data" spinning={refreshing} disabled={refreshing} onClick={onRefresh} />
       </div>
 
-      {expanded && (
-        <div
-          id="cc-more-filters"
-          role="region"
-          aria-label="Additional filters"
-          className="panel-enter cc-filter-surface mt-3 rounded-[var(--r-lg)] border border-border-subtle p-4 shadow-[var(--shadow-card-soft)]"
-        >
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-[13px] font-bold text-ink-primary">Additional Filters</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="cursor-pointer !text-brand-violet"
-              onClick={reset}
-              aria-label="Clear all filters"
-            >
-              <Icon name="x" />
-              Clear all
-            </Button>
-          </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-[640px]:grid-cols-1">
-            <FilterSelect label="Month" allLabel="All Months" value={filters.month ? String(filters.month) : null}
-              options={options.months} onChange={(v) => set('month', v ? Number(v) : null)} size="sm" />
-            <FilterMulti label="Category" allLabel="All Categories" dimension="category"
-              options={toOptions(options.categories)} size="sm" />
-            <FilterMulti label="Brand" dimension="brand" options={toOptions(options.brands)} size="sm" />
-            <FilterSelect label="Product" value={one(filters.product)} options={options.products}
-              onChange={(v) => setList('product', v)} size="sm" />
-            <FilterSelect label="Offer" value={one(filters.promotion)} options={options.offers}
-              onChange={(v) => setList('promotion', v)} size="sm" />
-            {/* dim_promotion.Promotion_Type — its own dimension, cascading through
-                the same option engine as everything else. */}
-            <FilterSelect label="Promotion Type" allLabel="All Promotion Types" value={one(filters.promotion_type)}
-              options={toOptions(options.promotion_types)} onChange={(v) => setList('promotion_type', v)} size="sm" />
-            <FilterSelect label="Region" value={one(filters.region)} options={toOptions(options.regions)}
-              onChange={(v) => setList('region', v)} size="sm" />
-            <FilterSelect label="State" value={one(filters.state)} options={toOptions(options.states)}
-              onChange={(v) => setList('state', v)} size="sm" />
-            <FilterSelect label="City" allLabel="All Cities" value={one(filters.city)} options={toOptions(options.cities)}
-              onChange={(v) => setList('city', v)} size="sm" />
-            <FilterSelect label="Tier" value={one(filters.tier)} options={toOptions(options.tiers)}
-              onChange={(v) => setList('tier', v)} size="sm" />
-            {options.distributors.length >= MIN_USEFUL_OPTIONS && (
-              <FilterSelect label="Distributor" value={one(filters.distributor)}
-                options={toOptions(options.distributors)} onChange={(v) => setList('distributor', v)} size="sm" />
-            )}
-          </div>
-        </div>
-      )}
     </>
   )
 }

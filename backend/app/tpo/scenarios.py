@@ -33,6 +33,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.tpo.response import APPROVED_DISCOUNT_PCT
+
 #: A scenario whose numbers came from the data, one nobody has run, or one an
 #: execution actually produced. "simulated" was added in B2.2 and ONLY because
 #: B2.2 genuinely executes scenarios -- app/tpo/execution.py sets it on the way
@@ -57,6 +59,17 @@ class ScenarioTemplate:
     sub_label: str
     kind: ScenarioKind
     status: ScenarioStatus
+    #: The approved treatment depth this scenario STARTS at, when it starts
+    #: somewhere other than the measured plan. None means "seed from what was
+    #: measured", which is where a what-if sensibly begins.
+    #:
+    #: This is the ONLY thing separating the two hypotheticals, and it is a
+    #: starting position rather than a claim: both scenarios offer the same
+    #: five approved treatments, both are worth nothing until they are run,
+    #: and neither is asserted to beat the other. Aggressive Growth simply
+    #: opens at the strongest depth the approved rules admit, so the two
+    #: cards answer different questions instead of being one card twice.
+    seed_discount_pct: float | None = None
 
 
 #: The three default scenarios. Their sub-labels deliberately say what the
@@ -74,15 +87,18 @@ DEFAULT_SCENARIOS: tuple[ScenarioTemplate, ...] = (
     ScenarioTemplate(
         id="optimized-plan",
         name="Optimized Plan",
-        sub_label="Configure levers",
+        sub_label="Starts at the measured depth",
         kind="hypothetical",
         status="not_simulated",
     ),
     ScenarioTemplate(
         id="aggressive-growth",
         name="Aggressive Growth",
-        sub_label="Configure levers",
+        sub_label="Starts at the deepest approved treatment",
         kind="hypothetical",
+        # Read from the approved rules, never written down here: if the
+        # approved treatment set ever changes, this follows it.
+        seed_discount_pct=max(APPROVED_DISCOUNT_PCT),
         status="not_simulated",
     ),
 )
@@ -119,6 +135,12 @@ def build(observed_levers: dict[str, Any], measured_result: dict[str, Any] | Non
     scenarios: list[dict[str, Any]] = []
     for template in DEFAULT_SCENARIOS:
         measured = template.kind == "measured"
+        levers = seed_levers(observed_levers)
+        # A hypothetical may open at an approved depth rather than at the
+        # measured one. Nothing else about it changes: no result, no status,
+        # no promise -- see ScenarioTemplate.seed_discount_pct.
+        if not measured and template.seed_discount_pct is not None:
+            levers["discount_pct"] = template.seed_discount_pct
         scenarios.append(
             {
                 "id": template.id,
@@ -127,7 +149,7 @@ def build(observed_levers: dict[str, Any], measured_result: dict[str, Any] | Non
                 "kind": template.kind,
                 "status": template.status,
                 # A separate dict per scenario. See the module docstring.
-                "levers": seed_levers(observed_levers),
+                "levers": levers,
                 "editable_levers": not measured,
                 "result": measured_result if measured else None,
                 "result_reason": None if measured else NOT_SIMULATED_REASON,

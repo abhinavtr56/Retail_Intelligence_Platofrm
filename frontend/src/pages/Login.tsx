@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Field, Input, Pill, useToast } from '../components/ui'
+import { Button, Field, Input, useToast } from '../components/ui'
 import { useCurrentUser, useLogin } from '../hooks/useAuth'
 import { ApiError } from '../lib/api'
 
@@ -86,10 +86,6 @@ export function Login() {
         </form>
 
         <div className="mt-5 border-t border-border-subtle pt-4 text-center text-[11.5px] leading-[1.6] text-ink-muted">
-          <Pill tone="violet" className="mb-2">
-            V1 · Local dev
-          </Pill>
-          <br />
           First sign-in creates your workspace — after that, your password is checked for real.
         </div>
       </div>
