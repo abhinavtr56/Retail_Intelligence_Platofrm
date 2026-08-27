@@ -1,23 +1,33 @@
 import { Link } from 'react-router-dom'
 import { Card } from '../ui'
-import { Icon } from '../../icons'
 import { toneClass } from './answerFormat'
 import { useStreamedAnswer } from './useStreamedAnswer'
-import type { IntelligenceAnswer } from '../../types/intelligence'
 
-// Ported from js/pages/intelligence.js's `.ai-answer-card` block. Source pills use our
-// own icon set with distinct tints rather than porting the 5 custom brand SVG marks
-// from brand-icons.js pixel-for-pixel — same "which systems fed this" information,
-// much less bespoke artwork for a decorative footer.
-const SOURCES: { label: string; icon: 'database' | 'barChart' | 'file' | 'shoppingCart' | 'history'; tint: string }[] = [
-  { label: 'SAP S/4HANA', icon: 'database', tint: '#0FAAFF' },
-  { label: 'NielsenIQ', icon: 'barChart', tint: '#000000' },
-  { label: 'DMS', icon: 'file', tint: '#F97316' },
-  { label: 'Retail Exec', icon: 'shoppingCart', tint: '#10B981' },
-  { label: 'Promotion History', icon: 'history', tint: 'var(--brand-violet)' },
-]
-
-export function AiAnswerCard({ question, answer, streamKey }: { question: string; answer: IntelligenceAnswer; streamKey: string }) {
+// Ported from js/pages/intelligence.js's `.ai-answer-card` block.
+//
+// THE SOURCE PILLS ARE GONE. Five enterprise systems — SAP S/4HANA, NielsenIQ,
+// DMS, Retail Exec, Promotion History — were listed under every answer as the
+// systems that fed it, and they were a hardcoded array in this file. This
+// analysis reads the project's star schema through the KPI engine; none of
+// those connectors is involved, and no provenance of that kind is recorded
+// anywhere in the response. The footer now names the specialist agents the RUN
+// reports, which is a fact the payload actually carries, and nothing when it
+// carries none.
+export function AiAnswerCard({
+  question,
+  answer,
+  specialists = [],
+  streamKey,
+}: {
+  question: string
+  /** Only what the analysis produced. The old `IntelligenceAnswer` shape also
+   *  required `sources` and `specialists` counts, which this card never
+   *  rendered and the caller therefore filled with invented numbers. */
+  answer: { summary: string; text: string }
+  /** Names of the agents that produced the answer, from the run. */
+  specialists?: string[]
+  streamKey: string
+}) {
   const { paragraphs, done } = useStreamedAnswer(answer.text, streamKey)
 
   return (
@@ -51,15 +61,13 @@ export function AiAnswerCard({ question, answer, streamKey }: { question: string
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle p-[12px_20px]">
-        {SOURCES.map((s) => (
+        {specialists.map((name) => (
           <span
-            key={s.label}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-card py-[3px] pl-1 pr-2.5 text-[11px] font-semibold text-ink-secondary shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            key={name}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-card py-[3px] px-2.5 text-[11px] font-semibold text-ink-secondary shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
-            <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px]" style={{ background: s.tint, color: 'white' }}>
-              <Icon name={s.icon} className="h-3 w-3" />
-            </span>
-            {s.label}
+            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-status-success" />
+            {name}
           </span>
         ))}
         <span className="flex-1" />

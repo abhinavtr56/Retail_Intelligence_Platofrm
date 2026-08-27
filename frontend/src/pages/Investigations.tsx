@@ -241,7 +241,31 @@ function OutOfScope({ question, reason, onReset }: { question: string; reason: s
 type AccelState = 'queued' | 'progress' | 'done'
 
 export function Investigations() {
-  const { activeType, activeQuestion, setActive } = useActiveInvestigationStore()
+  // THE WORKSPACE STATE LIVES IN THE STORE, NOT IN THIS COMPONENT.
+  //
+  // `runId`, `hasAsked`, the dataset and the hand-off chip were `useState`
+  // here, and React destroys those when the page unmounts. Navigating to
+  // Promotion Intelligence — which is what "View Insights Summary" does —
+  // unmounts it, so coming back showed the empty "ask something" prompt over
+  // a finished investigation that was still on the server. The run itself is
+  // untouched: the store carries its ID, and React Query still holds (or
+  // re-fetches) the run behind it. Nothing here re-runs anything.
+  const {
+    activeType,
+    activeQuestion,
+    setActive,
+    runId,
+    setRunId,
+    datasetId,
+    setDatasetId,
+    hasAsked,
+    beginRun,
+    clearRun,
+    handoffLabel,
+    setHandoffLabel,
+    intentKey: launchedIntentKey,
+    markIntent,
+  } = useActiveInvestigationStore()
   const { data: types } = useInvestigationTypes()
   const { data: legacy } = useLegacyInvestigation()
   const { show } = useToast()
@@ -252,9 +276,7 @@ export function Investigations() {
   // orchestration replaces the static per-archetype JSON below.
   const { data: datasets } = useDatasets()
   const startRun = useStartInvestigationRun()
-  const [runId, setRunId] = useState<string | undefined>(undefined)
-  const [datasetId, setDatasetId] = useState<string | undefined>(undefined)
-  const { data: run } = useInvestigationRun(runId)
+  const { data: run, error: runError } = useInvestigationRun(runId ?? undefined)
   // `undefined` means the built-in TPO star schema — the same data the Command
   // Center reports on, so both tabs agree. Uploads are the alternative source.
   const selectedDataset = datasets?.find((d) => d.id === datasetId)
@@ -271,9 +293,21 @@ export function Investigations() {
 
   // Nothing is rendered until the user actually asks something. Opening the
   // page from the sidebar used to show a hardcoded question and a sample graph
-  // — an answer to a question nobody asked.
-  const [hasAsked, setHasAsked] = useState(Boolean(intent))
-  const [handoffLabel, setHandoffLabel] = useState<string | undefined>(intent?.sourceLabel)
+  // — an answer to a question nobody asked. `hasAsked` is now store-backed, so
+  // that stays true of a FIRST visit without being true again every time the
+  // user comes back from another module.
+
+  // A RUN THE SERVER NO LONGER HAS IS NOT A RUNNING RUN. The store outlives
+  // the backend's 50-run window, so a restored id can 404. Left alone the page
+  // would sit on "Planning the investigation…" against a run that does not
+  // exist, so the pointer is dropped and the workspace returns to its prompt.
+  const vanished = runError instanceof ApiError && runError.status === 404
+  useEffect(() => {
+    if (!vanished) return
+    clearRun()
+    show('That investigation is no longer stored on the server — ask again to re-run it.', { duration: 4000 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vanished])
 
   const typeMeta = types?.find((t) => t.key === activeType) ?? types?.[0]
 
@@ -377,6 +411,16 @@ export function Investigations() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveOrch])
 
+  // WHAT THE WORKSPACE ACTUALLY HAS TO SHOW.
+  //
+  // `hasAsked` outlives the page now, and a launch that FAILED leaves it true
+  // with no run behind it — the failure message itself is local, so returning
+  // from another module would have shown the running spinner for ever against
+  // a request that died before this page was last unmounted. A workspace needs
+  // a run, a launch in flight, or a failure to explain; with none of the three
+  // the honest thing on screen is the prompt.
+  const showWorkspace = hasAsked && (Boolean(runId) || submitting || Boolean(launchError))
+
   const legend = legacy?.legend ?? []
 
   // Always a real agent run. Omitting dataset_id investigates the built-in
@@ -401,15 +445,14 @@ export function Investigations() {
   // `mutateAsync` resolves a plain promise, so the continuation below is an
   // ordinary closure that no subscription lifecycle can discard.
   const launch = async (q: string, scope?: Record<string, unknown>) => {
-    setRunId(undefined)
-    setHasAsked(true)
+    beginRun()
     setSubmitting(true)
     setLaunchError(null)
     lastAttempt.current = { question: q, scope }
     try {
       const started = await startRun.mutateAsync({
         question: q,
-        dataset_id: datasetId ?? null,
+        dataset_id: datasetId,
         scope: scope ?? null,
       })
       setSubmitting(false)
@@ -436,7 +479,7 @@ export function Investigations() {
     // alert this page arrived from, and it used to survive the next thing
     // you asked — so the page went on attributing a freshly typed question
     // to a risk alert that had nothing to do with it.
-    setHandoffLabel(undefined)
+    setHandoffLabel(null)
     void launch(q)
   }
 
@@ -458,11 +501,16 @@ export function Investigations() {
   // intent was skipped outright and its question never reached the field,
   // while the chip beside it still named the alert. Falling back to the
   // question restores the older, weaker de-duplication rather than none.
-  const launchedIntentRef = useRef<string | undefined>(undefined)
+  //  THE GUARD MUST OUTLIVE THIS COMPONENT. It was a `useRef`, which dies with
+  //  the page — and `location.state` does not. Leaving the workspace and
+  //  stepping back into it replays the same intent to a freshly mounted page
+  //  with an empty ref, so the hand-off read as new and re-ran the very
+  //  investigation the user had just come back to look at. The key is stored
+  //  beside the run it launched, so a replay is recognised for what it is.
   const intentKey = intent?.id ?? intent?.question
   useEffect(() => {
-    if (!intent?.question || !intentKey || launchedIntentRef.current === intentKey) return
-    launchedIntentRef.current = intentKey
+    if (!intent?.question || !intentKey || launchedIntentKey === intentKey) return
+    markIntent(intentKey)
     setQueryInput(intent.question)
     setHandoffLabel(intent.sourceLabel)
     if (intent.autoRun) void launch(intent.question, intent.scope)
@@ -561,7 +609,7 @@ export function Investigations() {
             Investigation Compression Engine
             {(() => {
               const count = (runAccelerators ?? view?.accelerators ?? []).length
-              if (!hasAsked) return ' · ask a question to begin'
+              if (!showWorkspace) return ' · ask a question to begin'
               if (!count) return ' · composing the specialist team…'
               return (
                 <>
@@ -616,7 +664,7 @@ export function Investigations() {
               value: d.id,
             })),
           ]}
-          onSelect={(val) => setDatasetId(val === 'star' ? undefined : val)}
+          onSelect={(val) => setDatasetId(val === 'star' ? null : val)}
           trigger={
             <Button variant="ghost" size="sm" className="cursor-pointer">
               {sourceLabel} <Icon name="chevronDown" />
@@ -677,17 +725,15 @@ export function Investigations() {
         </div>
       )}
 
-      {!hasAsked ? (
+      {!showWorkspace ? (
         <AskSomething types={types} onPick={(q) => { setQueryInput(q); void launch(q) }} />
       ) : run?.status === 'done' && run.result && run.result.answerable === false ? (
         <OutOfScope
           question={run.question}
           reason={run.result.refusal ?? ''}
           onReset={() => {
-            setRunId(undefined)
-            setHasAsked(false)
+            clearRun()
             setQueryInput('')
-            setHandoffLabel(undefined)
           }}
         />
       ) : launchError || run?.status === 'error' ? (

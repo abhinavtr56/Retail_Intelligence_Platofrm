@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Button, Card, CardBody, CardHeader, Dropdown, Input, Spinner, Table, Td, Th, Tr } from '../ui'
+import { Button, Card, CardBody, CardHeader, Dropdown, Input, Spinner, Table, Td, Th, Tr, useToast } from '../ui'
 import { InfoBlock, InfoPopover } from '../ui/InfoPopover'
 import { Icon } from '../../icons'
 import { Slider } from '../optimization/Slider'
@@ -9,6 +9,8 @@ import {
   useTargetRescueScope,
 } from '../../hooks/useTargetRescue'
 import { useTargetRescueStore } from '../../store/targetRescue'
+import { useDecisionCandidateStore } from '../../store/decisionCandidates'
+import { candidateFromRescue } from '../../lib/decisionCandidates'
 import type { FiltersResponse } from '../../types/commandCenter'
 import type {
   CadenceBlock,
@@ -618,6 +620,36 @@ function Result({
   )
 }
 
+/** Put the rung Target Rescue recommended on the Decision Center's board.
+ *
+ *  READ-ONLY OVER TARGET RESCUE. This adds a control and nothing else: the
+ *  target calculation, the ladder, the ranking rule that chose this rung and
+ *  every figure on it are untouched, and the candidate is a COPY of the
+ *  intervention this card is already displaying. Nothing here re-decides which
+ *  rung is recommended, and nothing recomputes its economics.
+ *
+ *  Absent when the engine recommended no intervention — there is no scenario
+ *  to add, and a button that adds nothing is worse than no button. */
+function AddRescueToDecisionCenter({ result }: { result: TargetRescueResponse }) {
+  const addCandidate = useDecisionCandidateStore((s) => s.add)
+  const { show } = useToast()
+  const intervention = result.recommendation?.intervention ?? null
+  if (!intervention) return null
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => {
+        const candidate = candidateFromRescue(result, intervention)
+        addCandidate(candidate)
+        show(`${candidate.name} added to Decision Center`, { duration: 3000 })
+      }}
+    >
+      <Icon name="plus" /> Add to Decision Center
+    </Button>
+  )
+}
+
 function RecommendationCard({
   result,
   onReview,
@@ -642,14 +674,17 @@ function RecommendationCard({
         title={status?.final ? 'Final Target Result' : 'Recommended Recovery'}
         subtitle={status?.action}
         actions={
-          rec?.ranking_basis ? (
-            <InfoPopover label="How this was chosen" title="Recommendation policy" width={340}>
-              <InfoBlock label="Ranking">{rec.ranking_basis}</InfoBlock>
-              <InfoBlock label="Decision rule">{result.provenance.decision_rule}</InfoBlock>
-              <InfoBlock label="Ceiling">{result.provenance.discount_ceiling}</InfoBlock>
-              <InfoBlock label="Clearance">{result.provenance.clearance_basis}</InfoBlock>
-            </InfoPopover>
-          ) : null
+          <div className="flex items-center gap-2">
+            <AddRescueToDecisionCenter result={result} />
+            {rec?.ranking_basis ? (
+              <InfoPopover label="How this was chosen" title="Recommendation policy" width={340}>
+                <InfoBlock label="Ranking">{rec.ranking_basis}</InfoBlock>
+                <InfoBlock label="Decision rule">{result.provenance.decision_rule}</InfoBlock>
+                <InfoBlock label="Ceiling">{result.provenance.discount_ceiling}</InfoBlock>
+                <InfoBlock label="Clearance">{result.provenance.clearance_basis}</InfoBlock>
+              </InfoPopover>
+            ) : null}
+          </div>
         }
       />
       <CardBody>

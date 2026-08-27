@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { useNav } from '../../hooks/useNav'
 import { useCurrentUser, useLogout } from '../../hooks/useAuth'
-import { useSidebarStore } from '../../store/sidebar'
 import { Icon, type IconName } from '../../icons'
 import { Dropdown } from '../ui'
 
@@ -78,15 +77,15 @@ export function Sidebar({
     else if (value === 'signout') logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
   }
 
-  const pinned = useSidebarStore((s) => s.pinned)
-  const togglePinned = useSidebarStore((s) => s.togglePinned)
-
   // Transient, and deliberately not in the store: a hover belongs to one mounted
   // rail and would be meaningless restored from a previous visit.
   const [hovered, setHovered] = useState(false)
 
-  // At `md` and up this drives the rail's WIDTH.
-  const expanded = pinned || hovered
+  // THE RAIL EXPANDS ON HOVER AND ONLY ON HOVER. It used to also latch open
+  // through a "Keep open" / "Unpin" toggle at the top of the rail; that control
+  // is gone, and with it the stored preference behind it — a rail that widens
+  // under the pointer and narrows again needs no setting to explain it.
+  const expanded = hovered
   // And this drives the LABELS, which is not the same question. Below `md` the
   // drawer is always full width, so an open drawer must show its labels whether
   // or not the rail would have been expanded -- otherwise the phone gets a 224px
@@ -117,14 +116,10 @@ export function Sidebar({
           // md+: always on screen, width driven by the expanded state.
           'md:translate-x-0',
           expanded ? 'md:w-[var(--sidebar-w)]' : 'md:w-[var(--sidebar-rail-w)]',
-          // THE SHADOW MARKS AN OVERLAY, and follows exactly when the rail is
-          // floating over the content rather than sitting beside it:
-          //   * hover-expanded at any width -> always an overlay;
-          //   * pinned between md and lg    -> still an overlay, because the
-          //     content keeps its rail inset there (see AppShell);
-          //   * pinned at lg and up         -> part of the layout, so no shadow.
-          expanded && !pinned ? 'md:shadow-[var(--shadow-lg)]' : '',
-          expanded && pinned ? 'md:shadow-[var(--shadow-lg)] lg:shadow-none' : '',
+          // THE SHADOW MARKS AN OVERLAY. The expanded rail now always floats
+          // over the content — the content keeps its rail inset at every width
+          // (see AppShell) — so the shadow follows the expansion exactly.
+          expanded ? 'md:shadow-[var(--shadow-lg)]' : '',
           'transition-[transform,width] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
         ].join(' ')}
       >
@@ -147,38 +142,6 @@ export function Sidebar({
               TPO Intelligence
             </span>
           </Reveal>
-        </div>
-
-        {/* ---- pin / lock -------------------------------------------------- */}
-        {/* PRESENT AT BOTH WIDTHS. It shares the nav rows' icon column so it sits
-            on the same vertical line as everything below it rather than looking
-            bolted on, and the chevron points the way the rail would move. Hidden
-            below `md`, where there is no rail to pin. */}
-        <div className="hidden shrink-0 border-b border-white/[0.06] px-3 py-2 md:block">
-          <button
-            type="button"
-            onClick={togglePinned}
-            aria-pressed={pinned}
-            title={pinned ? 'Unpin navigation — collapse to a rail' : 'Pin navigation open'}
-            aria-label={pinned ? 'Unpin navigation, collapse to a rail' : 'Pin navigation open'}
-            className={[
-              'flex h-9 w-full cursor-pointer items-center gap-3 overflow-hidden rounded-[var(--r-md)]',
-              'border-none bg-transparent px-2.5 text-left text-[12.5px] font-medium',
-              'text-sidebar-brand-sub transition-colors duration-150',
-              'hover:bg-white/[0.06] hover:text-sidebar-item-hover',
-              'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--brand-violet)]',
-            ].join(' ')}
-          >
-            <span className="grid h-5 w-5 shrink-0 place-items-center">
-              <Icon
-                name={pinned ? 'chevronLeft' : 'chevronRight'}
-                className="h-4 w-4 stroke-[1.8]"
-              />
-            </span>
-            <Reveal expanded={labelled} className="min-w-0 flex-1">
-              <span className="block truncate">{pinned ? 'Unpin' : 'Keep open'}</span>
-            </Reveal>
-          </button>
         </div>
 
         {/* ---- navigation -------------------------------------------------- */}

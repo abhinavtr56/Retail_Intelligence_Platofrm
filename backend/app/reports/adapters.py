@@ -917,6 +917,7 @@ def decision_center(state: FilterState, currency: str, options: dict[str, Any]) 
     Either way this adapter decides nothing about approval -- it prints what the
     record says, and the record says this project has no approval criteria.
     """
+    board = options.get("comparison_board")
     assembled = options.get("decision_record")
     if isinstance(assembled, dict) and assembled.get("expected_impact") is not None:
         record = assembled
@@ -925,6 +926,16 @@ def decision_center(state: FilterState, currency: str, options: dict[str, Any]) 
         required = ("context", "simulation", "recommendation", "risk")
         missing = [k for k in required if not payloads.get(k)]
         if missing:
+            # A COMPARISON IS A REPORTABLE THING ON ITS OWN.
+            #
+            # Decision Center now holds several candidate scenarios, and only
+            # those from Simulation Studio can become a governed record -- the
+            # optimizer, Target Rescue and the measured plan produce none of the
+            # four payloads `build_record` needs. Refusing to export the board
+            # because of that would mean the comparison the user is actually
+            # looking at is the one thing they cannot take away.
+            if isinstance(board, dict) and board.get("scenarios"):
+                return _comparison_only_doc(state, currency, board)
             raise ValueError(
                 "A decision record needs the Simulation Studio results it is assembled "
                 f"from. Missing: {', '.join(missing)}. Open the decision in Decision "
@@ -961,7 +972,109 @@ def decision_center(state: FilterState, currency: str, options: dict[str, Any]) 
         ),
     )
     doc.sections = _decision_sections(record, options)
+    # The board travels WITH the record when both exist: the record says what
+    # is being decided, the comparison says what it was chosen over.
+    if isinstance(board, dict) and board.get("scenarios"):
+        doc.sections = doc.sections + _comparison_sections(board)
     return doc
+
+
+def _comparison_only_doc(state: FilterState, currency: str, board: dict[str, Any]) -> ReportDoc:
+    """The candidate board on its own, when no governed record exists for it."""
+    doc = ReportDoc(
+        module="Decision Center",
+        title="Scenario Comparison",
+        generated_at="", generated_display="",
+        scope_line=scope_line(state),
+        filters=filter_rows(state),
+        meta=base_meta(
+            state, currency,
+            "Compared in Decision Center from results each module computed. Every figure is "
+            "the one its own engine produced and is reprinted here unchanged; the ranking is "
+            "the Decision Center's own deterministic rule, stated with the result.",
+        ),
+        disclaimers=(
+            "Generated from the selected TPO Intelligence view and its authoritative "
+            "calculation results.",
+            "This is a comparison of candidate scenarios, not an approved decision, and it "
+            "implies no approval.",
+            "Simulated values are scenario estimates and are not historical actuals.",
+        ),
+    )
+    doc.sections = _comparison_sections(board)
+    return doc
+
+
+def _comparison_sections(board: dict[str, Any]) -> tuple[Section, ...]:
+    """Print the board exactly as the screen shows it.
+
+    NOTHING IS RECOMPUTED HERE, and nothing is filled in. Each scenario carries
+    the display strings its own module formatted; a metric a module does not
+    produce arrives as an empty cell and stays empty, because the alternative --
+    a zero -- would read as a measurement.
+    """
+    sections: list[Section] = []
+    scenarios = [s for s in board.get("scenarios") or [] if isinstance(s, dict)]
+    labels = [str(x) for x in (board.get("metric_labels") or [])]
+
+    sections.append(Section(
+        "Scenarios compared", "table",
+        table=Table(
+            columns=(
+                Column("name", "Scenario"),
+                Column("source", "Source"),
+                Column("scope", "Scope"),
+                Column("plan", "Plan"),
+            ),
+            rows=tuple(
+                {
+                    "name": _text(s.get("name")),
+                    "source": _text(s.get("source")),
+                    "scope": _text(s.get("scope")),
+                    "plan": _text(s.get("plan")),
+                }
+                for s in scenarios
+            ),
+        ),
+    ))
+
+    if labels and scenarios:
+        # One column per scenario, one row per metric -- the shape on screen.
+        columns = [Column("metric", "Metric")]
+        for index, s in enumerate(scenarios):
+            columns.append(Column(f"s{index}", _text(s.get("name"))))
+        rows = []
+        for label in labels:
+            row: dict[str, Any] = {"metric": label}
+            for index, s in enumerate(scenarios):
+                metrics = s.get("metrics") or {}
+                row[f"s{index}"] = _text(metrics.get(label))
+            rows.append(row)
+        sections.append(Section("Comparison", "table", table=Table(columns=tuple(columns), rows=tuple(rows))))
+
+    recommendation = board.get("recommendation") or {}
+    if recommendation:
+        kv: list[tuple[str, str]] = []
+        if recommendation.get("name"):
+            kv.append(("Recommended scenario", _text(recommendation.get("name"))))
+            kv.append(("Source", _text(recommendation.get("source"))))
+            kv.append(("Points", _text(recommendation.get("points"))))
+            if recommendation.get("tie_break"):
+                kv.append(("Tie-break", _text(recommendation.get("tie_break"))))
+        else:
+            kv.append(("Recommended scenario", "None"))
+            kv.append(("Why not", _text(recommendation.get("blocked"))))
+        kv.append(("Ranking rule", _text(recommendation.get("rule"))))
+        kv.append(("Method", "Deterministic ranking in the Decision Center. No model was called."))
+        sections.append(Section("Recommendation", "kv", tuple(kv)))
+
+    why = board.get("why") or {}
+    lines = [(f"Leads on", str(x)) for x in (why.get("strengths") or [])]
+    lines += [(f"Does not lead on", str(x)) for x in (why.get("caveats") or [])]
+    if lines:
+        sections.append(Section("Why this plan is recommended", "kv", tuple(lines)))
+
+    return tuple(sections)
 
 
 def _text(value: Any) -> str:

@@ -36,7 +36,9 @@ import {
   fmtCr,
   fmtPct,
 } from '../components/promotionIntelligence/panels'
-import type { InvestigationContext, Recommendation } from '../types/promotionIntelligence'
+import { proposedDiscountPct, useIntelligenceHandoffStore } from '../store/intelligenceHandoff'
+import { useGeneralOptimizationStore } from '../store/generalOptimization'
+import type { InvestigationContext, KeyInsight, Recommendation } from '../types/promotionIntelligence'
 
 const TABS = [
   { key: '0', label: 'Synthesis' },
@@ -76,6 +78,40 @@ function describeScope(scope: Record<string, unknown>): string {
   if (month >= 1 && month <= 12) parts.push(MONTHS[month])
   if (scope.year) parts.push(`F${String(scope.year).slice(2)}`)
   return parts.length ? parts.join(' · ') : 'whole business'
+}
+
+/** Cannibalisation does not appear on this page.
+ *
+ *  THE KPI CARD WAS ONLY HALF OF IT. Removing the card left the Advisor still
+ *  reading `cannibalization_rate` from the facts payload, so it kept writing a
+ *  key insight about it — "High cannibalization rate · the cannibalization rate
+ *  increased to 11.3%" rendered as a card on Synthesis, which is the same
+ *  metric the card was removed for, one component further down.
+ *
+ *  A DISPLAY FILTER, AND ONLY THAT. The analysis is not altered: the insight
+ *  stays in the stored result, the Advisor still produces it, the facts payload
+ *  still carries the rate, and every backend calculation — the Cannibalization
+ *  Agent, its graph node, the RCA finding, the KPI engine — is untouched. This
+ *  page simply does not render it. Cannibalisation is measured by another
+ *  specialist and reported where that specialist reports: in the investigation.
+ *
+ *  MATCHED ON THE STEM, NOT ON A SENTENCE. `KeyInsight` carries no category or
+ *  type field to key off (see types/promotionIntelligence.ts), so the subject
+ *  has to be read from the text — and the text is written fresh by a model on
+ *  every run, so today's exact wording is not something to depend on. The stem
+ *  covers both spellings and every inflection the Advisor has produced or
+ *  might: "High cannibalization rate", "Cannibalization increased",
+ *  "Potential cannibalisation", "cannibalized volume". It is also specific:
+ *  nothing about "loss", "risk", "sales" or "performance" matches it, so an
+ *  insight on another subject is never caught by accident.
+ *
+ *  ALL THREE RENDERED FIELDS ARE READ. A card shows its title, its impact line
+ *  and its detail; the rate quoted in any one of them would be the figure this
+ *  page is not reporting, whatever the heading above it says. */
+const CANNIBALIZATION = /cannibali[sz]/i
+
+function withoutCannibalization(insights: KeyInsight[]): KeyInsight[] {
+  return insights.filter((i) => !CANNIBALIZATION.test(`${i.title} ${i.impact} ${i.detail}`))
 }
 
 function SectionLoading({ loading }: { loading: boolean }) {
@@ -228,9 +264,14 @@ export function Intelligence() {
   const extraSection = EXTRA_SECTION[tab] ?? null
   const { data: extra, isLoading: extraLoading } = useFactSection(scope, extraSection)
 
+  const carryHandoff = useIntelligenceHandoffStore((s) => s.carry)
+  const setSimulationMode = useGeneralOptimizationStore((s) => s.setMode)
+
   const startAnalysis = useStartIntelligenceAnalysis()
   const { data: run } = useIntelligenceRun(runId)
   const analysis = run?.status === 'done' ? run.result?.analysis : undefined
+  // See withoutCannibalization above — a display filter, nothing else.
+  const keyInsights = analysis ? withoutCannibalization(analysis.key_insights) : []
   const result = run?.status === 'done' ? run.result : undefined
   const analysing = run?.status === 'running' || startAnalysis.isPending
 
@@ -249,12 +290,42 @@ export function Intelligence() {
     )
   }
 
-  const openInSimulation = (r: Recommendation) => {
-    // Simulation Studio can't take parameters yet — say so rather than
-    // pretending the handoff works.
-    show(`Simulation Studio doesn't accept parameters yet · ${r.simulation.lever}: ${r.simulation.proposed_value}`, {
-      duration: 4000,
+  /** Open the Simulation Studio on THIS investigation, carrying whatever the
+   *  page actually knows.
+   *
+   *  Both entry points come through here — a recommendation's "Go Deeper" and
+   *  the header's plain "Proceed to Simulation" — because both mean the same
+   *  thing: simulate the population this investigation is about. The only
+   *  difference is whether a recommendation travels with it.
+   *
+   *  THE MODE IS SET, NOT ASSUMED. Simulation Studio's three modes share one
+   *  route and one page, and the studio remembers the last one selected for
+   *  the sitting. Arriving from here must land on Investigation Simulation —
+   *  General Optimization and Target Rescue scope themselves from their own
+   *  controls and would silently ignore everything carried across. */
+  const openInSimulation = (r: Recommendation | null) => {
+    if (!investigation) return
+    carryHandoff({
+      investigationRunId: investigation.run_id,
+      intelligenceRunId: run?.id ?? null,
+      question: investigation.question,
+      scope: investigation.scope,
+      scopeLabel: describeScope(investigation.scope),
+      rootCause: investigation.root_cause,
+      recommendation: r,
+      // Null unless the recommendation names exactly one depth on the lever
+      // the studio models — see proposedDiscountPct. The studio says which of
+      // the two happened rather than leaving a pre-set value unexplained.
+      proposedDiscountPct: r ? proposedDiscountPct(r.simulation) : null,
+      at: Date.now(),
     })
+    setSimulationMode('investigation')
+    show(
+      r
+        ? `Opening Simulation Studio on this recommendation · ${describeScope(investigation.scope)}`
+        : `Opening Simulation Studio on this investigation · ${describeScope(investigation.scope)}`,
+      { duration: 3000 },
+    )
     navigate('/simulation')
   }
 
@@ -304,7 +375,7 @@ export function Intelligence() {
             <Icon name={analysing ? 'clock' : 'sparkles'} />{' '}
             {analysing ? 'Analysing…' : result ? 'Re-run analysis' : 'Go deeper'}
           </Button>
-          <Button variant="primary" onClick={() => navigate('/simulation')}>
+          <Button variant="primary" onClick={() => openInSimulation(null)}>
             <Icon name="flow" /> Proceed to Simulation
           </Button>
         </div>
@@ -321,11 +392,28 @@ export function Intelligence() {
       />
 
       {/* Scope KPIs — the investigation's own numbers, not a portfolio dashboard */}
+      {/* THREE CARDS, NOT FOUR. The fourth was Cannibalisation, and it is gone
+          from THIS page only: the Cannibalization Agent, its node on the
+          investigation graph, the RCA findings it produces and every backend
+          calculation behind it are untouched. Promotion Intelligence explains
+          the mechanism behind the investigation's root cause and what the
+          scope is worth — a portfolio effect measured by another agent sat
+          here as a headline KPI of this one. */}
       {facts && k && (
-        <div className="mt-3.5 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
+        <div className="mt-3.5 grid grid-cols-3 gap-3 max-[900px]:grid-cols-2">
           {[
             { label: 'Trade Spend in scope', value: fmtCr(k.trade_spend), sub: describeScope(investigation.scope) },
-            { label: 'Incremental Sales', value: fmtCr(k.incremental_sales), sub: 'target is 1.5× spend' },
+            {
+              label: 'Incremental Sales',
+              value: fmtCr(k.incremental_sales),
+              // DERIVED FROM THE TARGET THE RESPONSE CARRIES, not the literal
+              // "1.5× spend" that stood here. Inverting ROI = (incremental −
+              // spend) / spend gives target incremental = spend × (1 +
+              // target/100), which is 1.5× only while the target is 50%. The
+              // sentence now moves with the configured hurdle instead of
+              // quietly contradicting it.
+              sub: `target is ${Math.round((1 + facts.target_roi_pct / 100) * 100) / 100}× spend`,
+            },
             {
               label: 'Promotion ROI',
               value: fmtPct(roi),
@@ -334,11 +422,6 @@ export function Intelligence() {
                   ? `${gapToTarget} pp below target`
                   : `target ${facts.target_roi_pct}%`,
               danger: belowTarget,
-            },
-            {
-              label: 'Cannibalisation',
-              value: fmtPct(k.cannibalization_rate),
-              sub: 'share of lift taken from other SKUs',
             },
           ].map((c) => (
             <div key={c.label} className="rounded-[var(--r-lg)] border border-border-subtle bg-surface-card p-[12px_15px]">
@@ -400,15 +483,16 @@ export function Intelligence() {
               <>
                 <AiAnswerCard
                   question={investigation.question}
-                  answer={{
-                    sources: 205920,
-                    specialists: 2,
-                    summary: analysis.headline,
-                    text: analysis.narrative,
-                  }}
+                  answer={{ summary: analysis.headline, text: analysis.narrative }}
+                  // The agents that actually produced this answer, named by the
+                  // run itself. The card used to list five enterprise systems
+                  // and a 205,920-row source count, both written here as
+                  // constants: no such provenance is recorded anywhere, and
+                  // the analysis reads the star schema through the KPI engine.
+                  specialists={(run?.specialists ?? []).map((sp) => sp.name)}
                   streamKey={run?.id ?? 'none'}
                 />
-                {analysis.key_insights.length > 0 && <KeyInsightsGrid insights={analysis.key_insights} />}
+                {keyInsights.length > 0 && <KeyInsightsGrid insights={keyInsights} />}
               </>
             ) : (
               <Card className="fade-in">

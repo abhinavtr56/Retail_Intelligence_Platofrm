@@ -19,6 +19,14 @@ import { useCommandFilters, type CommandFilters } from '../store/commandFilters'
 import { useScenarioStore } from '../store/simulationScenarios'
 import { useDecisionDraftStore, draftSignature } from '../store/decisionDraft'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
+import { filtersFromScope, useIntelligenceHandoffStore } from '../store/intelligenceHandoff'
+import { useDecisionCandidateStore } from '../store/decisionCandidates'
+import {
+  candidateFromCurrentPlan,
+  candidateFromSimulation,
+  scopeLabelFromContext,
+} from '../lib/decisionCandidates'
+import { RecommendationHandoffCard } from '../components/simulation/RecommendationHandoffCard'
 import { useSavedRefsStore } from '../store/savedRefs'
 import { useSaveScenario } from '../hooks/useStore'
 import { ActiveInvBanner } from '../components/investigations/ActiveInvBanner'
@@ -27,7 +35,6 @@ import { ScenarioRow } from '../components/simulation/ScenarioRow'
 import { CurrentPlanPanel } from '../components/simulation/CurrentPlanPanel'
 import { ComparisonTable } from '../components/simulation/ComparisonTable'
 import { RecommendationPanel } from '../components/simulation/RecommendationPanel'
-import { WeeklyImpactPanel } from '../components/simulation/WeeklyImpactPanel'
 import { RiskPanel, RiskEmptyState } from '../components/simulation/RiskPanel'
 import { LeverPanel } from '../components/simulation/LeverPanel'
 import { ScenarioResultPanel, NotSimulatedPanel } from '../components/simulation/ScenarioResultPanel'
@@ -90,7 +97,18 @@ export function Simulation() {
 
   const commandFilters = useCommandFilters((s) => s.filters)
   const currency = useCommandFilters((s) => s.currency)
-  const filters = investigationScope?.filters ?? commandFilters
+
+  // A THIRD ENTRY PATH: Promotion Intelligence -> "Go Deeper".
+  //
+  // It resolves its scope exactly like the other two — one FilterState, sent
+  // verbatim to /run and /simulate — and it takes precedence while it is set
+  // because it is the most recent thing the user asked for. The investigation
+  // being deepened is what the studio must model; the Command Center's current
+  // selection is what the user was looking at some time before that.
+  const handoff = useIntelligenceHandoffStore((s) => s.handoff)
+  const clearHandoff = useIntelligenceHandoffStore((s) => s.clear)
+  const handoffFilters = useMemo(() => (handoff ? filtersFromScope(handoff.scope) : null), [handoff])
+  const filters = handoffFilters ?? investigationScope?.filters ?? commandFilters
 
   const { show } = useToast()
   const live = useLiveStatus()
@@ -126,15 +144,27 @@ export function Simulation() {
     // The investigation context alongside it: who is asking, and about what.
     // It carries NO KPI value — every figure on this page still comes from
     // /run and /simulate through the validated engine.
-    context.mutate(
-      toInvestigationContextRequest(
-        filters,
-        { activeType, activeQuestion, list },
-        // B10: the durable investigation id, once one has been minted. Before
-        // the first save it is null and B3.1's honest gap stands.
-        useSavedRefsStore.getState().investigationId,
-      ),
+    const contextRequest = toInvestigationContextRequest(
+      filters,
+      { activeType, activeQuestion, list },
+      // B10: the durable investigation id, once one has been minted. Before
+      // the first save it is null and B3.1's honest gap stands.
+      useSavedRefsStore.getState().investigationId,
     )
+    // ARRIVING FROM PROMOTION INTELLIGENCE, THE QUESTION IS NOT A GUESS.
+    //
+    // `investigation_started` exists because the store seeds itself with an
+    // example question, and the backend refuses to report a seeded sentence as
+    // the user's own (see toInvestigationContextRequest). A hand-off is the one
+    // case where that doubt is settled: the question belongs to a COMPLETED run
+    // on the server, which is what the user clicked "Go Deeper" on. Without
+    // this the banner said "No investigation question yet" directly beneath a
+    // card quoting that very question.
+    if (handoff) {
+      contextRequest.question = handoff.question
+      contextRequest.investigation_started = true
+    }
+    context.mutate(contextRequest)
     // The guard must NOT survive this effect being torn down. React's
     // StrictMode mounts, unmounts and remounts on the first mount, and
     // react-query drops a mutation's observer on unsubscribe without ever
@@ -345,15 +375,22 @@ export function Simulation() {
     )
   }
 
-  const openDecisionCenter = () => {
+  /** The decision draft for the ACTIVE scenario, or null when the four
+   *  payloads a record needs are not all here yet.
+   *
+   *  One builder, two callers: "Open Decision Center" carries it and navigates,
+   *  "Add to Decision Center" attaches it to the candidate and stays put. They
+   *  were one inline object literal, and a second hand-written copy is a second
+   *  chance to drop `comparison` or `baseline` from one of them. */
+  const buildDecisionDraft = () => {
     if (
       !currentSignature || !active0?.simulation || !context.data ||
       !recommendation.data || !risk.data
     ) {
-      return
+      return null
     }
     // Results only. Nothing is recomputed, and no economics travel with it.
-    carryDecision({
+    return {
       signature: currentSignature,
       scenarioId: active0.id,
       scenarioName: active0.name,
@@ -369,9 +406,65 @@ export function Simulation() {
       // a stand-in.
       comparison: compare.data ?? null,
       baseline: run.data ?? null,
-    })
+    }
+  }
+
+  const openDecisionCenter = () => {
+    const draft = buildDecisionDraft()
+    if (!draft) return
+    carryDecision(draft)
     navigate('/decision')
   }
+
+  /** The scope this studio is simulating, in the words its own context block
+   *  uses. Not composed from the filter object — the backend already wrote this
+   *  sentence, and a second phrasing of the same scope is a second answer. */
+  const scopeLabel = run.data ? scopeLabelFromContext(run.data.context) : 'Whole business'
+
+  const addCandidate = useDecisionCandidateStore((s) => s.add)
+
+  /** WHAT "ADD" ADDS, and why it does not navigate.
+   *
+   *  The Decision Center compares scenarios, so putting one there must not end
+   *  the sitting that produced it — the point is to run a second treatment and
+   *  add that too. The scenario travels as a COPY of the result this page is
+   *  already showing: the same KPI bands at the same depth, with the risk
+   *  assessment that was run against it and, when all four payloads exist, the
+   *  decision draft the record view assembles from. Nothing is recomputed
+   *  there, so the figures cannot drift from the ones on screen here. */
+  const addToDecisionCenter = () => {
+    // `active0` is the selected scenario; the render below falls back to the
+    // first when the id matches nothing, and this follows it rather than
+    // adding a scenario the user is not looking at.
+    const target = active0 ?? scenarios[0]
+    if (!target) return
+    if (target.kind === 'measured') {
+      if (!run.data) return
+      addCandidate(candidateFromCurrentPlan(run.data, scopeLabel))
+      show(`${target.name} added to Decision Center`, { duration: 3000 })
+      return
+    }
+    if (!target.simulation) return
+    addCandidate(
+      candidateFromSimulation({
+        scenarioId: target.id,
+        name: target.name,
+        simulation: target.simulation,
+        // The assessment for THIS scenario only. `risk.data` lags a scenario
+        // switch by one round trip, and attaching another scenario's findings
+        // would be the worst kind of wrong number on that card.
+        risk: risk.data?.scenario_id === target.id ? risk.data : null,
+        scopeLabel,
+        draft: buildDecisionDraft(),
+      }),
+    )
+    show(`${target.name} added to Decision Center`, { duration: 3000 })
+  }
+
+  const addTarget = active0 ?? scenarios[0]
+  const canAddCandidate = Boolean(
+    addTarget && (addTarget.kind === 'measured' ? run.data : addTarget.simulation),
+  )
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Simulation Studio' }]
   const result = run.data
@@ -394,6 +487,43 @@ export function Simulation() {
       .find((d) => d.key === 'discount_pct')
       ?.approved_points?.some((p) => Math.abs(p.discount_pct - (active?.levers.discount_pct ?? NaN)) < 1e-9),
   )
+
+  // WHAT THE HAND-OFF COULD ACTUALLY PRE-SET, and the sentence that says so.
+  //
+  // Discount is the one MODELLED lever and it accepts only approved treatment
+  // depths, so a recommendation can pre-select a control in exactly one case:
+  // its lever is discount depth and the depth it names is approved. Every
+  // other case leaves the levers untouched — a duration invented to fill a
+  // slider, or a depth rounded to the nearest approved point, would read as
+  // advice the Advisor never gave.
+  const approvedPoints = definitions.find((d) => d.key === 'discount_pct')?.approved_points ?? []
+  const proposed = handoff?.proposedDiscountPct ?? null
+  const proposedApproved =
+    proposed == null ? null : (approvedPoints.find((p) => Math.abs(p.discount_pct - proposed) < 1e-9) ?? null)
+  const presetTarget = scenarios.find((s) => s.kind !== 'measured') ?? null
+
+  const appliedHandoff = useRef<string | null>(null)
+  useEffect(() => {
+    if (!handoff || !result || !proposedApproved || !presetTarget) return
+    // Once per hand-off per scope. A reseed (new scope, or Recalculate) drops
+    // the scenario the depth was set on, so the key carries both.
+    const key = `${handoff.at}:${scopeKey}`
+    if (appliedHandoff.current === key) return
+    appliedHandoff.current = key
+    select(presetTarget.id)
+    setLever(presetTarget.id, 'discount_pct', proposedApproved.discount_pct)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff, result, proposedApproved?.discount_pct, presetTarget?.id, scopeKey])
+
+  const leverNote = !handoff
+    ? ''
+    : !handoff.recommendation
+      ? "Opened on this investigation's scope. No recommendation was carried, so every lever is at its measured default."
+      : proposed == null
+        ? `This recommendation moves ${handoff.recommendation.simulation.lever.replace(/_/g, ' ')}, which the studio does not model as a lever — the discount, duration and spend controls are at their defaults. Set them yourself to test it.`
+        : proposedApproved
+          ? `Discount pre-set to ${proposedApproved.discount_pct}% (${proposedApproved.treatment})${presetTarget ? ` on ${presetTarget.name}` : ''} — the approved treatment matching the proposed value. Change it and run whenever you like.`
+          : `The proposed ${proposed}% is not one of the approved treatment depths (${approvedPoints.map((p) => `${p.discount_pct}%`).join(', ')}), so no lever was pre-set. Pick an approved depth to model it.`
 
   const onRun = () => {
     if (!active) return
@@ -529,6 +659,12 @@ export function Simulation() {
         </div>
       ) : (
         <>
+        {handoff && (
+          <div className="mt-4">
+            <RecommendationHandoffCard handoff={handoff} leverNote={leverNote} onClear={clearHandoff} />
+          </div>
+        )}
+
         {typeMeta && (
           <div className="mt-4">
             <ActiveInvBanner
@@ -730,47 +866,12 @@ export function Simulation() {
               </Card>
             )}
 
-            <Card className="fade-in mt-[18px]">
-              {!active.simulation ? (
-                <div className="px-5 py-8 text-center">
-                  <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
-                    <Icon name="activity" />
-                  </div>
-                  <div className="text-sm font-bold text-ink-primary">Weekly Impact</div>
-                  <div className="mt-1.5 text-[12.5px] text-ink-secondary">
-                    Run a scenario to see weekly impact.
-                  </div>
-                </div>
-              ) : weekly.isError ? (
-                <div className="px-5 py-6">
-                  <div className="text-[13px] font-bold text-ink-primary">
-                    Could not build the weekly view
-                  </div>
-                  <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
-                    {weekly.error.message}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    className="mt-3"
-                    onClick={() => {
-                      if (weekly.variables) weekly.mutate(weekly.variables)
-                    }}
-                  >
-                    <Icon name="refresh" /> Retry
-                  </Button>
-                </div>
-              ) : weekly.data && weekly.data.scenario_id === active.id ? (
-                <WeeklyImpactPanel
-                  weekly={weekly.data}
-                  isRecommended={recommendation.data?.recommended_scenario_id === active.id}
-                />
-              ) : (
-                <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
-                  <Spinner /> Decomposing the scenario across its business weeks…
-                </div>
-              )}
-            </Card>
-
+            {/* THE WEEKLY IMPACT CARD STOOD HERE and has been removed from the
+                page. The weekly decomposition itself is untouched: it still
+                backs the per-week cadence inside the scenario result table,
+                still tells the risk assessment whether a weekly view was
+                included, and still travels with a Decision Center hand-off.
+                Only the standalone card is gone. */}
             <Card className="fade-in mt-[18px]">
               {!active.simulation ? (
                 <RiskEmptyState />
@@ -864,6 +965,18 @@ export function Simulation() {
           >
             {saveScenario.isPending ? <Spinner /> : <Icon name="checkCircle" />}
             <span>{saveScenario.isPending ? 'Saving…' : 'Save Scenario'}</span>
+          </Button>
+          {/* ADD, then keep working — the Decision Center compares scenarios,
+              and a control that navigates away after the first one makes the
+              second harder to produce than it needs to be. "Open" still
+              carries the full record and goes there; this one does not. */}
+          <Button
+            variant="secondary"
+            onClick={addToDecisionCenter}
+            disabled={!canAddCandidate}
+            title={canAddCandidate ? undefined : 'Run this scenario first'}
+          >
+            <Icon name="plus" /> Add to Decision Center
           </Button>
           <Button variant="primary" onClick={openDecisionCenter} disabled={!canCarryDecision}>
             <Icon name="arrowRight" /> Open Decision Center

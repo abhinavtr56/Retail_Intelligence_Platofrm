@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar, type Crumb } from './Topbar'
-import { useSidebarStore } from '../../store/sidebar'
 
 /** The page shell. Ported from css/layout.css #app / .main / .content.
  *
@@ -38,7 +37,6 @@ export function AppShell({
   children: ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const pinned = useSidebarStore((s) => s.pinned)
 
   return (
     <div className="min-h-screen">
@@ -47,10 +45,11 @@ export function AppShell({
         className={[
           'flex min-h-screen min-w-0 flex-col bg-surface-page',
           'transition-[padding-left] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
-          // The rail's inset from `md`; the expanded inset only from `lg`, and
-          // only when pinned. See the docstring for why tablet stays on the rail.
+          // The rail's inset from `md`, at every width. The wider inset used to
+          // apply when the rail was pinned open; that control has been removed,
+          // so the expanded rail always overlays the content instead of moving
+          // it, and the page never reflows under the pointer.
           'md:pl-[var(--sidebar-rail-w)]',
-          pinned ? 'lg:pl-[var(--sidebar-w)]' : '',
         ].join(' ')}
       >
         <Topbar crumbs={crumbs} onMenuClick={() => setSidebarOpen(true)} />

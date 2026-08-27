@@ -55,7 +55,47 @@ export interface InvestigationScope {
   at: number
 }
 
-interface ActiveInvestigationState {
+/** THE INVESTIGATION CURRENTLY ON THE WORKSPACE, and everything needed to put
+ *  it back on screen.
+ *
+ *  WHY IT LIVES HERE AND NOT IN THE PAGE. All of this used to be `useState`
+ *  inside Investigations.tsx, so React unmounting the page — which is what
+ *  navigating to Promotion Intelligence does — destroyed it. The user came
+ *  back to a blank workspace and the "Ask something" prompt, with a finished
+ *  investigation still sitting on the server that nothing pointed at any more.
+ *  Re-running it was the only way back, which is paying twice for an answer
+ *  already given.
+ *
+ *  IT IS A POINTER, NOT A COPY. The run itself stays where it already was: on
+ *  the backend (`investigation-runs.json`, 50 runs deep) and in the React
+ *  Query cache under ['investigation-run', id]. This carries the id and the
+ *  few pieces of view state that are not derivable from the run, so returning
+ *  to the page is a cache read or at worst one GET — never a re-run.
+ *
+ *  PERSISTED BECAUSE THIS STORE ALREADY IS. No new persistence layer was
+ *  introduced for it; it rides the same localStorage entry as the question
+ *  and the recent list, which is why a reload restores the workspace too. */
+interface InvestigationRunState {
+  /** The completed or in-flight run this workspace is showing. */
+  runId: string | null
+  /** The uploaded dataset it was run against, or null for the star schema. */
+  datasetId: string | null
+  /** Whether anything has been asked at all — the workspace renders its empty
+   *  prompt until this is true, and a run id is not enough on its own because
+   *  a launch that failed has no id and must still show its failure. */
+  hasAsked: boolean
+  /** The Command Center hand-off chip, when the question came from one. */
+  handoffLabel: string | null
+  /** The `AskWhyIntent` id already acted on.
+   *
+   *  A ref used to hold this, and a ref dies with the component. Browser-Back
+   *  into the workspace replays the same router state, so the hand-off looked
+   *  new and RE-RAN the investigation the user had just left — the exact
+   *  "don't run it again" this state exists to prevent. */
+  intentKey: string | null
+}
+
+interface ActiveInvestigationState extends InvestigationRunState {
   activeType: InvestigationType
   activeQuestion: string
   list: ActiveInvEntry[]
@@ -66,6 +106,16 @@ interface ActiveInvestigationState {
   addActive: (type: InvestigationType, question: string) => void
   startFromCommandCenter: (scope: Omit<InvestigationScope, 'at'>) => void
   clearScope: () => void
+  /** A launch has begun: the workspace leaves its empty state and the previous
+   *  run's id is dropped, since it is no longer what is on screen. */
+  beginRun: (handoffLabel?: string | null) => void
+  /** The run the backend minted for that launch. */
+  setRunId: (runId: string | null) => void
+  setDatasetId: (datasetId: string | null) => void
+  setHandoffLabel: (label: string | null) => void
+  markIntent: (key: string) => void
+  /** Back to the empty prompt — the user explicitly discarded the workspace. */
+  clearRun: () => void
 }
 
 // Empty by design. A pre-filled question makes the Investigations page render
@@ -86,6 +136,11 @@ export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
       activeQuestion: DEFAULT_QUESTION,
       list: [],
       scope: null,
+      runId: null,
+      datasetId: null,
+      hasAsked: false,
+      handoffLabel: null,
+      intentKey: null,
       setActive: (type, question) => set({ activeType: type, activeQuestion: question }),
       addActive: (type, question) => {
         const list = get().list.filter((e) => !(e.type === type && e.question === question))
@@ -93,6 +148,17 @@ export const useActiveInvestigationStore = create<ActiveInvestigationState>()(
       },
       startFromCommandCenter: (scope) => set({ scope: { ...scope, at: Date.now() } }),
       clearScope: () => set({ scope: null }),
+      beginRun: (handoffLabel) =>
+        set((s) => ({
+          runId: null,
+          hasAsked: true,
+          handoffLabel: handoffLabel === undefined ? s.handoffLabel : handoffLabel,
+        })),
+      setRunId: (runId) => set({ runId }),
+      setDatasetId: (datasetId) => set({ datasetId }),
+      setHandoffLabel: (handoffLabel) => set({ handoffLabel }),
+      markIntent: (intentKey) => set({ intentKey }),
+      clearRun: () => set({ runId: null, hasAsked: false, handoffLabel: null }),
     }),
     {
       name: 'tiq.activeInvestigation',

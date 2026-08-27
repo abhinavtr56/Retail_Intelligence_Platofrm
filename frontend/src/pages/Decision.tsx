@@ -6,9 +6,11 @@ import { InfoPopover } from '../components/ui/InfoPopover'
 import { Icon } from '../icons'
 import { useDecisionRecord } from '../hooks/useDecision'
 import { ApiError } from '../lib/api'
-import { ExportReportButton } from '../components/reports/ExportReportButton'
 import { saveBriefing, useDecisionBriefing } from '../hooks/useBriefing'
 import { useDecisionDraftStore } from '../store/decisionDraft'
+import { useDecisionCandidateStore } from '../store/decisionCandidates'
+import { CandidateBoard } from '../components/decision/CandidateBoard'
+import { candidateFromSimulation, scopeLabelFromContext } from '../lib/decisionCandidates'
 import { useSavedRefsStore } from '../store/savedRefs'
 import { useSaveDecision, useStoredDecision } from '../hooks/useStore'
 import { StrategySection } from '../components/decision/StrategySection'
@@ -56,8 +58,46 @@ import type { RiskFinding } from '../types/risk'
  *  and it carries the fingerprint of the dataset it was computed against.
  */
 export function Decision() {
-  const draft = useDecisionDraftStore((s) => s.draft)
+  const carriedDraft = useDecisionDraftStore((s) => s.draft)
   const clearDraft = useDecisionDraftStore((s) => s.clear)
+
+  // --- the candidate board -------------------------------------------------
+  //
+  // WHICH RECORD IS BELOW THE BOARD. Selecting a candidate that carries a
+  // decision draft assembles ITS record; the draft Simulation Studio carried
+  // here is the fallback, which is exactly what this page did before the board
+  // existed. One `draft` variable feeds the effect, the export and the retry,
+  // so the three cannot end up describing different scenarios.
+  const candidates = useDecisionCandidateStore((s) => s.candidates)
+  const selectedCandidateId = useDecisionCandidateStore((s) => s.selectedId)
+  const addCandidate = useDecisionCandidateStore((s) => s.add)
+  const selectedCandidate = candidates.find((c) => c.id === selectedCandidateId) ?? null
+  const draft = selectedCandidate?.draft ?? carriedDraft
+
+  // A scenario carried here by "Open Decision Center" JOINS THE BOARD. Without
+  // this it would render its record and be invisible to the comparison — the
+  // one scenario the user explicitly walked over here would be the only one
+  // missing from the list of scenarios under consideration.
+  useEffect(() => {
+    if (!carriedDraft) return
+    addCandidate(
+      candidateFromSimulation({
+        scenarioId: carriedDraft.scenarioId,
+        name: carriedDraft.scenarioName,
+        simulation: carriedDraft.simulation,
+        risk: carriedDraft.risk,
+        // The SCOPE context, which lives on the baseline the draft carried —
+        // `draft.context` is the investigation context (who is asking, about
+        // what) and names no dimensions. Without a baseline the simulation's
+        // own period is what is honestly known.
+        scopeLabel: carriedDraft.baseline
+          ? scopeLabelFromContext(carriedDraft.baseline.context)
+          : carriedDraft.simulation.scope.period,
+        draft: carriedDraft,
+      }),
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carriedDraft?.signature])
   const record = useDecisionRecord()
   const briefing = useDecisionBriefing()
   /** The AI explanation. NEVER called on mount — see `generateAiBrief`. */
@@ -247,8 +287,8 @@ export function Decision() {
             <LiveStatus label={live.label} />
           </div>
           <p className="mt-1.5 max-w-[640px] text-sm text-ink-muted">
-            One decision record, assembled from the scenario you carried here — its recommendation,
-            its expected impact, its governance position and the evidence behind it.
+            Compare promotion strategies and select the best business decision. Every figure is the
+            one its own module computed — this page ranks and records, it never recalculates.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -272,16 +312,10 @@ export function Decision() {
             {saveDecision.isPending ? <Spinner /> : <Icon name="checkCircle" />}
             <span>{saveDecision.isPending ? 'Saving…' : 'Save Decision'}</span>
           </Button>
-          {/* THE DECISION RECORD, EXPORTED into the Report Center — generated
-              there, downloaded from the Reports page. This control decides
-              nothing about approval and the report claims none. */}
-          <ExportReportButton
-            module="decision-center"
-            scope={() => (shown?.scope.filters_applied as Record<string, unknown>) ?? {}}
-            options={exportOptions}
-            disabled={!shown}
-            disabledReason="Carry a scenario here first — there is no decision record to export yet."
-          />
+          {/* THE EXPORT LIVES ON THE BOARD, not here. It carries the compared
+              scenarios AND the decision record, and two controls with the same
+              label exporting different halves of the page is how a user ends up
+              with the wrong report. */}
           <Button
             variant="primary"
             onClick={generateBriefing}
@@ -318,6 +352,28 @@ export function Decision() {
         <StoredBanner stored={stored.data} label="Loaded from the store" />
       )}
 
+      {/* THE BOARD OWNS THE EXPORT AND THE APPROVE ACTION, because both act on
+          what is on the board. `exportOptions` still comes from this page — it
+          is what knows whether a stored record or a live draft is on screen —
+          and the board merges its comparison into the same payload. */}
+      <CandidateBoard
+        exportScope={() => (shown?.scope.filters_applied as Record<string, unknown>) ?? {}}
+        exportOptions={exportOptions}
+        onApprove={persistDecision}
+        canApprove={canSave && !saveDecision.isPending}
+        approveHint={
+          saveDecision.isSuccess
+            ? 'This decision is already recorded — see Decision History below.'
+            : viewingStored
+              ? 'This decision is already stored. Carry a new scenario here to record another.'
+              : record.isPending
+                ? 'Assembling this scenario’s decision record…'
+                : 'Only a Simulation Studio scenario carries a governed record, and it must be selected above.'
+        }
+        approving={saveDecision.isPending}
+        hasRecord={Boolean(shown)}
+      />
+
       {shown ? (
         <RecordView
           record={shown}
@@ -344,13 +400,24 @@ export function Decision() {
       ) : draft ? (
         <Loading label="Building your decision record…" />
       ) : (
-        <>
-          <EmptyState onGo={() => navigate('/simulation')} />
-          <Card className="fade-in mt-[18px]">
-            <DecisionHistory currentDecisionId={null} onOpen={openStoredDecision} />
-          </Card>
-        </>
+        /* The board above already states what to do when it is empty. This is
+           the second half of the page: a scenario on the board that carries no
+           decision record — every source but Simulation Studio — still needs to
+           say why there is nothing below it. */
+        candidates.length > 0 && !draft && <NoRecordForCandidate />
       )}
+
+      {/* DECISION HISTORY IS ALWAYS ON THE PAGE. It reads GET /api/store/decisions,
+          so it survives navigation, a reload and this browser entirely — and it
+          used to render only when nothing else was on screen, which meant the
+          moment you recorded a decision the list of recorded decisions
+          disappeared. */}
+      <Card className="fade-in mt-[18px]">
+        <DecisionHistory
+          currentDecisionId={envelope?.decision_id ?? null}
+          onOpen={openStoredDecision}
+        />
+      </Card>
     </AppShell>
   )
 }
@@ -1165,21 +1232,30 @@ function Loading({ label }: { label: string }) {
  *  NO FAKE KPI CARDS. A Decision Center opened directly, with no scenario and
  *  nothing saved, has no decision to describe, and rendering plausible-looking
  *  cards for one would be the worst kind of lie this page could tell. */
-function EmptyState({ onGo }: { onGo: () => void }) {
+/** A candidate is on the board, but it carries no decision record.
+ *
+ *  ONLY SIMULATION STUDIO PRODUCES ONE. `/api/decision/record` assembles from
+ *  the four simulation payloads — context, simulation, recommendation, risk —
+ *  and General Optimization, Target Rescue and the measured Current Plan
+ *  produce none of them. Their scenarios compare perfectly well above; what
+ *  they cannot do is become a governed record, and saying so is better than an
+ *  empty page or a record assembled from figures they never reported. */
+function NoRecordForCandidate() {
   return (
-    <Card className="fade-in mt-4">
-      <div className="px-6 py-12 text-center">
+    <Card className="fade-in mt-[18px]">
+      <div className="px-6 py-10 text-center">
         <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
           <Icon name="checkCircle" />
         </div>
-        <div className="text-sm font-bold text-ink-primary">No scenario has been carried here</div>
-        <div className="mx-auto mt-1.5 max-w-[460px] text-[12.5px] leading-[1.55] text-ink-secondary">
-          Run and select a scenario in Simulation Studio, then choose Open Decision Center — or
-          reopen one of the saved decisions below.
+        <div className="text-sm font-bold text-ink-primary">
+          This scenario has no decision record
         </div>
-        <Button variant="primary" className="mt-4" onClick={onGo}>
-          <Icon name="flow" /> Back to Simulation Studio
-        </Button>
+        <div className="mx-auto mt-1.5 max-w-[500px] text-[12.5px] leading-[1.55] text-ink-secondary">
+          A governed record is assembled from a simulated scenario's context, recommendation and
+          risk assessment. Optimizer, Target Rescue and measured plans compare above but produce
+          none of those, so there is nothing to assemble. Select a scenario added from Simulation
+          Studio to read its full record.
+        </div>
       </div>
     </Card>
   )

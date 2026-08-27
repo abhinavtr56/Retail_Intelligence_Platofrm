@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { Button, Card, CardBody, CardHeader, Dropdown, Spinner, Table, Td, Th, Tr } from '../ui'
+import { Button, Card, CardBody, CardHeader, Dropdown, Spinner, Table, Td, Th, Tr, useToast } from '../ui'
 import { InfoBlock, InfoPopover } from '../ui/InfoPopover'
 import { Icon } from '../../icons'
 import { Slider } from './Slider'
 import { useGeneralOptimization, useOptimizationScope } from '../../hooks/useOptimization'
 import { useGeneralOptimizationStore } from '../../store/generalOptimization'
+import { useDecisionCandidateStore } from '../../store/decisionCandidates'
+import { candidateFromOptimization } from '../../lib/decisionCandidates'
 import type { FiltersResponse } from '../../types/commandCenter'
 import type { OptimizationResponse, OptimizationRow } from '../../types/optimization'
 
@@ -300,6 +302,35 @@ function Problem({ title, detail }: { title: string; detail: string }) {
  *  zeroed summary, both of which read as "we looked and the answer is nothing"
  *  rather than "no plan exists".
  */
+/** Put the optimizer's plan on the Decision Center's board.
+ *
+ *  A COPY OF THIS RESULT, not a re-run. The board carries the units, revenue
+ *  and trade-spend bands this response already reports; the optimizer computes
+ *  no ROI, no margin and no incremental sales, so the candidate carries none
+ *  and the comparison there simply has fewer rows it can rank on. Nothing is
+ *  derived to fill the gap.
+ *
+ *  IT DOES NOT NAVIGATE. The point of the board is more than one scenario, and
+ *  leaving this page after adding the first makes the second harder to add. */
+function AddToDecisionCenter({ result }: { result: OptimizationResponse }) {
+  const addCandidate = useDecisionCandidateStore((s) => s.add)
+  const { show } = useToast()
+  const candidate = candidateFromOptimization(result)
+  if (!candidate) return null
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => {
+        addCandidate(candidate)
+        show('Optimized Allocation added to Decision Center', { duration: 3000 })
+      }}
+    >
+      <Icon name="plus" /> Add to Decision Center
+    </Button>
+  )
+}
+
 function Result({ result }: { result: OptimizationResponse }) {
   if (result.status !== 'optimized' || !result.optimized || !result.historical || !result.comparison) {
     return (
@@ -329,6 +360,8 @@ function Result({ result }: { result: OptimizationResponse }) {
           title="Optimization Summary"
           subtitle={`${optimized.promoted_candidates} promoted · ${optimized.untouched_candidates} left at base · ${optimized.budget_used_pct ?? 0}% of the ceiling used`}
           actions={
+            <div className="flex items-center gap-2">
+            <AddToDecisionCenter result={result} />
             <InfoPopover label="How this plan was produced" title="Method" width={320}>
               <InfoBlock label="Objective">{result.provenance.objective}</InfoBlock>
               <InfoBlock label="Constraint">{result.provenance.constraint}</InfoBlock>
@@ -336,6 +369,7 @@ function Result({ result }: { result: OptimizationResponse }) {
               <InfoBlock label="Economics">{result.provenance.economics}</InfoBlock>
               <InfoBlock label="Not modelled">{result.provenance.cannibalization}</InfoBlock>
             </InfoPopover>
+            </div>
           }
         />
         <CardBody>
