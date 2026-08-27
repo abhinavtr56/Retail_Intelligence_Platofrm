@@ -442,6 +442,39 @@ def list_decisions(limit: int = 50) -> dict[str, Any]:
     }
 
 
+def clear_decisions() -> int:
+    """Empty the decision history, versions and all.
+
+    APPEND-ONLY WAS THE RULE, AND THIS IS THE STATED EXCEPTION. Reports are
+    derived artifacts and have always been clearable; scenarios and decisions
+    are the record, which is why nothing here ever deleted one. This exists
+    because the Decision Center now asks for it explicitly, and it is
+    deliberately the ONLY delete on this table: there is no single-row remove
+    and no filtered clear, so a history that looks empty is empty.
+
+    IT DELETES DECISIONS AND NOTHING ELSE. The investigations and scenarios a
+    decision referenced are untouched -- they are the evidence a decision was
+    taken from, they are referenced by scenario results as well, and removing
+    them would take away work the decision merely pointed at.
+
+    Answers with the number removed rather than nothing, so the caller can say
+    what happened. Clearing an already-empty history is a success with a count
+    of zero.
+    """
+    conn = db.connect()
+    with conn:
+        removed = conn.execute("SELECT COUNT(*) AS n FROM decisions").fetchone()["n"]
+        # Versions first: they reference the decision rows.
+        conn.execute("DELETE FROM decision_versions")
+        conn.execute("DELETE FROM decisions")
+    return int(removed)
+
+
+def count_decisions() -> int:
+    """How many decisions the store holds."""
+    return int(db.connect().execute("SELECT COUNT(*) AS n FROM decisions").fetchone()["n"])
+
+
 # --- dataset lineage ----------------------------------------------------------
 
 

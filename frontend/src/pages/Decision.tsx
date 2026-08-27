@@ -108,6 +108,7 @@ export function Decision() {
   const savedInvestigationId = useSavedRefsStore((s) => s.investigationId)
   const savedScenarioId = useSavedRefsStore((s) => s.scenarioId)
   const rememberDecision = useSavedRefsStore((s) => s.rememberDecision)
+  const forgetDecision = useSavedRefsStore((s) => s.forgetDecision)
   const saveDecision = useSaveDecision()
 
   /** A decision the user explicitly opened from the history list. It outranks
@@ -416,6 +417,19 @@ export function Decision() {
         <DecisionHistory
           currentDecisionId={envelope?.decision_id ?? null}
           onOpen={openStoredDecision}
+          // A cleared history has nothing left to point at: drop the opened id
+          // and this browser's saved pointer, or the page would keep asking the
+          // store for a decision it has just deleted.
+          onCleared={() => {
+            setOpenedId(null)
+            forgetDecision()
+            // And drop the save result itself: its "Decision saved · dec_…"
+            // banner names a record the store no longer holds, which would sit
+            // on screen directly above a history saying nothing is saved.
+            // Resetting it also re-arms Approve, since the decision can now
+            // legitimately be recorded again.
+            saveDecision.reset()
+          }}
         />
       </Card>
     </AppShell>

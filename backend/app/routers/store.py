@@ -191,6 +191,32 @@ def list_decisions(limit: int = Query(default=50, ge=1, le=200)) -> dict[str, An
     return repository.list_decisions(limit=limit)
 
 
+@router.delete(
+    "/decisions",
+    summary="Clear the decision history (unauthenticated write)",
+    description=UNAUTHENTICATED,
+    status_code=200,
+)
+def clear_decisions() -> dict[str, Any]:
+    """Empty the decision history.
+
+    THE ONE DELETE ON THIS TABLE, and a deliberate exception to the store's
+    append-only rule. Decision Center offers it as an explicit, confirmed
+    action; nothing else in the application removes a decision, and there is no
+    single-row delete and no filtered clear -- a history that looks empty is
+    empty.
+
+    It removes decisions and their versions. The investigations and scenarios
+    those decisions referenced stay: they are the evidence a decision was taken
+    from and are referenced by scenario results as well.
+
+    Answers with the count removed rather than 204, so the caller can report
+    what happened. Clearing an already-empty history is a success with zero.
+    """
+    removed = repository.clear_decisions()
+    return {"deleted": removed, "total": repository.count_decisions()}
+
+
 @router.get(
     "/decisions/{decision_id}",
     summary="Read a stored decision (unauthenticated read)",

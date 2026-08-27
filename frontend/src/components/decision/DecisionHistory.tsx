@@ -1,6 +1,6 @@
-import { Button, CardBody, Spinner } from '../ui'
+import { Button, CardBody, Spinner, useConfirm, useToast } from '../ui'
 import { Icon } from '../../icons'
-import { useStoredDecisions } from '../../hooks/useStore'
+import { useClearDecisions, useStoredDecisions } from '../../hooks/useStore'
 import type { StoredDecisionSummary } from '../../types/store'
 
 /** Every decision this server has stored — B10's list, finally connected.
@@ -25,19 +25,74 @@ import type { StoredDecisionSummary } from '../../types/store'
 export function DecisionHistory({
   currentDecisionId,
   onOpen,
+  onCleared,
 }: {
   currentDecisionId: string | null
   onOpen: (decisionId: string) => void
+  /** Told after a clear, so the page can drop its pointer to a decision that
+   *  no longer exists rather than requesting a deleted id. */
+  onCleared?: () => void
 }) {
   const history = useStoredDecisions()
+  const clear = useClearDecisions()
+  const confirm = useConfirm()
+  const { show } = useToast()
+  const stored = history.data?.decisions.length ?? 0
+
+  /** CLEARING HISTORY DESTROYS RECORDS, and says so before it does.
+   *
+   *  Every other store table in this project is append-only and the reports
+   *  library is the only other clearable thing — but a report is derived and
+   *  can be generated again, and a decision cannot. So the dialog states the
+   *  count and the irreversibility, and the toast afterwards reports the
+   *  server's own number rather than assuming the request did what was asked. */
+  const clearHistory = () =>
+    confirm({
+      title: 'Clear decision history?',
+      body:
+        (stored === 1
+          ? 'This permanently deletes the saved decision and every version of it from the store. '
+          : `This permanently deletes all ${stored} saved decisions and every version of them from the store. `) +
+        'It cannot be undone. The investigations and scenarios ' +
+        'they were taken from are not affected, and scenarios on the comparison board above stay ' +
+        'where they are.',
+      primaryText: 'Delete history',
+      secondaryText: 'Cancel',
+      icon: 'warning',
+      onConfirm: () =>
+        clear.mutate(undefined, {
+          onSuccess: (result) => {
+            show(
+              `${result.deleted} decision${result.deleted === 1 ? '' : 's'} deleted — the history is empty.`,
+              { duration: 3500 },
+            )
+            onCleared?.()
+          },
+          onError: (error) => show(`Could not clear the history — ${error.message}`, { duration: 4500 }),
+        }),
+    })
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
         <h3 className="text-[15px] font-bold">Decision History</h3>
-        <span className="text-[11px] text-ink-muted">
-          {history.data ? `${history.data.decisions.length} stored` : 'Every decision saved here'}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-ink-muted">
+            {history.data ? `${stored} stored` : 'Every decision saved here'}
+          </span>
+          <Button
+            variant="secondary"
+            onClick={clearHistory}
+            disabled={stored === 0 || clear.isPending}
+            title={stored === 0 ? 'There is no saved decision to clear' : 'Permanently delete every saved decision'}
+          >
+            {clear.isPending ? <Spinner /> : <Icon name="x" />}
+            {/* "Clear history", not "Clear": the board above has its own Clear
+                and the two do very different things — one empties a comparison,
+                the other deletes saved records for good. */}
+            <span>{clear.isPending ? 'Clearing…' : 'Clear history'}</span>
+          </Button>
+        </div>
       </div>
       <CardBody>
         {history.isPending ? (

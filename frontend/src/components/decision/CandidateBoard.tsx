@@ -121,6 +121,7 @@ export function CandidateBoard({
   const winner = candidates.find((c) => c.id === ranking.winnerId) ?? null
   const why = explainWinner(candidates, ranking)
   const metricKeys = Array.from(new Set(candidates.flatMap((c) => c.metrics.map((m) => m.key))))
+  const selectedName = candidates.find((c) => c.id === selectedId)?.name ?? 'the selected scenario'
 
   /** THE BOARD, AS A REPORT PAYLOAD.
    *
@@ -317,20 +318,7 @@ export function CandidateBoard({
               </div>
               <div className="mt-1 text-[12px] text-ink-muted">{winner.scopeLabel}</div>
 
-              {/* RECORDING THE DECISION is the existing save path, unchanged:
-                  it assembles the governed record and stores it server-side,
-                  which is what puts a row in Decision History. It is offered
-                  only for a scenario that HAS such a record — the optimizer,
-                  Target Rescue and the measured plan produce none of the
-                  payloads it is built from, and the hint says so instead of
-                  the button failing on press. */}
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <Button variant="primary" onClick={onApprove} disabled={!canApprove || approving}>
-                  {approving ? <Spinner /> : <Icon name="checkCircle" />}
-                  <span>{approving ? 'Recording…' : 'Approve & record decision'}</span>
-                </Button>
-                {!canApprove && <span className="text-[11.5px] text-ink-muted">{approveHint}</span>}
-              </div>
+
               {ranking.tieBreak && (
                 <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-[var(--r-sm)] bg-surface-muted px-2 py-1 text-[11.5px] text-ink-secondary">
                   <Icon name="info" className="h-3 w-3 text-ink-muted" /> {ranking.tieBreak}
@@ -376,6 +364,33 @@ export function CandidateBoard({
           ) : (
             <div className="text-[12.5px] leading-[1.6] text-ink-secondary">{ranking.blocked}</div>
           )}
+
+          {/* RECORDING THE DECISION is the existing save path, unchanged: it
+              assembles the governed record and stores it server-side, which is
+              what puts a row in Decision History.
+              
+              OUTSIDE THE WINNER BRANCH, deliberately. It used to sit inside it,
+              so a board holding ONE scenario — which cannot be ranked against
+              anything and therefore has no winner — offered no way to record a
+              decision at all, even though the scenario had a perfectly good
+              record behind it. What is recorded is the SELECTED scenario, which
+              is the one whose record is on screen below.
+              
+              Offered only for a scenario that HAS such a record — the
+              optimizer, Target Rescue and the measured plan produce none of the
+              payloads it is built from, and the hint says so rather than the
+              button failing on press. */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
+            <Button variant="primary" onClick={onApprove} disabled={!canApprove || approving}>
+              {approving ? <Spinner /> : <Icon name="checkCircle" />}
+              <span>{approving ? 'Recording…' : 'Approve & record decision'}</span>
+            </Button>
+            <span className="text-[11.5px] text-ink-muted">
+              {canApprove
+                ? `Records the selected scenario — ${selectedName} — in Decision History.`
+                : approveHint}
+            </span>
+          </div>
 
           {ranking.criteria.length > 0 && (
             <div className="mt-4 overflow-x-auto border-t border-border-subtle pt-3">

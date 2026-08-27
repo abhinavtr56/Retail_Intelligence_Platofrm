@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -590,9 +591,26 @@ def test_the_store_is_the_only_thing_that_writes():
             assert forbidden not in code, f"{path}: {forbidden}"
 
 
-def test_the_store_never_updates_or_deletes_a_stored_payload():
-    """History is append-only by construction."""
+def test_the_store_never_updates_a_stored_payload():
+    """A stored payload is never rewritten. Versions are appended, not edited."""
     source = Path("app/store/repository.py").read_text(encoding="utf-8")
-    assert "DELETE" not in source
     assert "UPDATE scenario_results" not in source
     assert "UPDATE decision_versions" not in source
+
+
+def test_the_only_delete_in_the_store_is_the_decision_history_clear():
+    """Append-only, with ONE stated exception.
+
+    The store was append-only by construction and this test asserted no DELETE
+    appeared in the repository at all. Decision Center now offers an explicit,
+    confirmed "Clear history" action, so exactly two deletes exist: the decision
+    rows and their versions.
+
+    THE TEETH ARE IN WHAT IS STILL FORBIDDEN. Investigations, scenarios and
+    scenario results are the evidence a decision was taken from and remain
+    undeletable -- a decision may be cleared, the record of what was measured
+    may not. Anything else acquiring a DELETE fails here.
+    """
+    source = Path("app/store/repository.py").read_text(encoding="utf-8")
+    deleted_tables = set(re.findall(r"DELETE FROM (\w+)", source))
+    assert deleted_tables == {"decisions", "decision_versions"}, deleted_tables
