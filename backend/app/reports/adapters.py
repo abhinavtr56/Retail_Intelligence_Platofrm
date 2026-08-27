@@ -222,6 +222,39 @@ def command_center(state: FilterState, currency: str, options: dict[str, Any]) -
     counts = alerts.get("counts") or {}
     rows = alerts.get("alerts") or []
 
+    # THE ALERT TOTAL IS THE SUM OF THE BANDS, AND NEVER A ROW COUNT.
+    #
+    # This used to read `counts.get("total", len(rows))`. `service.risk_alerts`
+    # returns no "total" key -- its counts are critical/high/medium alongside
+    # target_achieved and total_events -- so the fallback was taken on EVERY
+    # export, and `rows` is the alert list already truncated to `alert_limit`
+    # (200 above). The report therefore printed its own page size as the alert
+    # population: "Total alerts 200" directly beneath "Critical 897 · High 350
+    # · Medium 323". A reader outside this application has nothing to check that
+    # against, which is exactly why it had to be caught here.
+    #
+    # THE BANDS ARE THE AUTHORITATIVE POPULATION, and they are mutually
+    # exclusive by construction: `service._severity` returns exactly one of
+    # critical/high/medium for an event, and `service.risk_alerts` files each
+    # event into exactly one band. Their sum therefore counts every alert once
+    # and no alert twice.
+    #
+    # IT IS NOT `total_events`. That counts every promotion event in scope,
+    # on-target ones included -- the denominator the screen reports as
+    # "{target_achieved} of {total_events} at target" -- and it is not an alert
+    # count.
+    #
+    # No alert logic, threshold or band is touched here: the three numbers are
+    # read back exactly as the service produced them, and the total is derived
+    # from those same three numbers so the summary cannot contradict itself.
+    # The scope is the report's own, because these counts come from the single
+    # `risk_alerts(state, ...)` call above.
+    severities = tuple(
+        (label, int(counts.get(key) or 0))
+        for label, key in (("Critical", "critical"), ("High", "high"), ("Medium", "medium"))
+    )
+    total_alerts = sum(count for _, count in severities)
+
     doc = ReportDoc(
         module="Command Center",
         title="Trade Promotion Performance Report",
@@ -250,10 +283,8 @@ def command_center(state: FilterState, currency: str, options: dict[str, Any]) -
                 note="Values, previous period and delta exactly as the Command Center "
                      "cards display them."),
         Section("Risk summary", "kv", (
-            ("Critical", str(counts.get("critical", 0))),
-            ("High", str(counts.get("high", 0))),
-            ("Medium", str(counts.get("medium", 0))),
-            ("Total alerts", str(counts.get("total", len(rows)))),
+            *((label, str(count)) for label, count in severities),
+            ("Total alerts", str(total_alerts)),
         ), note=f"Alerts matching the current filters. Target ROI "
                 f"{kpis['meta'].get('target_roi_pct', '')}%."),
     ]
@@ -320,7 +351,17 @@ def command_center(state: FilterState, currency: str, options: dict[str, Any]) -
                     Column("at_stake", "At stake", "currency", 16),
                 ),
                 rows=tuple(_alert_row(a, kpis["meta"].get("target_roi_pct")) for a in rows),
-                title=f"{len(rows)} alert(s) matching the current filters",
+                # THE SAME NUMBER THE SUMMARY PRINTS, and the listing says when it
+                # is showing fewer rows than that. The title used to read
+                # "{len(rows)} alert(s) matching the current filters" -- true of
+                # the table, false of the filters, and the second half of the
+                # contradiction the Total alerts row created: a capped listing
+                # presented as the whole population.
+                title=(
+                    f"{len(rows)} of {total_alerts} alert(s) matching the current filters"
+                    if len(rows) < total_alerts
+                    else f"{len(rows)} alert(s) matching the current filters"
+                ),
                 note="The currently filtered alerts, not the whole dataset.",
             )))
     else:

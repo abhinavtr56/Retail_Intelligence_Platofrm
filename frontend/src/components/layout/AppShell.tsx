@@ -26,6 +26,13 @@ import { Topbar, type Crumb } from './Topbar'
  *  BELOW `md` there is no inset at all: the sidebar is an off-canvas drawer
  *  there, and a permanent column is what used to leave no room for any page's
  *  content on tablet and phone widths.
+ *
+ *  THE COMMAND CENTER IS THE ONE ROUTE THAT KEEPS THE OLD PERMANENT COLUMN. From
+ *  `lg` up its rail is held open and the content is inset by the full
+ *  `--sidebar-w`, exactly as every page used to be — the labels are always there
+ *  and nothing overlays the page. Between `md` and `lg` it still takes the 68px
+ *  inset, because a 224px column there leaves the page too little to work with;
+ *  the rail is expanded, so it overlays, which is the tablet behaviour anyway.
  */
 export function AppShell({
   activeKey,
@@ -38,18 +45,31 @@ export function AppShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // The Command Center keeps the permanent, always-labelled column it had before
+  // the rail existed. Keyed off the route's own nav key so the page itself needs
+  // no new prop and nothing else can turn it on by accident.
+  const railOpen = activeKey === 'command'
+
   return (
     <div className="min-h-screen">
-      <Sidebar activeKey={activeKey} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        activeKey={activeKey}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        alwaysExpanded={railOpen}
+      />
       <div
         className={[
           'flex min-h-screen min-w-0 flex-col bg-surface-page',
           'transition-[padding-left] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
           // The rail's inset from `md`, at every width. The wider inset used to
           // apply when the rail was pinned open; that control has been removed,
-          // so the expanded rail always overlays the content instead of moving
+          // so a HOVER expansion always overlays the content instead of moving
           // it, and the page never reflows under the pointer.
           'md:pl-[var(--sidebar-rail-w)]',
+          // The Command Center's column is not a hover expansion, so it genuinely
+          // insets — from `lg`, where there is room for both.
+          railOpen ? 'lg:pl-[var(--sidebar-w)]' : '',
         ].join(' ')}
       >
         <Topbar crumbs={crumbs} onMenuClick={() => setSidebarOpen(true)} />

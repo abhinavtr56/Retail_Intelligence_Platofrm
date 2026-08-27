@@ -163,10 +163,10 @@ def test_the_measured_depth_is_not_silently_replaced_by_the_selected_one(record)
     assert discount["current_value"] != discount["selected_value"]
 
 
-def test_only_the_discount_carries_a_recommended_value(record, journey):
-    """The decision policy chooses a SCENARIO. The only lever a scenario varies
-    is its treatment depth, so claiming a recommended duration or spend would
-    invent a preference nothing expressed."""
+def test_only_the_discount_carries_a_chosen_recommended_value(record, journey):
+    """The decision policy chooses a SCENARIO, and the only lever a scenario
+    varies is its treatment depth. Spend is derived from that depth, so claiming
+    a recommended spend would invent a preference nothing expressed."""
     recommended_id = journey["recommendation"]["recommended_scenario_id"]
     entry = next(
         s for s in journey["comparison"]["scenarios"]
@@ -176,9 +176,45 @@ def test_only_the_discount_carries_a_recommended_value(record, journey):
         if row["key"] == "discount_pct":
             assert row["recommended_value"] == entry["discount_pct"]
             assert row["recommended_treatment"] == entry["treatment"]
-        else:
+        elif row["key"] != "duration_weeks":
             assert row["recommended_value"] is None
             assert "chooses a scenario" in row["recommended_unavailable_reason"]
+
+
+def test_the_recommended_duration_is_the_measured_one(record):
+    """No scenario changes the duration -- the lever is recorded and not
+    modelled, so the recommendation runs over the weeks already in scope. The
+    column carries the measured value and its measured string, verbatim, and
+    names no treatment: nothing chose it, and nothing about it is new."""
+    duration = next(r for r in record["strategy"]["levers"] if r["key"] == "duration_weeks")
+    # Whatever the measured column says, the recommended column says the same --
+    # including when there is nothing to say, which is the case a scope of mixed
+    # promotions produces.
+    assert duration["recommended_available"] is duration["current_available"]
+    assert duration["recommended_value"] == duration["current_value"]
+    assert duration["recommended_display"] == duration["current_display"]
+    if duration["current_available"]:
+        assert duration["recommended_unavailable_reason"] is None
+    else:
+        assert (
+            duration["recommended_unavailable_reason"]
+            == duration["current_unavailable_reason"]
+        )
+    # Not an approved treatment depth and not the "measured plan" caption the
+    # discount row carries -- the cell prints the value and nothing else.
+    assert duration["recommended_treatment"] is None
+    assert duration["recommended_is_measured_plan"] is False
+
+
+def test_without_a_measured_duration_nothing_is_recommended_for_it(lean_record):
+    """No baseline, no measured duration, so no recommendation -- and the
+    engine's own reason rather than a stand-in."""
+    duration = next(
+        r for r in lean_record["strategy"]["levers"] if r["key"] == "duration_weeks"
+    )
+    assert duration["recommended_available"] is False
+    assert duration["recommended_value"] is None
+    assert duration["recommended_unavailable_reason"] == decision.NO_BASELINE_CARRIED
 
 
 def test_without_a_baseline_the_current_column_says_why(lean_record):

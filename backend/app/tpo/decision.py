@@ -389,6 +389,32 @@ def _strategy(
                         "The recommended scenario carries no treatment depth in the "
                         "comparison."
                     )
+        elif key == "duration_weeks":
+            # THE RECOMMENDATION RUNS OVER THE PROMOTION WEEKS ALREADY IN SCOPE,
+            # which is the measured duration sitting in the Current column.
+            #
+            # This column used to read "Not available" on the grounds that the
+            # policy chooses a scenario and not a duration. True, and beside the
+            # point: no scenario changes the duration either -- the lever is
+            # recorded and not modelled, so every scenario runs over the same
+            # weeks the scope already contains. Saying nothing was recommended
+            # implied a decision still to be made about a value that is fixed by
+            # the data.
+            #
+            # Same number, same source, carried through verbatim -- the measured
+            # display string, not a re-rendered float. Nothing is recomputed and
+            # no preference is invented: the recommendation simply keeps the
+            # duration that is already there.
+            if observed.get("available"):
+                row["recommended_value"] = observed.get("value")
+                row["recommended_display"] = observed.get("display_value")
+                row["recommended_available"] = True
+            else:
+                # No measured duration, nothing to carry. The engine's own reason
+                # for that, never a stand-in.
+                row["recommended_unavailable_reason"] = (
+                    observed.get("unavailable_reason") or NO_BASELINE_CARRIED
+                )
         else:
             row["recommended_unavailable_reason"] = (
                 "The decision policy chooses a scenario, not a value for this lever. "
@@ -407,7 +433,8 @@ def _strategy(
             "These are the levers the simulation engine records for this scenario, "
             "and no others. Current is measured from the rows in scope; selected is "
             "the scenario's own setting; recommended is the treatment depth of the "
-            "scenario the decision policy chose."
+            "scenario the decision policy chose, over the measured promotion "
+            "duration already in scope."
         ),
     }
 

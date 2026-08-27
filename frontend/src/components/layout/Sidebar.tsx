@@ -33,6 +33,12 @@ const toPath = (route: string) => (route.startsWith('#') ? route.slice(1) : rout
  *    * PIN commits: the rail stays expanded and the content is genuinely inset
  *      by it (see AppShell). The preference persists.
  *
+ *  EXCEPT ON THE COMMAND CENTER, WHICH KEEPS THE OLD PERMANENT COLUMN. That page
+ *  is the app's home and the place people navigate FROM, so its rail is expanded
+ *  the whole time (`alwaysExpanded`) and the content is inset by the full width
+ *  rather than overlaid — there is no hover to widen it and nothing floats over
+ *  the page. Every other route keeps the collapsed rail described above.
+ *
  *  KEYBOARD USERS GET A TOOLTIP, NOT AN EXPANSION. Focus deliberately does not
  *  widen the rail: tabbing through nine items would animate a 156px overlay over
  *  the content on every keystroke. Instead the focused row raises a compact
@@ -50,10 +56,13 @@ export function Sidebar({
   activeKey,
   open,
   onClose,
+  alwaysExpanded = false,
 }: {
   activeKey?: string
   open: boolean
   onClose: () => void
+  /** Hold the rail open at `md` and up, as a permanent column (Command Center). */
+  alwaysExpanded?: boolean
 }) {
   const { data: nav } = useNav()
   // B12: the signed-in persona, not user.json's hard-coded "Sanjay Kumar ·
@@ -81,11 +90,14 @@ export function Sidebar({
   // rail and would be meaningless restored from a previous visit.
   const [hovered, setHovered] = useState(false)
 
-  // THE RAIL EXPANDS ON HOVER AND ONLY ON HOVER. It used to also latch open
-  // through a "Keep open" / "Unpin" toggle at the top of the rail; that control
-  // is gone, and with it the stored preference behind it — a rail that widens
-  // under the pointer and narrows again needs no setting to explain it.
-  const expanded = hovered
+  // THE RAIL EXPANDS ON HOVER AND ONLY ON HOVER — on every route but one. It
+  // used to also latch open through a "Keep open" / "Unpin" toggle at the top of
+  // the rail; that control is gone, and with it the stored preference behind it
+  // — a rail that widens under the pointer and narrows again needs no setting to
+  // explain it. `alwaysExpanded` is not that toggle coming back: it is a
+  // property of the route (the Command Center), not a thing the user sets, and
+  // there it holds the rail open so nothing ever moves.
+  const expanded = alwaysExpanded || hovered
   // And this drives the LABELS, which is not the same question. Below `md` the
   // drawer is always full width, so an open drawer must show its labels whether
   // or not the rail would have been expanded -- otherwise the phone gets a 224px
@@ -116,10 +128,11 @@ export function Sidebar({
           // md+: always on screen, width driven by the expanded state.
           'md:translate-x-0',
           expanded ? 'md:w-[var(--sidebar-w)]' : 'md:w-[var(--sidebar-rail-w)]',
-          // THE SHADOW MARKS AN OVERLAY. The expanded rail now always floats
-          // over the content — the content keeps its rail inset at every width
-          // (see AppShell) — so the shadow follows the expansion exactly.
-          expanded ? 'md:shadow-[var(--shadow-lg)]' : '',
+          // THE SHADOW MARKS AN OVERLAY, so it follows the hover expansion and
+          // not the permanent one: on the Command Center the content is inset by
+          // the full width (see AppShell), the rail floats over nothing, and a
+          // shadow there would cast onto a page it is sitting beside.
+          expanded && !alwaysExpanded ? 'md:shadow-[var(--shadow-lg)]' : '',
           'transition-[transform,width] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
         ].join(' ')}
       >

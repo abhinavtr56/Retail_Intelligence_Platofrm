@@ -246,6 +246,185 @@ def test_command_center_carries_its_promotion_performance_sections() -> None:
     assert "Promotion mix" in summary
 
 
+# --- the alert total is the alert population, not a page size ---------------
+#
+# THE DEFECT THIS SECTION EXISTS FOR. `adapters.command_center` printed
+# "Total alerts" as `counts.get("total", len(rows))`. `service.risk_alerts`
+# returns no "total" key, so the fallback ran on every export and `rows` is the
+# alert list truncated to `alert_limit` -- the report published its own page
+# size as the alert population, contradicting the Critical/High/Medium
+# breakdown printed immediately above it.
+
+#: A scope wide enough that the alert population exceeds the export's row cap,
+#: so truncation is actually exercised. A narrow scope would pass the assertion
+#: for the wrong reason -- with fewer alerts than the cap, a row count and the
+#: population are the same number and the bug is invisible.
+WIDE_CC_SCOPE = {"year": 2025}
+
+
+def _risk_summary(text: str) -> dict[str, int]:
+    """The Risk summary's four figures, read back out of an exported file."""
+    out: dict[str, int] = {}
+    for label in ("Critical", "High", "Medium", "Total alerts"):
+        found = re.search(rf"{label}\s+([\d,]+)", text)
+        if found:
+            out[label] = int(found.group(1).replace(",", ""))
+    return out
+
+
+def _xlsx_summary_text(payload: bytes) -> str:
+    sheet = load_workbook(io.BytesIO(payload))["Executive Summary"]
+    lines = [
+        " ".join(str(c.value) for c in row if c.value is not None)
+        for row in sheet.iter_rows()
+    ]
+    return chr(10).join(lines)
+
+
+#: The severity labels the alert sheet's data rows carry. The sheet also holds
+#: the report title, the table title and a header row; keying off the severity
+#: column is what separates a real alert from that chrome.
+_SEVERITIES = ("Critical", "High", "Medium")
+
+
+def _alert_rows(payload: bytes) -> list[tuple[str, ...]]:
+    """The alert sheet's DATA rows, identified by promotion event.
+
+    Severity, promotion, product, channel and period together identify the
+    event the alert was raised for -- the same grain `service.risk_alerts`
+    bands. Trailing measure columns are excluded so two genuinely distinct
+    events cannot be told apart by a rounding difference alone.
+    """
+    sheet = load_workbook(io.BytesIO(payload))["Risk Alerts"]
+    rows = []
+    for row in sheet.iter_rows():
+        cells = [c.value for c in row]
+        if cells and str(cells[0]).strip() in _SEVERITIES:
+            rows.append(tuple(str(c) for c in cells[:5]))
+    return rows
+
+
+@pytest.mark.parametrize("scope", [CC_SCOPE, WIDE_CC_SCOPE])
+def test_exported_total_alerts_is_the_authoritative_alert_count(scope: dict) -> None:
+    """A + B. The total IS the engine's banded population, and reconciles.
+
+    Compared against `tpo_service.risk_alerts` -- the same function
+    /api/command-center/risk-alerts calls -- for the same scope, so the export
+    cannot have counted its way to a different answer. The bands are mutually
+    exclusive (`service._severity` returns exactly one of them per event), so
+    their sum is the alert count.
+    """
+    state = FilterState.build(**scope)
+    counts = tpo_service.risk_alerts(state, "INR")["counts"]
+    expected = counts["critical"] + counts["high"] + counts["medium"]
+
+    summary = _risk_summary(_xlsx_summary_text(ok("command-center", "xlsx", scope)[0]))
+    assert summary["Critical"] == counts["critical"]
+    assert summary["High"] == counts["high"]
+    assert summary["Medium"] == counts["medium"]
+    assert summary["Total alerts"] == expected
+    assert summary["Critical"] + summary["High"] + summary["Medium"] == summary["Total alerts"]
+
+
+def test_exported_total_alerts_is_not_the_truncated_row_count() -> None:
+    """The regression itself, stated directly.
+
+    Under the wide scope the alert population is larger than the export's row
+    cap, so the old `len(rows)` fallback would report exactly `alert_limit`.
+    """
+    state = FilterState.build(**WIDE_CC_SCOPE)
+    counts = tpo_service.risk_alerts(state, "INR")["counts"]
+    population = counts["critical"] + counts["high"] + counts["medium"]
+
+    payload, _ = ok("command-center", "xlsx", WIDE_CC_SCOPE)
+    listed = len(_alert_rows(payload))
+    summary = _risk_summary(_xlsx_summary_text(payload))
+
+    assert listed < population, "this scope must truncate, or the test proves nothing"
+    assert summary["Total alerts"] == population
+    assert summary["Total alerts"] != listed
+
+
+def test_exported_total_alerts_is_not_the_promotion_event_count() -> None:
+    """Nor the other number sitting in the same payload.
+
+    `total_events` counts every promotion event in scope, on-target ones
+    included. It is the denominator the screen reports as "N of M at target",
+    and reporting it as the alert total would overstate the alerts.
+    """
+    state = FilterState.build(**WIDE_CC_SCOPE)
+    counts = tpo_service.risk_alerts(state, "INR")["counts"]
+    summary = _risk_summary(_xlsx_summary_text(ok("command-center", "xlsx", WIDE_CC_SCOPE)[0]))
+
+    assert counts["total_events"] > counts["critical"] + counts["high"] + counts["medium"], (
+        "this scope must contain on-target events, or the test proves nothing"
+    )
+    assert summary["Total alerts"] != counts["total_events"]
+
+
+def test_the_total_alerts_figure_follows_the_filter_scope() -> None:
+    """C. Two scopes, two populations, and each file carries its own."""
+    narrow = {"year": 2025, "month": 10, "channel": ["CH002"]}
+    wide = WIDE_CC_SCOPE
+
+    def total_for(scope: dict) -> tuple[int, int]:
+        counts = tpo_service.risk_alerts(FilterState.build(**scope), "INR")["counts"]
+        engine = counts["critical"] + counts["high"] + counts["medium"]
+        exported = _risk_summary(_xlsx_summary_text(ok("command-center", "xlsx", scope)[0]))
+        return engine, exported["Total alerts"]
+
+    narrow_engine, narrow_exported = total_for(narrow)
+    wide_engine, wide_exported = total_for(wide)
+
+    assert narrow_exported == narrow_engine
+    assert wide_exported == wide_engine
+    assert narrow_exported != wide_exported, "the two scopes must differ, or this proves nothing"
+
+
+def test_both_formats_receive_the_same_total_alerts() -> None:
+    """D + E. One value in the ReportDoc, so Excel and PDF cannot disagree."""
+    state = FilterState.build(**WIDE_CC_SCOPE)
+    counts = tpo_service.risk_alerts(state, "INR")["counts"]
+    expected = counts["critical"] + counts["high"] + counts["medium"]
+
+    from_xlsx = _risk_summary(_xlsx_summary_text(ok("command-center", "xlsx", WIDE_CC_SCOPE)[0]))
+    from_pdf = _risk_summary(pdf_text(ok("command-center", "pdf", WIDE_CC_SCOPE)[0]))
+
+    assert from_xlsx["Total alerts"] == expected
+    assert from_pdf["Total alerts"] == expected
+    assert from_xlsx == from_pdf
+
+
+def test_the_alert_listing_introduces_no_duplicates() -> None:
+    """F. No alert is counted twice, and the export adds no row of its own.
+
+    Two things, because the total and the listing can fail independently.
+
+    THE POPULATION IS DISTINCT. `event.key` is the promotion event's identity
+    (product | channel | week | promotion), and the total is a sum of bands, so
+    one event landing in the listing twice would inflate the figure the summary
+    prints. Asserted on the engine's own ids.
+
+    THE EXPORT ADDS NOTHING. The alert sheet carries exactly as many data rows
+    as the service returned for the same cap -- no row is repeated on its way
+    into the workbook, and none is dropped.
+
+    Deliberately NOT asserted on the exported rows' own contents: the sheet's
+    Period column is empty (`_alert_row` reads a key `risk_alerts` does not
+    emit), so two events that differ only by week are indistinguishable there.
+    That is a separate defect in the alert LISTING, outside this fix, and it
+    must not be papered over by a test that quietly tolerates it.
+    """
+    state = FilterState.build(**WIDE_CC_SCOPE)
+    served = tpo_service.risk_alerts(state, "INR", limit=200)["alerts"]
+    ids = [a["id"] for a in served]
+    assert ids, "the engine returned no alerts for this scope"
+    assert len(ids) == len(set(ids)), "the alert population repeats an event"
+
+    rows = _alert_rows(ok("command-center", "xlsx", WIDE_CC_SCOPE)[0])
+    assert len(rows) == len(served), "the workbook and the engine disagree on row count"
+
+
 def test_currency_cells_are_typed_numbers_not_text() -> None:
     """A currency column holds a NUMBER with a currency format, so the recipient
     can sum and sort it. Text like "₹90.7 L" would be unusable."""

@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
-import { Button, Card, CardBody, LiveStatus, Spinner, useLiveStatus } from '../components/ui'
+import { Button, Card, CardBody, LiveStatus, Modal, Spinner, useLiveStatus } from '../components/ui'
 import { InfoPopover } from '../components/ui/InfoPopover'
 import { Icon } from '../icons'
 import { useDecisionRecord } from '../hooks/useDecision'
 import { ApiError } from '../lib/api'
-import { saveBriefing, useDecisionBriefing } from '../hooks/useBriefing'
+import { useDecisionBriefing } from '../hooks/useBriefing'
 import { useDecisionDraftStore } from '../store/decisionDraft'
 import { useDecisionCandidateStore } from '../store/decisionCandidates'
 import { CandidateBoard } from '../components/decision/CandidateBoard'
 import { candidateFromSimulation, scopeLabelFromContext } from '../lib/decisionCandidates'
 import { useSavedRefsStore } from '../store/savedRefs'
 import { useSaveDecision, useStoredDecision } from '../hooks/useStore'
+import { useGenerateReport } from '../hooks/useReportCenter'
 import { StrategySection } from '../components/decision/StrategySection'
 import { ComparisonSection } from '../components/decision/ComparisonSection'
 import { EvidenceSection } from '../components/decision/EvidenceSection'
@@ -20,6 +21,7 @@ import { DecisionHistory } from '../components/decision/DecisionHistory'
 import { AiDecisionBrief } from '../components/decision/AiDecisionBrief'
 import { useDecisionBrief } from '../hooks/useDecisionBrief'
 import type { StoredDecision } from '../types/store'
+import type { BriefingResponse } from '../types/briefing'
 import type { DecisionImpactMetric, DecisionRecord } from '../types/decision'
 import type { RiskFinding } from '../types/risk'
 
@@ -60,6 +62,16 @@ import type { RiskFinding } from '../types/risk'
 export function Decision() {
   const carriedDraft = useDecisionDraftStore((s) => s.draft)
   const clearDraft = useDecisionDraftStore((s) => s.clear)
+
+  // ARRIVE AT THE TOP OF THE PAGE. "Open Decision Center" sits near the bottom
+  // of Simulation Studio, and a client-side route change keeps the document's
+  // scroll offset — so walking over here landed the reader somewhere in the
+  // middle of the evidence, on a page whose whole point is to be read from the
+  // top. Mount only: reopening a stored decision from the history list must not
+  // yank the page away from the list that was just clicked.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [])
 
   // --- the candidate board -------------------------------------------------
   //
@@ -233,11 +245,44 @@ export function Decision() {
     )
   }
 
-  /** Render the portable briefing. IT DOES NOT DOWNLOAD ANYTHING BY ITSELF —
-   *  the artifacts appear with their own download controls, the same shape the
-   *  Report Center uses. Nothing is stored and nothing on this page changes,
-   *  success or failure. */
-  const generateBriefing = () => shown && briefing.mutate({ record: shown })
+  /** Render the portable briefing AND SHOW IT.
+   *
+   *  A CLICK OPENS THE BRIEFING, IT DOES NOT WRITE FILES. Two earlier shapes of
+   *  this button were both wrong: the first only rendered, parking a Download
+   *  control near the bottom of the page where nobody saw it, so the button read
+   *  as dead; the second wrote briefing.html and briefing.json straight to the
+   *  browser's downloads, which dropped a JSON file on the user before they had
+   *  seen a single line of what was in it.
+   *
+   *  So generating now opens the briefing on screen — the real rendered
+   *  document, not a summary of it — and downloading is a separate, deliberate
+   *  act that goes through the Report Center like every other artifact in this
+   *  application. Nothing is stored by this request and nothing on the page
+   *  changes, success or failure. */
+  const [briefingOpen, setBriefingOpen] = useState(false)
+  const generateBriefing = () =>
+    shown && briefing.mutate({ record: shown }, { onSuccess: () => setBriefingOpen(true) })
+
+  /** Store this decision as a report, then go and download it.
+   *
+   *  THE ONE PLACE THIS APPLICATION SAVES A FILE IS THE REPORT CENTER, and the
+   *  briefing is no exception. The preview's download control generates into the
+   *  library — the same module, scope and payload the board's Export Report
+   *  sends — and then opens Reports, where Excel and PDF are downloaded the way
+   *  they are for every other module. Nothing is written to disk from here. */
+  const generateReport = useGenerateReport()
+  const downloadFromReports = () => {
+    if (generateReport.isPending) return
+    generateReport.mutate(
+      { module: 'decision-center', scope: exportScope(), options: exportOptions() },
+      {
+        onSuccess: () => {
+          setBriefingOpen(false)
+          navigate('/reports')
+        },
+      },
+    )
+  }
 
   /** Ask for the AI explanation of the record ON SCREEN.
    *
@@ -254,6 +299,11 @@ export function Decision() {
    *  A REOPENED DECISION EXPORTS ITS STORED BYTES. Handing the server the four
    *  Simulation payloads instead would re-assemble the record against today's
    *  dataset and quietly republish a historical decision at current numbers. */
+  /** The scope a report is generated against — the record's own applied
+   *  filters. Read at click time, and by both callers: the board's Export Report
+   *  and the briefing's download must describe the same screen. */
+  const exportScope = () => (shown?.scope.filters_applied as Record<string, unknown>) ?? {}
+
   const exportOptions = () => ({
     ...(viewingStored && stored.data
       ? { decision_record: stored.data.record }
@@ -358,7 +408,7 @@ export function Decision() {
           is what knows whether a stored record or a live draft is on screen —
           and the board merges its comparison into the same payload. */}
       <CandidateBoard
-        exportScope={() => (shown?.scope.filters_applied as Record<string, unknown>) ?? {}}
+        exportScope={exportScope}
         exportOptions={exportOptions}
         onApprove={persistDecision}
         canApprove={canSave && !saveDecision.isPending}
@@ -384,8 +434,7 @@ export function Decision() {
           onGenerateAi={generateAiBrief}
           canSave={canSave}
           saving={saveDecision.isPending}
-          currentDecisionId={envelope?.decision_id ?? null}
-          onOpenDecision={openStoredDecision}
+          onViewBriefing={() => setBriefingOpen(true)}
         />
       ) : stored.isPending && lookupId ? (
         <Loading label="Loading the saved decision…" />
@@ -432,7 +481,95 @@ export function Decision() {
           }}
         />
       </Card>
+
+      {/* THE BRIEFING, ON SCREEN. Opened by Generate Briefing and reopened from
+          the Actions card; downloading from it goes through the Report Center. */}
+      <BriefingPreview
+        open={briefingOpen && Boolean(briefing.data)}
+        response={briefing.data}
+        onClose={() => setBriefingOpen(false)}
+        onDownload={downloadFromReports}
+        preparing={generateReport.isPending}
+        error={generateReport.isError ? generateReport.error.message : null}
+      />
     </AppShell>
+  )
+}
+
+/** THE BRIEFING PREVIEW — the artifact itself, not a description of it.
+ *
+ *  `briefing.html` is a complete, self-contained document: its own styles, no
+ *  script, no external asset and no network request. So the preview renders THAT
+ *  DOCUMENT rather than re-laying-out its values in React — a second rendering
+ *  would be a second version of the briefing, and the two could disagree about a
+ *  number while both claiming to be the artifact.
+ *
+ *  IN A SANDBOXED IFRAME, with no permissions granted at all: the document is
+ *  built from record values that came back from the server, and nothing in this
+ *  preview needs script, forms, popups or same-origin access to show it.
+ *
+ *  DOWNLOADING IS NOT DONE HERE. The control hands off to the Report Center,
+ *  which is the only place in this application that saves a file.
+ */
+function BriefingPreview({
+  open,
+  response,
+  onClose,
+  onDownload,
+  preparing,
+  error,
+}: {
+  open: boolean
+  response: BriefingResponse | undefined
+  onClose: () => void
+  onDownload: () => void
+  preparing: boolean
+  error: string | null
+}) {
+  if (!response) return null
+  return (
+    <Modal open={open} onClose={onClose} maxWidthClassName="max-w-[1040px]">
+      <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
+        <div className="min-w-0">
+          <div className="text-[15px] font-bold text-ink-primary">Decision briefing</div>
+          <div className="mt-0.5 text-[11.5px] leading-[1.5] text-ink-muted">
+            The rendered briefing, exactly as it would leave this application. Nothing has been
+            stored and nothing has been written to your computer.
+          </div>
+        </div>
+        <Button variant="secondary" onClick={onClose} title="Close the briefing">
+          <Icon name="x" /> <span>Close</span>
+        </Button>
+      </div>
+
+      <div className="px-5 pt-4">
+        <iframe
+          title="Decision briefing"
+          srcDoc={response.html}
+          sandbox=""
+          className="h-[62vh] w-full rounded-[var(--r-md)] border border-border-subtle bg-white"
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-5 pt-4">
+        <div className="max-w-[520px] text-[11.5px] leading-[1.5] text-ink-muted">
+          {error ? (
+            <span className="text-status-danger">
+              Could not prepare the download — {error}. The briefing above is unchanged.
+            </span>
+          ) : (
+            <>
+              Download stores this decision in the Report Center and opens it there, where Excel
+              and PDF are saved the same way as every other report.
+            </>
+          )}
+        </div>
+        <Button variant="primary" onClick={onDownload} disabled={preparing}>
+          {preparing ? <Spinner /> : <Icon name="download" />}
+          <span>{preparing ? 'Preparing…' : 'Download from Reports'}</span>
+        </Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -453,8 +590,7 @@ function RecordView({
   onGenerateAi,
   canSave,
   saving,
-  currentDecisionId,
-  onOpenDecision,
+  onViewBriefing,
 }: {
   record: DecisionRecord
   stored: StoredDecision | null
@@ -463,8 +599,7 @@ function RecordView({
   onGenerateAi: () => void
   canSave: boolean
   saving: boolean
-  currentDecisionId: string | null
-  onOpenDecision: (id: string) => void
+  onViewBriefing: () => void
 }) {
   return (
     <>
@@ -512,12 +647,15 @@ function RecordView({
           canSave={canSave}
           saving={saving}
           stored={stored}
+          onViewBriefing={onViewBriefing}
         />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
-        <DecisionHistory currentDecisionId={currentDecisionId} onOpen={onOpenDecision} />
-      </Card>
+      {/* NO DECISION HISTORY HERE. The page renders one, below this view and
+          outside it, so it is on screen whether or not a record is — see the
+          note at the end of `Decision`. A second copy inside the record view
+          put two identical history cards on the page the moment a record was
+          shown, each with its own "Clear history". */}
 
       <div className="mt-[18px] text-[11.5px] leading-[1.5] text-ink-muted">
         {stored
@@ -1045,11 +1183,14 @@ function ActionsSection({
   canSave,
   saving,
   stored,
+  onViewBriefing,
 }: {
   briefing: BriefingMutation
   canSave: boolean
   saving: boolean
   stored: StoredDecision | null
+  /** Reopen a briefing that has already been generated. */
+  onViewBriefing: () => void
 }) {
   return (
     <>
@@ -1096,22 +1237,22 @@ function ActionsSection({
           <div>
             <div className="text-[13px] font-bold text-ink-primary">Generate Briefing</div>
             <div className="mt-1 max-w-[420px] text-[12px] leading-[1.6] text-ink-secondary">
-              Renders this record as <strong>briefing.html</strong>, a self-contained page you can
-              open anywhere and print to PDF, and <strong>briefing.json</strong>, the record itself.
-              Both carry exactly what is on this page, and both state that this decision is a draft
-              and is not approved.
+              Renders this record as <strong>briefing.html</strong>, a self-contained page that
+              opens on screen here, and <strong>briefing.json</strong>, the record itself. Both
+              carry exactly what is on this page, and both state that this decision is a draft and
+              is not approved. Saving a copy goes through the Report Center.
             </div>
-            {/* DOWNLOAD ONLY. Generating is the header's job; this is where the
-                artifacts arrive, and downloading them is a different action —
-                one writes to the user's disk, the other does not. */}
+            {/* GENERATING IS THE HEADER'S JOB. Once it has run, the briefing is
+                on hand, so this reopens it rather than rebuilding it — and no
+                control here writes a file. */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {briefing.isPending ? (
                 <span className="inline-flex items-center gap-2 text-[12px] text-ink-secondary">
                   <Spinner /> Generating…
                 </span>
               ) : briefing.isSuccess && briefing.data ? (
-                <Button variant="primary" onClick={() => saveBriefing(briefing.data)}>
-                  <Icon name="download" /> <span>Download</span>
+                <Button variant="secondary" onClick={onViewBriefing}>
+                  <Icon name="file" /> <span>View briefing</span>
                 </Button>
               ) : (
                 <span className="text-[11.5px] text-ink-muted">
@@ -1122,8 +1263,9 @@ function ActionsSection({
             {briefing.isSuccess && briefing.data && (
               <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
                 Briefing ready — {briefing.data.filenames.html} and{' '}
-                {briefing.data.filenames.json}. Nothing was stored and nobody was notified; the
-                files are written only when you download them.
+                {briefing.data.filenames.json}. Nothing was stored, nobody was notified and
+                nothing was written to your computer; the briefing's Download control puts this
+                decision in the Report Center, and the file is saved from there.
               </div>
             )}
             {briefing.isError && (
