@@ -606,7 +606,7 @@ export function Simulation() {
 
   return (
     <AppShell activeKey="simulation" crumbs={crumbs}>
-      <div className="fade-in flex items-end justify-between gap-4">
+      <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">

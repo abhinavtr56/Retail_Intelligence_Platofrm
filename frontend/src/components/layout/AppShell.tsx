@@ -4,35 +4,22 @@ import { Topbar, type Crumb } from './Topbar'
 
 /** The page shell. Ported from css/layout.css #app / .main / .content.
  *
- *  THE CONTENT IS INSET BY THE RAIL, NOT BY THE EXPANDED SIDEBAR. That is the
- *  whole point of the collapsed default: the ~156px the permanent column used to
- *  hold is now page. Three insets, by width:
+ *  THE CONTENT IS INSET BY THE FULL NAVIGATION COLUMN, at every width the column
+ *  is on screen. Two insets, not three:
  *
- *      below md      ->  none                       (off-canvas drawer)
- *      md .. lg      ->  --sidebar-rail-w  (68px)   always
- *      lg and up     ->  --sidebar-w      (224px)   when PINNED, else the rail
+ *      below md      ->  none                     (off-canvas drawer)
+ *      md and up     ->  --sidebar-w   (224px)    always
  *
- *  A HOVER EXPANSION NEVER MOVES THIS. If it did, every page would reflow as the
- *  pointer crossed the rail on its way to something else, and the chart or table
- *  the user was aiming at would shift under the cursor. Pinning is the
- *  deliberate act, so pinning is the only thing that moves the layout — and it
- *  transitions on the same 200ms curve as the rail itself.
- *
- *  AND ON TABLET, EVEN PINNING DOES NOT. Between `md` and `lg` the content keeps
- *  the 68px inset whatever the preference, so an expanded rail floats over the
- *  page instead of squeezing it to ~540px. That is the brief's tablet behaviour:
- *  a collapsed rail with overlay expansion.
+ *  ONE NUMBER, AND IT NEVER CHANGES. This used to be a three-way rule - a 68px
+ *  rail inset, widened to 224px only when the rail was pinned, and only from
+ *  `lg` - which existed to serve a sidebar that changed width under the pointer.
+ *  The sidebar no longer does (see Sidebar.tsx), so the layout has nothing left
+ *  to respond to: the column is a fixed 224px, the content starts where it ends,
+ *  and no pointer movement, route change or breakpoint reflows the page.
  *
  *  BELOW `md` there is no inset at all: the sidebar is an off-canvas drawer
  *  there, and a permanent column is what used to leave no room for any page's
- *  content on tablet and phone widths.
- *
- *  THE COMMAND CENTER IS THE ONE ROUTE THAT KEEPS THE OLD PERMANENT COLUMN. From
- *  `lg` up its rail is held open and the content is inset by the full
- *  `--sidebar-w`, exactly as every page used to be — the labels are always there
- *  and nothing overlays the page. Between `md` and `lg` it still takes the 68px
- *  inset, because a 224px column there leaves the page too little to work with;
- *  the rail is expanded, so it overlays, which is the tablet behaviour anyway.
+ *  content on phone widths.
  */
 export function AppShell({
   activeKey,
@@ -45,31 +32,16 @@ export function AppShell({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // The Command Center keeps the permanent, always-labelled column it had before
-  // the rail existed. Keyed off the route's own nav key so the page itself needs
-  // no new prop and nothing else can turn it on by accident.
-  const railOpen = activeKey === 'command'
-
   return (
     <div className="min-h-screen">
-      <Sidebar
-        activeKey={activeKey}
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        alwaysExpanded={railOpen}
-      />
+      <Sidebar activeKey={activeKey} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div
         className={[
           'flex min-h-screen min-w-0 flex-col bg-surface-page',
-          'transition-[padding-left] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
-          // The rail's inset from `md`, at every width. The wider inset used to
-          // apply when the rail was pinned open; that control has been removed,
-          // so a HOVER expansion always overlays the content instead of moving
-          // it, and the page never reflows under the pointer.
-          'md:pl-[var(--sidebar-rail-w)]',
-          // The Command Center's column is not a hover expansion, so it genuinely
-          // insets — from `lg`, where there is room for both.
-          railOpen ? 'lg:pl-[var(--sidebar-w)]' : '',
+          // The column's own width, from `md` up, and nothing else. No
+          // transition: this value is a constant now, so there is no change for
+          // one to animate.
+          'md:pl-[var(--sidebar-w)]',
         ].join(' ')}
       >
         <Topbar crumbs={crumbs} onMenuClick={() => setSidebarOpen(true)} />

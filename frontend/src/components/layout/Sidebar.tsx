@@ -12,57 +12,45 @@ import { Dropdown } from '../ui'
 // its own "#" when rendering the href.
 const toPath = (route: string) => (route.startsWith('#') ? route.slice(1) : route)
 
-/** THE NAVIGATION RAIL — three behaviours at three widths.
+/** THE NAVIGATION COLUMN - one width, and it does not move.
  *
  *  PRESENTATION ONLY. Every route, label, icon and destination still comes from
  *  `/api/nav` exactly as before. Nothing here renames, reorders, adds or removes
  *  a navigation item, and no page's data path is touched.
  *
- *  BELOW `md` — an off-canvas DRAWER at full expanded width, with a backdrop,
- *  opened by the Topbar's menu button. Unchanged in kind: a permanent column is
- *  what used to make every page overflow horizontally on a phone.
+ *  BELOW `md` - an off-canvas DRAWER at full width, with a backdrop, opened by
+ *  the Topbar's menu button. A permanent column is what used to make every page
+ *  overflow horizontally on a phone, so that behaviour stays.
  *
- *  AT `md` AND UP — a collapsed RAIL by default, which is the point of the
- *  change: the content gets back the ~156px the permanent column was holding.
- *  Two ways to read the labels:
+ *  AT `md` AND UP - a STATIC COLUMN, always at `--sidebar-w`, always labelled.
+ *  The content is genuinely inset by it (see AppShell), so the column overlays
+ *  nothing and casts no shadow.
  *
- *    * HOVER floats the expanded rail OVER the content. The content does not
- *      reflow — a pointer crossing the rail on its way somewhere else must not
- *      reshuffle the page it is heading for. That is why a hover expansion is an
- *      overlay with a shadow rather than a wider column.
- *    * PIN commits: the rail stays expanded and the content is genuinely inset
- *      by it (see AppShell). The preference persists.
+ *  IT USED TO COLLAPSE, and that is what this shape exists to undo. The rail sat
+ *  at `--sidebar-rail-w` and widened under the pointer, so the navigation
+ *  changed size as a matter of course: labels appeared and vanished while they
+ *  were being read, and the one fixed landmark on every screen was the one thing
+ *  that kept moving. A later revision held it open on the Command Center alone,
+ *  which only made the chrome disagree with itself between routes. It is now the
+ *  same column everywhere.
  *
- *  EXCEPT ON THE COMMAND CENTER, WHICH KEEPS THE OLD PERMANENT COLUMN. That page
- *  is the app's home and the place people navigate FROM, so its rail is expanded
- *  the whole time (`alwaysExpanded`) and the content is inset by the full width
- *  rather than overlaid — there is no hover to widen it and nothing floats over
- *  the page. Every other route keeps the collapsed rail described above.
+ *  NOTHING HERE READS HOVER. No hover state, no width transition, no per-route
+ *  exception to keep in sync - the width is a constant, so the layout cannot be
+ *  caught mid-animation and the content never reflows.
  *
- *  KEYBOARD USERS GET A TOOLTIP, NOT AN EXPANSION. Focus deliberately does not
- *  widen the rail: tabbing through nine items would animate a 156px overlay over
- *  the content on every keystroke. Instead the focused row raises a compact
- *  tooltip beside its icon, portalled out of the rail so it cannot be clipped and
- *  occupies no layout. The pin is in the tab order for anyone who wants the
- *  labels to stay.
- *
- *  AND HOVER DOES NOT ALSO RAISE ONE. Hovering an icon necessarily hovers the
- *  rail, so the rail expands and the real label appears beside the icon; a
- *  tooltip on top of that is the duplicate label the brief rules out. Collapsed
- *  rows still carry a native `title`, which covers pointers that fire no hover at
- *  all (touch long-press).
+ *  `NavRow` STILL CARRIES ITS COLLAPSED-STATE AFFORDANCES - the focus tooltip
+ *  and the native `title` - behind an `expanded` prop this file now always
+ *  passes true. They are inert rather than deleted: the row is a general
+ *  component, and a labelled row needs neither.
  */
 export function Sidebar({
   activeKey,
   open,
   onClose,
-  alwaysExpanded = false,
 }: {
   activeKey?: string
   open: boolean
   onClose: () => void
-  /** Hold the rail open at `md` and up, as a permanent column (Command Center). */
-  alwaysExpanded?: boolean
 }) {
   const { data: nav } = useNav()
   // B12: the signed-in persona, not user.json's hard-coded "Sanjay Kumar ·
@@ -86,24 +74,10 @@ export function Sidebar({
     else if (value === 'signout') logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
   }
 
-  // Transient, and deliberately not in the store: a hover belongs to one mounted
-  // rail and would be meaningless restored from a previous visit.
-  const [hovered, setHovered] = useState(false)
-
-  // THE RAIL EXPANDS ON HOVER AND ONLY ON HOVER — on every route but one. It
-  // used to also latch open through a "Keep open" / "Unpin" toggle at the top of
-  // the rail; that control is gone, and with it the stored preference behind it
-  // — a rail that widens under the pointer and narrows again needs no setting to
-  // explain it. `alwaysExpanded` is not that toggle coming back: it is a
-  // property of the route (the Command Center), not a thing the user sets, and
-  // there it holds the rail open so nothing ever moves.
-  const expanded = alwaysExpanded || hovered
-  // And this drives the LABELS, which is not the same question. Below `md` the
-  // drawer is always full width, so an open drawer must show its labels whether
-  // or not the rail would have been expanded -- otherwise the phone gets a 224px
-  // panel of unlabelled icons. Everything that reveals text reads this; only the
-  // aside's own width reads `expanded`.
-  const labelled = expanded || open
+  // ALWAYS. Named rather than inlined so the brand, every row and the account
+  // footer read one fact: at `md` and up the column is open, and below `md` the
+  // drawer is full width whenever it is open at all. There is no third state.
+  const labelled = true
 
   return (
     <>
@@ -116,24 +90,20 @@ export function Sidebar({
       )}
       <aside
         aria-label="Main navigation"
-        data-expanded={expanded ? 'true' : 'false'}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        data-expanded="true"
         className={[
           'fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-white/[0.06]',
           'bg-sidebar-bg text-sidebar-item',
-          // Mobile: full-width drawer, slid in and out.
+          // ONE WIDTH AT EVERY BREAKPOINT. Below `md` it is the drawer's width;
+          // at `md` and up it is the column's, and they are the same number.
           'w-[var(--sidebar-w)]',
+          // Below `md` the drawer slides in and out; from `md` it is simply
+          // there. This is the only thing left that moves.
           open ? 'translate-x-0' : '-translate-x-full',
-          // md+: always on screen, width driven by the expanded state.
           'md:translate-x-0',
-          expanded ? 'md:w-[var(--sidebar-w)]' : 'md:w-[var(--sidebar-rail-w)]',
-          // THE SHADOW MARKS AN OVERLAY, so it follows the hover expansion and
-          // not the permanent one: on the Command Center the content is inset by
-          // the full width (see AppShell), the rail floats over nothing, and a
-          // shadow there would cast onto a page it is sitting beside.
-          expanded && !alwaysExpanded ? 'md:shadow-[var(--shadow-lg)]' : '',
-          'transition-[transform,width] duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
+          // No shadow: the content is inset by this column rather than sitting
+          // under it, so there is nothing for it to cast onto.
+          'transition-transform duration-200 ease-[var(--ease-out)] motion-reduce:transition-none',
         ].join(' ')}
       >
         {/* ---- brand ------------------------------------------------------- */}
