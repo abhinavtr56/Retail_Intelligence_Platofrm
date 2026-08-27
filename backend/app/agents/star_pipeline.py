@@ -13,6 +13,7 @@ Trade in the South, which mechanic is bleeding money" — and that is the shape
 most promotion problems actually take.
 """
 import asyncio
+import re
 from typing import Any
 
 from app.agents.client import complete_json
@@ -118,9 +119,19 @@ data does cover. Do NOT try to be helpful by finding some tenuous link to
 promotion data: answering "who is <person>" with a promotion ROI figure invents
 a connection that does not exist, and is far worse than saying you cannot answer.
 
-A question can be terse or oddly phrased and still be answerable — "is dussehra
-good or bad?" is a real question about promotion performance. Judge the subject,
-not the grammar.
+BEFORE refusing, check the question's words against the VALUES listed in the
+schema summary below — offer names, brands, categories, retailers, regions,
+channels, promotion types. Those values are drawn from the data itself, and a
+question naming one of them is answerable even when the word also means
+something else in the world.
+
+Festival and seasonal names are the common trap: the offer list contains names
+like "Dussehra Deal 25" and "Diwali Special 24", so a question mentioning
+dussehra or diwali is asking about THOSE PROMOTIONS, not about the festival.
+Refusing it because the word sounds cultural is wrong.
+
+A question can also be terse, vague or ungrammatical and still be answerable.
+Judge the subject against the data, not the phrasing.
 
 When answerable is true, continue:
 1. Classify it into one of the four investigation archetypes.
@@ -209,8 +220,23 @@ def _plan_prompt(
     import json
 
     dims = summary["filter_dimensions"]
+    matches = question_names_data(question, summary)
+    match_lines: list[str] = []
+    if matches:
+        match_lines = [
+            "",
+            "WORDS IN THIS QUESTION THAT NAME REAL VALUES IN THIS DATASET:",
+            *[f'  "{word}" -> {", ".join(vals[:4])}' for word, vals in matches.items()],
+            "These are matches against the data itself, not guesses. A word listed here",
+            "refers to that value, whatever else it may mean in the world — do not refuse",
+            "the question on the grounds that the word sounds cultural, personal or",
+            "unrelated. (A match alone does not make a question answerable: asking about",
+            "the weather in a city we happen to sell in is still about weather. Judge what",
+            "is being ASKED, now that you know what the words name.)",
+        ]
     lines = [
         f"QUESTION: {question}",
+        *match_lines,
         "",
         "DATASET: finalised TPO star schema (fact_sales joined to product, store, "
         "channel, promotion and date dimensions).",
@@ -244,6 +270,49 @@ def _plan_prompt(
             "`focus_sub` and in every specialist assignment.",
         ]
     return "\n".join(lines)
+
+
+
+# Words that appear in so many dataset values they identify nothing on their own.
+_GENERIC_VALUE_WORDS = {
+    "deal", "discount", "special", "offer", "savings", "promotion", "promo",
+    "trade", "care", "home", "liquid", "size", "count", "pack", "buy", "get",
+    "the", "and", "for", "with", "all",
+}
+
+
+def _value_index(summary: dict[str, Any]) -> dict[str, list[str]]:
+    """word -> the dataset values it appears in, e.g. dussehra -> Dussehra Deal 24/25."""
+    dims = summary.get("filter_dimensions") or {}
+    labelled: list[tuple[str, str]] = []
+    for key in ("region", "state", "city", "retailer", "category", "brand", "promotion_type", "distributor"):
+        labelled += [(key, str(v)) for v in (dims.get(key) or [])]
+    labelled += [("channel", str(e.get("name", ""))) for e in dims.get("channel") or []]
+    labelled += [("offer", str(e.get("name", ""))) for e in dims.get("offers") or []]
+
+    index: dict[str, list[str]] = {}
+    for dim, value in labelled:
+        for word in re.split(r"[^a-z0-9]+", value.lower()):
+            if len(word) >= 4 and word not in _GENERIC_VALUE_WORDS:
+                entry = f"{value} ({dim})"
+                if entry not in index.setdefault(word, []):
+                    index[word].append(entry)
+    return index
+
+
+def question_names_data(question: str, summary: dict[str, Any]) -> dict[str, list[str]]:
+    """Which dataset values the question's words actually name.
+
+    The planner refused "is dussehra good or bad?" because the word reads as a
+    festival — even with the offer list in front of it and an instruction not to
+    do that. Rather than force the verdict (which would also let "weather in
+    Mumbai" through, since Mumbai is a city here), this hands the planner the
+    specific match so the ambiguity is resolved before it decides. The judgement
+    stays with the model; only the evidence improves.
+    """
+    asked = set(re.split(r"[^a-z0-9]+", question.lower()))
+    index = _value_index(summary)
+    return {w: index[w] for w in sorted(asked & set(index))}
 
 
 async def run_star_pipeline(
