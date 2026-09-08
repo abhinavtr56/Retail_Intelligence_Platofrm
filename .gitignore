@@ -29,7 +29,3 @@ backend/.env
 
 # B10 store (SQLite)
 backend/.store/
-
-# The star-schema CSVs are uploaded through the Excel connector at runtime, not
-# committed — see app/star_dataset.py
-Data/*.csv
