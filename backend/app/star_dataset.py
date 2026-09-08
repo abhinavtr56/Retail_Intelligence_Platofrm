@@ -335,7 +335,7 @@ def reset_caches() -> None:
     config.DATA_DIR = data_dir()
 
 
-def validate(items: list[Classified]) -> None:
+def validate(items: list[Classified], unrecognised: list[str] | None = None) -> None:
     """Check an upload is a complete, loadable star schema. Raises otherwise.
 
     Runs BEFORE anything touches disk, and its whole job is the error message:
@@ -343,16 +343,28 @@ def validate(items: list[Classified]) -> None:
     recognised but unusable, *which column* it lacks. "Upload failed" would be
     true and useless.
 
-    Three distinct problems, reported separately because the fix differs:
+    Four distinct problems, reported separately because the fix differs:
       * a table nobody uploaded             -> upload that file
       * a table uploaded twice              -> remove one of them
       * a table uploaded but missing columns -> fix the export
+      * a file that is none of the six      -> remove it
+
+    `unrecognised` carries the filenames whose headers matched no table. Exactly
+    six files, one per table, may be uploaded: an extra file is a mistake the
+    user should see now — silently profiling it elsewhere hid a
+    wrong-file-picked slip behind a success message.
     """
     by_role: dict[str, list[Classified]] = {}
     for item in items:
         by_role.setdefault(item.role, []).append(item)
 
     problems: list[str] = []
+
+    for name in unrecognised or []:
+        problems.append(
+            f"'{name}': its columns match none of the 6 tables — remove it, "
+            f"only the 6 standard tables can be uploaded."
+        )
 
     duplicates = {role: found for role, found in by_role.items() if len(found) > 1}
     for role, found in duplicates.items():
@@ -397,7 +409,7 @@ def validate(items: list[Classified]) -> None:
         )
 
 
-def install(items: list[Classified]) -> dict[str, Any]:
+def install(items: list[Classified], unrecognised: list[str] | None = None) -> dict[str, Any]:
     """Write a COMPLETE star schema into the data folder and reload from it.
 
     All six tables are required in one upload. A star schema is only meaningful
@@ -407,7 +419,13 @@ def install(items: list[Classified]) -> dict[str, Any]:
     backup to roll back to: the only two valid states are "all six of one
     dataset" and "empty, waiting for an upload".
     """
-    validate(items)  # raises with a message naming exactly what is absent
+    if is_locked():
+        raise StarDatasetError(
+            "A complete dataset is already loaded. Use Reset to clear all 6 files "
+            "before uploading a new set — see the connector's Reset button."
+        )
+
+    validate(items, unrecognised)  # raises with a message naming exactly what is absent
 
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -491,10 +509,114 @@ def current_status() -> dict[str, Any]:
                 "modified_at": int(stat.st_mtime * 1000) if stat else None,
             }
         )
+    complete = all(f["present"] for f in files)
     return {
         "data_dir": str(folder),
         "files": files,
-        "complete": all(f["present"] for f in files),
+        "complete": complete,
+        # Complete means uploading is closed until a reset — the frontend uses
+        # this to swap the dropzone for the View/Reset actions.
+        "locked": complete,
+    }
+
+
+def reset() -> dict[str, Any]:
+    """Delete all six star files, putting the connector back at its upload prompt.
+
+    The counterpart to `install`'s all-or-nothing rule: since the only two valid
+    states are "all six of one dataset" and "empty", clearing is what makes a
+    SECOND upload possible at all. Uploading over a complete set is refused (see
+    `is_locked`) because a fresh fact table silently joined against the previous
+    dimensions is the mismatched-schema bug this module exists to prevent — so
+    the user resets first, which is an explicit, visible discard rather than an
+    accidental half-replacement.
+
+    Caches are dropped afterwards for the same reason `install` drops them: the
+    parsed store is held for the process lifetime, so without clearing it every
+    endpoint would keep answering from a dataset whose files no longer exist.
+    """
+    folder = data_dir()
+    removed: list[str] = []
+    with _install_lock:
+        for name in ROLE_FILES.values():
+            path = folder / name
+            if path.is_file():
+                try:
+                    path.unlink()
+                except OSError as e:
+                    raise StarDatasetError(
+                        f"Couldn't delete {name} — another program is holding it open. "
+                        f"Close it in Excel (or any other app reading the Data folder) "
+                        f"and try again. Detail: {e}"
+                    ) from e
+                removed.append(name)
+        # Sweep any `.name.incoming` left behind by an install that died between
+        # staging and swapping; they are invisible to current_status() but would
+        # otherwise sit in the folder forever.
+        for temp in folder.glob(".*.incoming"):
+            temp.unlink(missing_ok=True)
+        reset_caches()
+    return {"removed": removed, "data_dir": str(folder)}
+
+
+def is_locked() -> bool:
+    """True when a complete set is installed and further uploads are refused.
+
+    Uploading is a replace-the-world operation, so it is allowed only from the
+    empty state. With all six present the user's choices are to view them or to
+    reset — see `reset` for why replacing in place is not one of them.
+    """
+    folder = data_dir()
+    return all((folder / name).is_file() for name in ROLE_FILES.values())
+
+
+#: Rows returned by `preview` in one page. Enough to see the shape of a table
+#: without ever holding the 205,920-row fact table in memory as JSON.
+PREVIEW_LIMIT = 100
+
+
+def preview(role: str, limit: int = PREVIEW_LIMIT, offset: int = 0) -> dict[str, Any]:
+    """Read a window of rows out of one installed table, for the View button.
+
+    Streams and skips rather than loading the file: the fact table is ~21 MB, so
+    materialising it to serve 100 rows would cost far more memory than the
+    request is worth. `row_count` is counted the same way, in a second cheap
+    pass, so the viewer can page without guessing at the end.
+    """
+    if role not in ROLE_FILES:
+        raise StarDatasetError(f"Unknown table '{role}'.")
+    path = data_dir() / ROLE_FILES[role]
+    if not path.is_file():
+        raise StarDatasetError(f"{ROLE_LABELS[role]} is not uploaded yet.")
+
+    limit = max(1, min(limit, PREVIEW_LIMIT))
+    offset = max(0, offset)
+
+    rows: list[dict[str, str]] = []
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            columns = list(reader.fieldnames or [])
+            total = 0
+            for index, row in enumerate(reader):
+                total += 1
+                if offset <= index < offset + limit:
+                    rows.append({k: ("" if v is None else str(v)) for k, v in row.items()})
+    except OSError as e:
+        raise StarDatasetError(f"Couldn't read {path.name}: {e}") from e
+
+    stat = path.stat()
+    return {
+        "role": role,
+        "label": ROLE_LABELS[role],
+        "filename": path.name,
+        "columns": columns,
+        "rows": rows,
+        "row_count": total,
+        "offset": offset,
+        "limit": limit,
+        "size_bytes": stat.st_size,
+        "modified_at": int(stat.st_mtime * 1000),
     }
 
 
@@ -508,9 +630,10 @@ def inspect(uploads: list[tuple[str, bytes]]) -> dict[str, Any]:
     """
     classified = [(name, classify(name, content)) for name, content in uploads]
     recognised = [c for _, c in classified if c is not None]
+    unrecognised = [name for name, c in classified if c is None]
 
     try:
-        validate(recognised)
+        validate(recognised, unrecognised)
         message = ""
     except StarDatasetError as e:
         message = str(e)
@@ -538,4 +661,5 @@ def inspect(uploads: list[tuple[str, bytes]]) -> dict[str, Any]:
         ],
         "ready": not message,
         "message": message,
+        "locked": is_locked(),
     }

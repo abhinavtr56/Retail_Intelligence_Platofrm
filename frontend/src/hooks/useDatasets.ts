@@ -1,6 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiDelete, apiFetch, apiUpload } from '../lib/api'
-import type { DatasetDetail, DatasetSummary, StarStatus, UploadResult } from '../types/dataset'
+import type {
+  DatasetDetail,
+  DatasetSummary,
+  StarPreview,
+  StarResetResult,
+  StarRole,
+  StarStatus,
+  UploadResult,
+} from '../types/dataset'
 
 export function useDatasets() {
   return useQuery({
@@ -45,6 +53,31 @@ export function useUploadDatasets() {
       // any more. Blanket-invalidate rather than listing the dozens of query
       // keys that would each need naming here.
       if (result.star?.installed.length) queryClient.invalidateQueries()
+    },
+  })
+}
+
+// A page of rows from one installed star table. Enabled only when a role is
+// actually selected, so opening the connector doesn't fetch six previews.
+export function useStarPreview(role: StarRole | null, offset = 0) {
+  return useQuery({
+    queryKey: ['datasets', 'star', 'preview', role, offset],
+    queryFn: () => apiFetch<StarPreview>(`/datasets/star/preview/${role}?offset=${offset}`),
+    enabled: Boolean(role),
+  })
+}
+
+// Clear all six files. Destructive and deliberate: it is the only route back to
+// the upload prompt, since uploading over a complete set is refused.
+export function useResetStar() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiDelete<StarResetResult>('/datasets/star'),
+    onSuccess: () => {
+      // Same reasoning as a star install: every KPI, chart and filter in the
+      // app was derived from the files just deleted, so nothing cached still
+      // describes the current state.
+      queryClient.invalidateQueries()
     },
   })
 }

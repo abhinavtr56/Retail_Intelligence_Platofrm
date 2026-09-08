@@ -77,6 +77,29 @@ export interface StarStatus {
   data_dir: string
   files: StarStatusFile[]
   complete: boolean
+  /** All six present — uploading is closed until a reset clears them. */
+  locked: boolean
+}
+
+/** A window of rows from one installed table, for the View panel. */
+export interface StarPreview {
+  role: StarRole
+  label: string
+  filename: string
+  columns: string[]
+  rows: Record<string, string>[]
+  /** Total data rows in the file, not just those returned. */
+  row_count: number
+  offset: number
+  limit: number
+  size_bytes: number
+  modified_at: number
+}
+
+export interface StarResetResult {
+  /** Canonical filenames actually deleted. */
+  removed: string[]
+  data_dir: string
 }
 
 export interface UploadResult {
