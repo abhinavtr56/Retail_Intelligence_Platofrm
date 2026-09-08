@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Dropdown, IconButton, ThemeToggle, useToast } from '../components/ui'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
-import { useDatasets } from '../hooks/useDatasets'
+import { useDatasets, useStarStatus } from '../hooks/useDatasets'
 import { HeroArt } from '../components/portal/HeroArt'
 import { ModuleGrid } from '../components/portal/ModuleGrid'
 import { ConnectorRail } from '../components/portal/ConnectorRail'
@@ -36,6 +36,7 @@ const DISCONNECT_KIND: Record<ConnectorSpecial, string> = {
 export function Home() {
   const { data: user } = useCurrentUser()
   const { data: datasets } = useDatasets()
+  const { data: starStatus } = useStarStatus()
   const logout = useLogout()
   const navigate = useNavigate()
   const { show } = useToast()
@@ -54,25 +55,25 @@ export function Home() {
     }
   }, [])
 
-  // Excel / Shared Drives reflects real ingested data, not a hardcoded flag —
-  // it's "connected" exactly when this user has uploaded at least one dataset.
+  // Excel / Shared Drives reflects real ingested data, not a hardcoded flag.
+  // The core star-schema tables in the Data/ folder are what it reports first:
+  // those are the files every dashboard and KPI actually reads, so "6 of 6 core
+  // tables" is the honest description of the connection. Standalone profiled
+  // uploads (anything that isn't one of the six) are mentioned alongside.
   useEffect(() => {
-    if (!datasets) return
-    const rows = datasets.reduce((sum, d) => sum + d.rows, 0)
+    if (!datasets && !starStatus) return
+    const present = starStatus?.files.filter((f) => f.present).length ?? 0
+    const total = starStatus?.files.length ?? 0
+    const extras = datasets?.length ?? 0
+    const bits: string[] = []
+    if (total) bits.push(`${present}/${total} core tables`)
+    if (extras) bits.push(`${extras} extra file${extras > 1 ? 's' : ''}`)
     setConnectors((prev) =>
       prev.map((c) =>
-        c.key === 'xls'
-          ? {
-              ...c,
-              on: datasets.length > 0,
-              detail: datasets.length
-                ? `${datasets.length} file${datasets.length > 1 ? 's' : ''} · ${rows.toLocaleString()} rows`
-                : undefined,
-            }
-          : c,
+        c.key === 'xls' ? { ...c, on: present > 0 || extras > 0, detail: bits.join(' · ') || undefined } : c,
       ),
     )
-  }, [datasets])
+  }, [datasets, starStatus])
 
   const updateConnector = (key: string, patch: Partial<PortalConnector>) => {
     setConnectors((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)))

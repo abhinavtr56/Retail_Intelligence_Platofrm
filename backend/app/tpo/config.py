@@ -49,7 +49,12 @@ def _resolve_data_dir() -> Path:
     for candidate in _CANDIDATES:
         if (candidate / FACT_FILE).is_file():
             return candidate
-    return _CANDIDATES[-1]  # report the canonical path in the not-found error
+    # No candidate holds data yet — a first run against a clone with an empty
+    # Data/ folder, before anything has been uploaded. Resolve to the in-repo
+    # Data/ anyway rather than to the authoring machine's OneDrive path: it is
+    # where the Excel connector writes, so pointing the loader anywhere else
+    # would have an upload land in one folder while the loader read another.
+    return _CANDIDATES[0]
 
 
 DATA_DIR = _resolve_data_dir()

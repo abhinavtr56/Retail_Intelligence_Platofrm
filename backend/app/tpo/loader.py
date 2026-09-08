@@ -120,11 +120,23 @@ def _pack_size(size: str) -> float:
     return float(match.group(1)) if match else 0.0
 
 
+class DatasetNotLoaded(FileNotFoundError):
+    """No star-schema CSVs in the data folder yet.
+
+    A distinct type because this is the EXPECTED state of a fresh checkout —
+    the Data/ folder ships empty and is filled by uploading the six files
+    through the Excel connector. Routes turn this into an empty, well-formed
+    response ("no data yet") instead of a 500, so the app is usable enough to
+    reach the upload screen. A genuine parse failure is still a plain error.
+    """
+
+
 def _read_csv(path: Path) -> Iterator[dict[str, str]]:
     if not path.is_file():
-        raise FileNotFoundError(
-            f"TPO dataset not found: {path}. "
-            f"Set TPO_DATA_DIR to the folder holding the finalized CSVs."
+        raise DatasetNotLoaded(
+            f"No dataset loaded: {path.name} is missing from {path.parent}. "
+            f"Upload the six star-schema CSVs through the Excel / Shared Drives "
+            f"connector, or set TPO_DATA_DIR to a folder that already holds them."
         )
     # utf-8-sig: dim_promotion_final.csv carries a BOM, which would otherwise
     # turn its first header into a key no lookup matches.

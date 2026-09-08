@@ -11,9 +11,12 @@ import logging
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+from app.tpo.loader import DatasetNotLoaded
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +37,18 @@ def _warm_caches() -> None:
     def warm() -> None:
         try:
             from app.intelligence_engine import build_intelligence_facts
-            from app.tpo.loader import get_store
+            from app.tpo.loader import DatasetNotLoaded, get_store
 
-            store = get_store()
+            try:
+                store = get_store()
+            except DatasetNotLoaded:
+                # The expected state of a fresh checkout: Data/ ships empty and
+                # is filled by uploading the six CSVs through the Excel
+                # connector. There is nothing to warm and nothing is wrong, so
+                # this must not print a traceback — the upload will warm the
+                # caches itself when it reloads the store.
+                log.info("No dataset in the data folder yet — upload the star-schema CSVs to populate it.")
+                return
             log.info("Warmed fact store: %s rows", store.row_count)
             build_intelligence_facts({"year": 2025}, ("core",))
             log.info("Warmed Promotion Intelligence core facts (F25)")
@@ -65,6 +77,30 @@ app.add_middleware(
 @app.get("/api/health")
 def health():
     return {"ok": True, "service": "tiq-api"}
+
+
+@app.exception_handler(DatasetNotLoaded)
+def _no_dataset(request: Request, exc: DatasetNotLoaded) -> JSONResponse:
+    """Answer every data-backed endpoint with a clean, explicit 'no data yet'.
+
+    The data folder ships empty and is filled by uploading the six star-schema
+    CSVs through the Excel connector. Until then the KPI routes have nothing to
+    return, and without this handler each one raises a bare FileNotFoundError —
+    a 500 with a stack trace, which reads as a broken server rather than an
+    empty one and gives the frontend nothing to distinguish the two.
+
+    503 rather than 200-with-empty-body so a caller cannot mistake "not loaded
+    yet" for "loaded, and genuinely zero"; `dataset_missing` is the flag the UI
+    keys on to show the upload prompt.
+    """
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": str(exc),
+            "dataset_missing": True,
+            "action": "Upload the six star-schema CSVs via the Excel / Shared Drives connector.",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

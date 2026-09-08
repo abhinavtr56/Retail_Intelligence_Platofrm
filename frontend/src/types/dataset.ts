@@ -41,7 +41,47 @@ export interface DatasetDetail extends DatasetSummary {
   profile: DatasetProfile
 }
 
+// One of the six star-schema tables, written into the Data/ folder the TPO
+// loader reads. Mirrors backend/app/star_dataset.py.
+export type StarRole = 'fact' | 'product' | 'geo_store' | 'channel' | 'promotion' | 'date'
+
+export interface StarInstalledFile {
+  role: StarRole
+  filename: string
+  original_name: string
+  matched_by: string
+  size_bytes: number
+}
+
+export interface StarInstallResult {
+  installed: StarInstalledFile[]
+  /** Canonical filenames that already existed and were overwritten. */
+  replaced: string[]
+  /** Fact rows the reloaded store holds — null when nothing was installed. */
+  rows: number | null
+  data_dir: string
+}
+
+export interface StarStatusFile {
+  role: StarRole
+  label: string
+  filename: string
+  /** Columns the loader reads from this table — what identifies it. */
+  required_columns: string[]
+  present: boolean
+  size_bytes: number
+  modified_at: number | null
+}
+
+export interface StarStatus {
+  data_dir: string
+  files: StarStatusFile[]
+  complete: boolean
+}
+
 export interface UploadResult {
   datasets: DatasetSummary[]
   errors: { filename: string; error: string }[]
+  /** Present when the upload included star-schema files. */
+  star: StarInstallResult | null
 }
