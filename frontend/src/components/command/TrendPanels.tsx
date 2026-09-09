@@ -120,10 +120,15 @@ export function TrendPanels({
   // themselves be read; the first tick always carries it.
   const xTicks = (() => {
     const out: { i: number; text: string }[] = []
-    let lastYear: string | null = null
+    const yearOf = (label: string) => calendarYear(label).match(/\b(\d{4})\b/)?.[1] ?? null
+    // Seeded with the FIRST tick's own year, so the axis never repeats what the
+    // year filter above the chart already states. It reappears only where the
+    // year actually turns over — the one case week numbers alone are ambiguous,
+    // since an "All Years" range holds two W01s.
+    let lastYear = n ? yearOf(labels[0]) : null
     for (let i = 0; i < n; i += labelEvery) {
       const full = calendarYear(labels[i])
-      const year = full.match(/\b(\d{4})\b/)?.[1] ?? null
+      const year = yearOf(labels[i])
       out.push({ i, text: year && year === lastYear ? full.replace(/\s*\b\d{4}\b/, '').trim() : full })
       lastYear = year
     }
