@@ -101,6 +101,11 @@ DIMENSIONS: tuple[str, ...] = (
 class FilterState:
     """The single filter contract. Hashable so resolved row sets can be cached.
 
+    `week` is the business week number carried on the fact row, the same one
+    `WeekRow.week_key` is built from. It is a SCALAR like year and month, not a
+    list dimension, so it never appears in `DIMENSIONS` and adds no filter-option
+    list to the UI.
+
     `year`/`month` are the real calendar values from the data (2024, 2025 and
     1-12). The F24/F25 labels the UI shows are a display concern applied in
     app/tpo/formatting.py — no dataset field is renamed to produce them.
@@ -108,6 +113,7 @@ class FilterState:
 
     year: int | None = None
     month: int | None = None
+    week: int | None = None            # business week number, 1-53
     channel: frozenset[str] | None = None      # Channel_Id, e.g. "CH002"
     retailer: frozenset[str] | None = None     # dim_geo_store.Retailer
     region: frozenset[str] | None = None
@@ -122,11 +128,11 @@ class FilterState:
     promotion_type: frozenset[str] | None = None
 
     @classmethod
-    def build(cls, year: int | None = None, month: int | None = None, **lists: Sequence[str] | None) -> "FilterState":
+    def build(cls, year: int | None = None, month: int | None = None, week: int | None = None, **lists: Sequence[str] | None) -> "FilterState":
         unknown = set(lists) - set(DIMENSIONS)
         if unknown:
             raise ValueError(f"Unknown filter dimension(s): {sorted(unknown)}")
-        return cls(year=year, month=month, **{k: _norm(v) for k, v in lists.items()})
+        return cls(year=year, month=month, week=week, **{k: _norm(v) for k, v in lists.items()})
 
     def replace(self, **changes: Any) -> "FilterState":
         return _replace(self, **changes)
@@ -240,8 +246,8 @@ def _matching_indices(store: FactStore, state: FilterState, *, keep_baseline: bo
     store_masks, product_masks, promotion_masks = _fail_masks(store, state)
     promo_filtered = state.promotion is not None or state.promotion_type is not None
 
-    year, month = state.year, state.month
-    year_col, month_col = store.year, store.month
+    year, month, week = state.year, state.month, state.week
+    year_col, month_col, week_col = store.year, store.month, store.week
     product_col, store_col, promo_col = store.product_code, store.store_code, store.promo_code
     promoted_col = store.promoted
 
@@ -251,6 +257,8 @@ def _matching_indices(store: FactStore, state: FilterState, *, keep_baseline: bo
         if year is not None and year_col[i] != year:
             continue
         if month is not None and month_col[i] != month:
+            continue
+        if week is not None and week_col[i] != week:
             continue
         if store_masks[store_col[i]]:
             continue

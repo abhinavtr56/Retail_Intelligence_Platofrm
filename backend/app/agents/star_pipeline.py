@@ -37,6 +37,7 @@ INVESTIGATION_TYPES = ["diagnostic", "optimization", "launch", "strategic"]
 _FILTER_PROPS = {
     "year": {"type": ["integer", "null"]},
     "month": {"type": ["integer", "null"]},
+    "week": {"type": ["integer", "null"], "description": "Business week number 1-53, as in 'week 52'"},
     "channel": {"type": ["array", "null"], "items": {"type": "string"}, "description": "Channel_Id codes, e.g. CH002"},
     "region": {"type": ["array", "null"], "items": {"type": "string"}},
     "state": {"type": ["array", "null"], "items": {"type": "string"}},
@@ -138,9 +139,11 @@ When answerable is true, continue:
 2. Set `global_filters` to the scope the question implies (a year, a channel,
    a region). Use ONLY codes/values present in the schema summary. Set every
    field you are not constraining to null.
-   `month` is a calendar month, 1-12. A question naming a WEEK ("week 41") is
-   not naming a month — leave month null rather than putting the week number
-   in it.
+   `month` is a calendar month, 1-12; `week` is a business week number, 1-53.
+   They are DIFFERENT FIELDS. A question naming a WEEK ("week 41", "W41")
+   sets `week`, never `month` — a week number in `month` scopes the whole
+   investigation to the wrong period, or to no valid month at all. A question
+   naming a week but no month leaves `month` null.
 3. Assign the specialists who should investigate it.
 
 You do NOT invent analyses. You ASSIGN work to a standing team of specialists,
@@ -377,7 +380,7 @@ async def run_star_pipeline(
         the UI's scope label and the /facts query — not just out of FilterState.
         """
         out = {k: v for k, v in (raw or {}).items() if v not in (None, [], "")}
-        for key, low, high in (("year", 1900, 2200), ("month", 1, 12)):
+        for key, low, high in (("year", 1900, 2200), ("month", 1, 12), ("week", 1, 53)):
             if key in out:
                 if _bounded_int(out[key], low, high) is None:
                     out.pop(key)
@@ -563,7 +566,14 @@ async def run_star_pipeline(
     # gets the plain year, narrowed by month when the scope carries one.
     year = global_filters.get("year")
     month = global_filters.get("month")
-    if year and month:
+    week = global_filters.get("week")
+    # A week is narrower than a month, so it names the period when present.
+    # The chip has to say so: a scope of one week reported as the full year is
+    # what let a neighbour comparison covering nine promotion weeks read as if
+    # it described the single week the question asked about.
+    if year and week:
+        chips["period"] = f"W{int(week):02d} {year}"
+    elif year and month:
         chips["period"] = f"{MONTHS[int(month) - 1]} {year}"
     elif year:
         chips["period"] = f"{year} (Full Year)"

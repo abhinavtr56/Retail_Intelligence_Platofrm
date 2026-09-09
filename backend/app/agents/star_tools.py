@@ -36,12 +36,12 @@ BREAKDOWN_METRICS: tuple[str, ...] = tuple(service.BREAKDOWN_METRICS)
 # FilterState fields an agent may set. `tier` and `product` are allowed but
 # rarely useful to a planner; kept for completeness.
 FILTER_FIELDS: tuple[str, ...] = (
-    "year", "month", "channel", "retailer", "region", "state", "city",
+    "year", "month", "week", "channel", "retailer", "region", "state", "city",
     "tier", "distributor", "category", "brand", "product", "promotion",
     "promotion_type",
 )
 
-_LIST_FIELDS = {f for f in FILTER_FIELDS if f not in ("year", "month")}
+_LIST_FIELDS = {f for f in FILTER_FIELDS if f not in ("year", "month", "week")}
 
 
 def _codes(values: list[Any]) -> list[str]:
@@ -110,6 +110,7 @@ def build_filter_state(raw: dict[str, Any] | None) -> FilterState:
     return FilterState.build(
         year=_bounded_int(raw.get("year"), 1900, 2200),
         month=_bounded_int(raw.get("month"), 1, 12),
+        week=_bounded_int(raw.get("week"), 1, 53),
         **lists,
     )
 
@@ -279,7 +280,15 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
         if r.is_promoted:
             weeks_by_form.setdefault(r.brand_form, set()).add(r.week_key)
 
-    rows = rows_for(selected.widened_to_brand_form().replace(promotion=None, promotion_type=None))
+    # WEEK IS LIFTED HERE TOO, and for the same reason as Product and Promotion:
+    # pass 1 has already read the promoted weeks off the selection, and a
+    # neighbour's ordinary level is by definition measured on the weeks the
+    # promotion was NOT running. Leaving a week filter on this pass leaves no
+    # such weeks at all, so every neighbour reports 'no non-promoted weeks to
+    # read an ordinary level from' and the whole check returns zero.
+    rows = rows_for(
+        selected.widened_to_brand_form().replace(promotion=None, promotion_type=None, week=None)
+    )
 
     products = get_store().dims.products
     brand_forms = sorted({products[p].brand for p in promoted_ids if p in products})
