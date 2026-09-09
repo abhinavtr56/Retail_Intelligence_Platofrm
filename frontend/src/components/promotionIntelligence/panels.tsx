@@ -12,11 +12,26 @@ import type {
 
 const CR = 1e7 // 1 crore — the unit Indian trade finance reports in
 
+/** Lakhs only once a lakh has enough resolution to distinguish two rows.
+ *
+ *  One decimal in lakhs is a 10,000-rupee step. Just above a lakh that is an
+ *  8% band, so a By Retailer column of 1.2-1.3 lakh values rendered as an
+ *  identical '₹1.2 L' on row after row and the table read as though every
+ *  retailer had returned the same incremental sales. They had not — the
+ *  figures differed, the formatter hid it.
+ *
+ *  So the abbreviation starts at 10 lakh, where a decimal is a 0.2% step and
+ *  loses nothing. Below that the exact rupee figure is shown, grouped, which
+ *  is what Trade Spend was already doing on the same row — that column looked
+ *  varied only because its values happened to fall under a lakh.
+ */
+const L_FLOOR = 1e6 // 10 lakh
+
 export function fmtCr(v: number | null | undefined): string {
   if (v == null) return '—'
   const abs = Math.abs(v)
   if (abs >= CR) return `₹${(v / CR).toFixed(1)} Cr`
-  if (abs >= 1e5) return `₹${(v / 1e5).toFixed(1)} L`
+  if (abs >= L_FLOOR) return `₹${(v / 1e5).toFixed(1)} L`
   return `₹${Math.round(v).toLocaleString('en-IN')}`
 }
 
