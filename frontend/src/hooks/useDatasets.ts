@@ -106,7 +106,10 @@ export function useResetStar() {
 export function useAzureContainers() {
   return useMutation({
     mutationFn: (creds: AzureCreds) =>
-      apiPost<{ containers: AzureContainer[] }>('/datasets/azure/containers', creds),
+      apiPost<{ containers: AzureContainer[]; container_scoped: boolean }>(
+        '/datasets/azure/containers',
+        creds,
+      ),
   })
 }
 

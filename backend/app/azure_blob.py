@@ -34,7 +34,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote
 from xml.etree import ElementTree
 
 import httpx
@@ -53,6 +53,22 @@ HEADER_RANGE_BYTES = 256 * 1024
 
 class AzureError(Exception):
     """Raised with a user-facing message when Azure cannot be reached or refuses."""
+
+
+class ContainerScopedSas(AzureError):
+    """The token is scoped to a single container, so the account cannot be listed.
+
+    Not really an error: a container-scoped SAS (`sr=c`) is a perfectly normal
+    thing to be given, and is often the ONLY thing a user can get when they do
+    not own the storage account. It just means the picker has to start from a
+    container name the user types rather than from a list it discovered.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This SAS token is scoped to a single container, so the list of "
+            "containers can't be read. Enter the container name to continue."
+        )
 
 
 @dataclass(frozen=True)
@@ -82,6 +98,42 @@ def _redact(text: str, sas: str) -> str:
     return out
 
 
+def describe_sas(sas: str) -> dict[str, Any]:
+    """What a SAS token says about itself, before any request is made.
+
+    A SAS carries its own scope and permissions in plain query parameters, so
+    the two failures that dominate real use can be diagnosed without asking
+    Azure and without the user decoding the token by hand:
+
+      * `sr=c` / `sr=b` is a SERVICE SAS scoped to a single container or blob.
+        Listing containers is an account-level operation, so it can never
+        succeed with one — Azure answers AuthenticationFailed, whose wording
+        ("make sure the Authorization header is formed correctly") sends people
+        off checking for a copy-paste error that isn't there.
+      * `sp=` without `l` cannot list. Azure calls this
+        AuthorizationPermissionMismatch, which is accurate but does not say
+        WHICH permission is absent.
+
+    `srt` is the account-SAS equivalent: it must contain `c` (container) for
+    listing to work, and `o` (object) to read blobs.
+    """
+    params = parse_qs(_clean_sas(sas), keep_blank_values=True)
+    one = lambda k: (params.get(k) or [""])[0]
+    perms = one("sp")
+    srt = one("srt")
+    resource = one("sr")
+    return {
+        # A service SAS names its resource; an account SAS uses srt instead.
+        "scope": resource or ("account" if srt else ""),
+        "container_scoped": resource in ("c", "b"),
+        "permissions": perms,
+        "can_list": "l" in perms,
+        "can_read": "r" in perms,
+        "srt": srt,
+        "expires": one("se"),
+    }
+
+
 def _account_host(account: str) -> str:
     name = account.strip().strip("/")
     if not name:
@@ -99,6 +151,26 @@ def _url(account: str, sas: str, path: str = "", query: str = "") -> str:
         raise AzureError("SAS token is required.")
     joined = f"{query}&{token}" if query else token
     return f"https://{host}/{path}?{joined}"
+
+
+def _permission_advice(sas: str) -> str:
+    """The concrete fix for a token that cannot do what was asked, or "".
+
+    Read off the token rather than guessed, so the message names the actual
+    missing letter instead of listing everything it could conceivably be.
+    """
+    info = describe_sas(sas)
+    if info["permissions"] and not info["can_list"]:
+        return (
+            f" This token's permissions are '{info['permissions']}', which has no "
+            f"'l' (List) — regenerate it with Read AND List ticked."
+        )
+    if info["srt"] and "c" not in info["srt"]:
+        return (
+            f" This token's resource types are '{info['srt']}', which omits 'c' "
+            f"(Container) — regenerate it with Container and Object both ticked."
+        )
+    return ""
 
 
 def _explain(status: int, body: str, sas: str) -> str:
@@ -146,6 +218,8 @@ def _explain(status: int, body: str, sas: str) -> str:
         ),
     }
     if code in hints:
+        if code in ("AuthenticationFailed", "AuthorizationPermissionMismatch", "InsufficientAccountPermissions"):
+            return hints[code] + _permission_advice(sas)
         return hints[code]
     if status == 403:
         return (
@@ -180,7 +254,15 @@ def _text(node: Any, tag: str, default: str = "") -> str:
 
 
 async def list_containers(account: str, sas: str) -> list[dict[str, Any]]:
-    """Every container the token can see. The first step of the picker."""
+    """Every container the token can see. The first step of the picker.
+
+    Raises `ContainerScopedSas` for a token bound to one container: that is not
+    a failure the user can fix by retrying, it just means the account-level
+    listing is the wrong question to ask. The caller answers it by asking the
+    user which container the token is for instead.
+    """
+    if describe_sas(sas)["container_scoped"]:
+        raise ContainerScopedSas()
     url = _url(account, sas, "", "comp=list")
     async with httpx.AsyncClient(timeout=LIST_TIMEOUT, follow_redirects=True) as client:
         res = await _get(client, url, sas)

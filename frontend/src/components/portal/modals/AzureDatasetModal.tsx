@@ -50,6 +50,11 @@ export function AzureDatasetModal({
   const [showSas, setShowSas] = useState(false)
   const [error, setError] = useState('')
   const [containers, setContainers] = useState<string[] | null>(null)
+  // A SAS scoped to one container (sr=c) can't enumerate the account, so the
+  // user names the container instead. Normal, not an error — often the only
+  // kind of token someone who doesn't own the account can be given.
+  const [containerScoped, setContainerScoped] = useState(false)
+  const [manualContainer, setManualContainer] = useState('')
   const [listing, setListing] = useState<AzureBlobListing | null>(null)
   const [picked, setPicked] = useState<AzureBlobSel[]>([])
   const [inspection, setInspection] = useState<StarInspectResult | null>(null)
@@ -80,6 +85,7 @@ export function AzureDatasetModal({
     listContainers.mutate(creds, {
       onSuccess: (res) => {
         setContainers(res.containers.map((c) => c.name))
+        setContainerScoped(res.container_scoped)
         setListing(null)
         saveAzureConn(creds)
       },
@@ -230,7 +236,7 @@ export function AzureDatasetModal({
               <Field label="Storage account name">
                 <Input
                   value={account}
-                  onChange={(e) => { setAccount(e.target.value); setContainers(null) }}
+                  onChange={(e) => { setAccount(e.target.value); setContainers(null); setContainerScoped(false) }}
                   placeholder="mystorageaccount"
                 />
               </Field>
@@ -241,7 +247,7 @@ export function AzureDatasetModal({
                   <Input
                     type={showSas ? 'text' : 'password'}
                     value={sas}
-                    onChange={(e) => { setSas(e.target.value); setContainers(null) }}
+                    onChange={(e) => { setSas(e.target.value); setContainers(null); setContainerScoped(false) }}
                     placeholder="sv=2024-...&ss=b&srt=co&sp=rl&se=...&sig=..."
                     className="pr-9"
                   />
@@ -272,8 +278,40 @@ export function AzureDatasetModal({
               {listContainers.isPending ? 'Connecting…' : containers ? 'Reconnect' : 'Connect & list containers'}
             </Button>
 
+            {/* A container-scoped token: ask which container it is for. */}
+            {containerScoped && !listing && (
+              <div className="mt-3.5">
+                <div className="mb-2 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
+                  <Icon name="info" />
+                  <span>
+                    This token is scoped to a single container, so the list of containers can't be
+                    read. Enter the container name it was created for.
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={manualContainer}
+                    onChange={(e) => setManualContainer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualContainer.trim()) {
+                        openFolder(manualContainer.trim(), '')
+                      }
+                    }}
+                    placeholder="container name"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => openFolder(manualContainer.trim(), '')}
+                    disabled={!manualContainer.trim() || listBlobs.isPending}
+                  >
+                    {listBlobs.isPending ? 'Opening…' : 'Open'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Containers */}
-            {containers && !listing && (
+            {containers && !containerScoped && !listing && (
               <div className="mt-3.5">
                 <div className="mb-2 text-xs text-ink-muted">
                   {containers.length} container{containers.length === 1 ? '' : 's'} — open one to pick files
@@ -305,7 +343,7 @@ export function AzureDatasetModal({
                     // Up one virtual folder, or back to the container list.
                     const parent = listing.prefix.replace(/[^/]+\/$/, '')
                     if (listing.prefix) openFolder(listing.container, parent)
-                    else setListing(null)
+                    else setListing(null)  // back to the container list / name prompt
                   }}
                   className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-brand-violet"
                 >

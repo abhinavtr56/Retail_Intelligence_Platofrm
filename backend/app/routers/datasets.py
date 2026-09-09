@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from app import azure_blob, star_dataset
-from app.azure_blob import AzureError, BlobRef
+from app.azure_blob import AzureError, BlobRef, ContainerScopedSas
 from app.dataset_store import delete_dataset, get_dataset, list_datasets
 from app.deps import current_user
 from app.star_dataset import StarDatasetError
@@ -206,11 +206,21 @@ def _refs(req: AzureSelectionReq) -> list[BlobRef]:
 async def azure_containers(
     req: AzureCredsReq, user: dict[str, Any] = Depends(current_user)
 ) -> dict[str, Any]:
-    """List the containers a SAS token can see — the picker's first screen."""
+    """List the containers a SAS token can see — the picker's first screen.
+
+    A container-scoped token is answered with an empty list and
+    `container_scoped: true` rather than an error: being handed a SAS for one
+    container is normal (often it is the only kind a user can get), and the
+    picker's response is to ask for the container name, not to report a
+    failure. The token's own parameters say so, so this costs no round trip.
+    """
     try:
-        return {"containers": await azure_blob.list_containers(req.account, req.sas)}
+        containers = await azure_blob.list_containers(req.account, req.sas)
+    except ContainerScopedSas:
+        return {"containers": [], "container_scoped": True}
     except AzureError as e:
         raise HTTPException(400, str(e)) from e
+    return {"containers": containers, "container_scoped": False}
 
 
 @router.post("/azure/blobs")
