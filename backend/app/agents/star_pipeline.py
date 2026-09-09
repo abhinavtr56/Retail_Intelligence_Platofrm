@@ -393,6 +393,48 @@ async def run_star_pipeline(
         global_filters = clean_filters({k: v for k, v in scope.items() if k in FILTER_FIELDS})
     else:
         global_filters = clean_filters(plan.get("global_filters"))
+
+    # AN EMPTY SCOPE IS NOT AN INVESTIGATION. A planner can compose a filter
+    # combination that is valid in the vocabulary but matches no rows at all — a
+    # retailer that never carried the brand form, a promotion type absent from
+    # the channel. Left to run, `segment_kpis` returns {} while the six
+    # specialists still write confident prose, because several of their fetches
+    # carry whole-business context that ignores the scope. The page then shows a
+    # full graph, six findings and a root cause beside "Total Records Analyzed:
+    # 0" — an answer about a segment that does not exist.
+    #
+    # Checked with `rows_for`, the same resolver the specialists' own data calls
+    # go through, so this is exactly the population they would have read. An
+    # empty `global_filters` means the whole business and is left alone.
+    #
+    # Returned in the shape the refusal above already uses, so the UI shows it
+    # through the same card rather than needing a third outcome to render.
+    if global_filters:
+        from app.agents.star_tools import build_filter_state as _scope_state
+        from app.tpo.filters import rows_for as _scope_rows
+
+        if not _scope_rows(_scope_state(global_filters)):
+            named = ", ".join(
+                f"{k}={v}" for k, v in sorted(global_filters.items())
+            )
+            await emit("planned", {"plan": plan, "specialists": [], "totals": {}})
+            return {
+                "plan": plan,
+                "source": "star_schema",
+                "answerable": False,
+                "refusal": (
+                    "No rows in the dataset match the scope this question implies, so "
+                    "there is nothing to analyse. Every filter is a real value, but "
+                    "together they select nothing: " + named + ". Try widening it " + "— "
+                    "dropping the retailer, the promotion type or the period."
+                ),
+                "question": question,
+                "findings": [],
+                "orchestration": None,
+                "synthesis": None,
+                "investigation_type": plan.get("investigation_type", "diagnostic"),
+            }
+
     # THE STANDING PANEL. Every investigation runs these six, in this order, so
     # the Investigation Graph shows the same six agents every time.
     #
