@@ -71,6 +71,24 @@ class ContainerScopedSas(AzureError):
         )
 
 
+class BlobScopedSas(AzureError):
+    """The token is scoped to ONE blob (`sr=b`), so nothing can be browsed.
+
+    Distinct from `ContainerScopedSas` because the remedy is different, and
+    telling these apart is the whole point: a container-scoped token still
+    reaches the file picker once the user names the container, whereas a
+    blob-scoped one cannot list anything at all. Prompting for a container name
+    would ask for something that cannot help — the user needs a different token.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This SAS token is scoped to a single blob, so containers and files "
+            "can't be browsed. Generate a token for the whole container "
+            "(Read + List), or an account-level one, and try again."
+        )
+
+
 @dataclass(frozen=True)
 class BlobRef:
     """One blob the user picked, addressed within the account."""
@@ -105,11 +123,14 @@ def describe_sas(sas: str) -> dict[str, Any]:
     the two failures that dominate real use can be diagnosed without asking
     Azure and without the user decoding the token by hand:
 
-      * `sr=c` / `sr=b` is a SERVICE SAS scoped to a single container or blob.
-        Listing containers is an account-level operation, so it can never
-        succeed with one — Azure answers AuthenticationFailed, whose wording
-        ("make sure the Authorization header is formed correctly") sends people
-        off checking for a copy-paste error that isn't there.
+      * `sr=c` is a SERVICE SAS scoped to a single container, and `sr=b` to a
+        single blob. Listing containers is an account-level operation, so it can
+        never succeed with either — Azure answers AuthenticationFailed, whose
+        wording ("make sure the Authorization header is formed correctly") sends
+        people off checking for a copy-paste error that isn't there. The two are
+        reported separately because the remedy differs: a container-scoped token
+        still works once the user names its container, a blob-scoped one cannot
+        browse at all and has to be replaced.
       * `sp=` without `l` cannot list. Azure calls this
         AuthorizationPermissionMismatch, which is accurate but does not say
         WHICH permission is absent.
@@ -125,7 +146,8 @@ def describe_sas(sas: str) -> dict[str, Any]:
     return {
         # A service SAS names its resource; an account SAS uses srt instead.
         "scope": resource or ("account" if srt else ""),
-        "container_scoped": resource in ("c", "b"),
+        "container_scoped": resource == "c",
+        "blob_scoped": resource == "b",
         "permissions": perms,
         "can_list": "l" in perms,
         "can_read": "r" in perms,
@@ -259,9 +281,13 @@ async def list_containers(account: str, sas: str) -> list[dict[str, Any]]:
     Raises `ContainerScopedSas` for a token bound to one container: that is not
     a failure the user can fix by retrying, it just means the account-level
     listing is the wrong question to ask. The caller answers it by asking the
-    user which container the token is for instead.
+    user which container the token is for instead. `BlobScopedSas` is the
+    dead-end case — a token for one blob can browse nothing.
     """
-    if describe_sas(sas)["container_scoped"]:
+    scope = describe_sas(sas)
+    if scope["blob_scoped"]:
+        raise BlobScopedSas()
+    if scope["container_scoped"]:
         raise ContainerScopedSas()
     url = _url(account, sas, "", "comp=list")
     async with httpx.AsyncClient(timeout=LIST_TIMEOUT, follow_redirects=True) as client:

@@ -113,9 +113,14 @@ export function AzureDatasetModal({
   const isPicked = (container: string, name: string) =>
     picked.some((b) => b.container === container && b.name === name)
 
-  // Clear a stale identification whenever the selection changes — it described
-  // a set the user has since edited.
-  useEffect(() => setError(''), [picked.length])
+  // Clear a stale error whenever the selection changes — it described a set the
+  // user has since edited. Keyed on the selection's CONTENTS, not its length:
+  // swapping one file for another leaves the count identical, and that is
+  // exactly the edit most likely to follow an error about a specific file.
+  // (The stale identification itself is dropped in `toggle`, which is the only
+  // thing that can invalidate one.)
+  const pickedKey = picked.map((b) => `${b.container}/${b.name}`).join('|')
+  useEffect(() => setError(''), [pickedKey])
 
   const runInspect = () => {
     setError('')
@@ -340,7 +345,7 @@ export function AzureDatasetModal({
               <div className="mt-3.5">
                 <button
                   onClick={() => {
-                    // Up one virtual folder, or back to the container list.
+                    // Up one virtual folder, or out of the container entirely.
                     const parent = listing.prefix.replace(/[^/]+\/$/, '')
                     if (listing.prefix) openFolder(listing.container, parent)
                     else setListing(null)  // back to the container list / name prompt
@@ -348,7 +353,14 @@ export function AzureDatasetModal({
                   className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-brand-violet"
                 >
                   <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-                  {listing.prefix ? 'Up one level' : 'All containers'}
+                  {/* At the container root a scoped token has no list to go back
+                      to — it returns to the name prompt, so say that instead of
+                      offering "All containers" and showing nothing. */}
+                  {listing.prefix
+                    ? 'Up one level'
+                    : containerScoped
+                      ? 'Change container'
+                      : 'All containers'}
                 </button>
                 <div className="mb-2 truncate text-xs text-ink-muted">
                   {listing.container}/{listing.prefix}

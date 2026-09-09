@@ -213,6 +213,9 @@ async def azure_containers(
     container is normal (often it is the only kind a user can get), and the
     picker's response is to ask for the container name, not to report a
     failure. The token's own parameters say so, so this costs no round trip.
+
+    A blob-scoped token IS an error — it can browse nothing, so there is no
+    prompt that would get the user any further.
     """
     try:
         containers = await azure_blob.list_containers(req.account, req.sas)
