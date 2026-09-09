@@ -372,7 +372,7 @@ def calculate_incremental_sales(rows: Sequence[WeekRow]) -> float | None:
     """
     if not rows:
         return None
-    return _round(_volume(rows).incremental_sales, 2)
+    return _round(_volume(rows).incremental_sales, 1)
 
 
 def average_promotion_price(rows: Sequence[WeekRow]) -> float | None:
@@ -395,7 +395,7 @@ def calculate_incremental_profit(rows: Sequence[WeekRow]) -> float | None:
     if not volume.has_promotion:
         return None
     spend = calculate_trade_spend(rows) or 0.0
-    return _round(volume.incremental_sales - volume.incremental_cost - spend, 2)
+    return _round(volume.incremental_sales - volume.incremental_cost - spend, 1)
 
 
 # --- ROI, margin, efficiency -----------------------------------------------
@@ -537,12 +537,12 @@ def period_series(rows: Sequence[WeekRow], key: Callable[[WeekRow], str]) -> lis
     return [
         PeriodPoint(
             period_key=period,
-            trade_spend=round(spend[period], 2),
+            trade_spend=round(spend[period], 1),
             # A period with no promoted row has no incremental sales — 0, not a
             # gap: it traded, it simply ran no promotion.
-            incremental_sales=round(sales.get(period, 0.0), 2),
-            incremental_quantity=round(quantity.get(period, 0.0), 2),
-            promoted_quantity=round(gross.get(period, 0.0), 2),
+            incremental_sales=round(sales.get(period, 0.0), 1),
+            incremental_quantity=round(quantity.get(period, 0.0), 1),
+            promoted_quantity=round(gross.get(period, 0.0), 1),
         )
         for period in sorted(spend)
     ]
@@ -711,9 +711,9 @@ def cannibalization_detail(
                 cannibalized += loss
                 neighbours.append({
                     "product_id": nb_id, "rank": rank,
-                    "baseline": round(nb_baseline, 2), "transactions": nb_txns,
-                    "expected": round(nb_expected, 2), "actual": round(nb_actual, 2),
-                    "loss": round(loss, 2),
+                    "baseline": round(nb_baseline, 1), "transactions": nb_txns,
+                    "expected": round(nb_expected, 1), "actual": round(nb_actual, 1),
+                    "loss": round(loss, 1),
                 })
 
             if not neighbours:
@@ -758,18 +758,18 @@ def cannibalization_detail(
         # small. The card still SHOWS `overall`; only the delta reads this.
         "overall_exact": overall,
         "score": cannibalization_score(overall),
-        "cannibalized_quantity": _round(total_loss, 2),
-        "incremental_quantity": _round(total_increment, 2),
+        "cannibalized_quantity": _round(total_loss, 1),
+        "incremental_quantity": _round(total_increment, 1),
         "by_brand_form": dict(sorted(by_brand.items(), key=lambda kv: -kv[1])),
         "events": [
             {
                 "brand_form": e.brand_form, "week": e.week_key, "channel_id": e.channel_id,
                 "promoted_product_id": e.promoted_product_id, "promoted_rank": e.promoted_rank,
-                "promoted_baseline": round(e.promoted_baseline, 2),
-                "promoted_expected": round(e.promoted_expected, 2),
-                "promoted_actual": round(e.promoted_actual, 2),
-                "increment": round(e.increment, 2),
-                "cannibalized": round(e.cannibalized, 2),
+                "promoted_baseline": round(e.promoted_baseline, 1),
+                "promoted_expected": round(e.promoted_expected, 1),
+                "promoted_actual": round(e.promoted_actual, 1),
+                "increment": round(e.increment, 1),
+                "cannibalized": round(e.cannibalized, 1),
                 "neighbours": list(e.neighbours),
             }
             for e in sorted(events, key=lambda e: -e.cannibalized)
@@ -877,7 +877,7 @@ def calculate_growth(value: float | None, previous: float | None) -> KpiMetric:
     return KpiMetric(
         value=value,
         previous_year=previous,
-        difference=round(difference, 4),
+        difference=round(difference, 1),
         growth=round(difference / abs(previous) * 100, 1),
     )
 
@@ -902,7 +902,7 @@ def _precise(current: float | None, previous: float | None, digits: int) -> KpiM
     return KpiMetric(
         value=_round(current, digits),
         previous_year=_round(previous, digits),
-        difference=_round(metric.difference, 4),
+        difference=_round(metric.difference, 1),
         growth=metric.growth,
     )
 
@@ -925,7 +925,7 @@ def _cannibalization_metric(
     return KpiMetric(
         value=_round(metric.value, 1),
         previous_year=_round(metric.previous_year, 1),
-        difference=_round(metric.difference, 4),
+        difference=_round(metric.difference, 1),
         growth=metric.growth,
     )
 
@@ -946,21 +946,21 @@ def build_debug(
         "volume_rows_in_scope": len(vrows),
         "promoted_rows": len(promotion_rows(vrows)),
         "promoted_product_channels": len(volume.products),
-        "average_promotion_price": _round(average_promotion_price(vrows), 2),
+        "average_promotion_price": _round(average_promotion_price(vrows), 1),
         # Margin Impact's own inputs, so the card reconciles against the fact
         # table without a second query.
-        "actual_revenue": _round(_sum(rows, lambda r: r.actual_revenue), 2),
-        "total_cost": _round(_sum(rows, lambda r: r.total_cost), 2),
-        "baseline_quantity": _round(volume.baseline_quantity, 2),
-        "incremental_product_cost": _round(volume.incremental_cost, 2),
+        "actual_revenue": _round(_sum(rows, lambda r: r.actual_revenue), 1),
+        "total_cost": _round(_sum(rows, lambda r: r.total_cost), 1),
+        "baseline_quantity": _round(volume.baseline_quantity, 1),
+        "incremental_product_cost": _round(volume.incremental_cost, 1),
         "incremental_profit": calculate_incremental_profit(vrows),
         "products_without_baseline": list(volume.skipped),
         # --- KPIs ---
-        "trade_spend": _round(calculate_trade_spend(rows), 2),
+        "trade_spend": _round(calculate_trade_spend(rows), 1),
         # The two halves of Trade Spend, so the card reconciles: discount +
         # promotion cost == trade spend.
-        "trade_spend_discount": _round(_sum(rows, lambda r: r.discount_value), 2),
-        "trade_spend_promotion_cost": _round(_sum(rows, lambda r: r.promotion_cost), 2),
+        "trade_spend_discount": _round(_sum(rows, lambda r: r.discount_value), 1),
+        "trade_spend_promotion_cost": _round(_sum(rows, lambda r: r.promotion_cost), 1),
         "incremental_quantity": calculate_incremental_quantity(vrows),
         "incremental_quantity_percent": calculate_incremental_quantity_percent(vrows),
         "incremental_sales": calculate_incremental_sales(vrows),
@@ -999,16 +999,16 @@ def _per_product_rollup(volume: Volume) -> list[dict[str, Any]]:
             {
                 "product_id": p.product_id,
                 "channel_id": p.channel_id,
-                "baseline_avg": round(p.baseline_average, 4),
+                "baseline_avg": round(p.baseline_average, 1),
                 "non_promo_rows": p.non_promoted_rows,
                 "promo_rows": p.promoted_rows,
-                "promoted_quantity": round(p.promoted_quantity, 2),
-                "baseline_quantity": round(p.baseline_quantity, 2),
-                "incremental": round(p.incremental_quantity, 2),
-                "promotion_price": _round(p.promotion_price, 2),
-                "unit_cost": _round(p.unit_cost, 2),
-                "incremental_sales": round(p.incremental_sales, 2),
-                "incremental_cost": round(p.incremental_cost, 2),
+                "promoted_quantity": round(p.promoted_quantity, 1),
+                "baseline_quantity": round(p.baseline_quantity, 1),
+                "incremental": round(p.incremental_quantity, 1),
+                "promotion_price": _round(p.promotion_price, 1),
+                "unit_cost": _round(p.unit_cost, 1),
+                "incremental_sales": round(p.incremental_sales, 1),
+                "incremental_cost": round(p.incremental_cost, 1),
             }
             for p in volume.products
         ),

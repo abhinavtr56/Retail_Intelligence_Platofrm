@@ -57,7 +57,7 @@
     },
     {
       "label": "Promotion ROI",
-      "value": "2.55",
+      "value": "2.5",
       "delta": "+66.7%",
       "deltaSub": "",
       "trend": "up"
@@ -148,9 +148,9 @@
     {
       "metric": "Promotion ROI",
       "icon": "target",
-      "s1": "1.53",
-      "s2": "2.55",
-      "s3": "2.28"
+      "s1": "1.5",
+      "s2": "2.5",
+      "s3": "2.3"
     },
     {
       "metric": "Margin Impact (pts)",

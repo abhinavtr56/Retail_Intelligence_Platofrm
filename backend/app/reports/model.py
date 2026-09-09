@@ -76,8 +76,8 @@ class KpiEntry:
     THE DISPLAY STRING IS THE AUTHORITATIVE ONE. `display` is the card's own
     `display_value` — the exact text on screen — and a writer that shows text
     must show THAT, never a re-rendering of `value`. Re-formatting looks
-    harmless and is not: `formatting.score` at two decimals turns the card's
-    "66" into "66.00", which is precisely the precision drift a report must not
+    harmless and is not: `formatting.score` at one decimal turns the card's
+    "66" into "66.0", which is precisely the precision drift a report must not
     introduce. The raw `value` is carried alongside for Excel, which needs a
     number it can sort and sum and applies its own format to it.
 
@@ -183,8 +183,8 @@ def excel_number_format(kind: ColumnKind, currency: str) -> str:
     """
     symbol = "$" if currency.upper() == "USD" else "₹"
     return {
-        "currency": f'{symbol}#,##0.00;[Red]-{symbol}#,##0.00',
-        "number": "#,##0.00",
+        "currency": f'{symbol}#,##0.0;[Red]-{symbol}#,##0.0',
+        "number": "#,##0.0",
         "units": "#,##0",
         "percent": '0.0"%";[Red]-0.0"%"',
         "date": "dd mmm yyyy",

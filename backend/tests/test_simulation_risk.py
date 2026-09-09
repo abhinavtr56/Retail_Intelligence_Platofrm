@@ -135,7 +135,7 @@ def test_pb001_narrow_headroom_is_surfaced(narrow_scenario):
     assert finding["title"] == "Near break-even at the low end"
     assert finding["status"] == "attention"
     assert finding["severity"] == "medium"
-    assert finding["evidence"]["headroom_low_pp"] == pytest.approx(0.43, abs=0.02)
+    assert finding["evidence"]["headroom_low_pp"] == pytest.approx(0.4, abs=0.05)
     assert "audit_roi_realism.py" in finding["source"]
 
 

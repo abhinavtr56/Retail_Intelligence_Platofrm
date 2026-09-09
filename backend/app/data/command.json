@@ -29,7 +29,7 @@
     {
       "key": "roi",
       "label": "Promotion ROI",
-      "value": "1.53",
+      "value": "1.5",
       "delta": "-18.7%",
       "deltaSub": "vs Q1 FY25",
       "trend": "down",
@@ -80,16 +80,16 @@
       "Jun 15"
     ],
     "roi": [
-      1.65,
-      1.78,
-      1.82,
+      1.6,
+      1.8,
+      1.8,
       2.1,
-      1.94,
-      1.62,
-      1.55,
-      1.42,
+      1.9,
+      1.6,
+      1.6,
       1.4,
-      1.42,
+      1.4,
+      1.4,
       1.4
     ],
     "incSales": [
@@ -119,17 +119,17 @@
       235
     ],
     "targetROI": [
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85,
-      1.85
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9,
+      1.9
     ]
   },
   "topRiskAlerts": [
@@ -156,7 +156,7 @@
     },
     {
       "title": "ROI Decline vs Baseline",
-      "desc": "Current ROI 1.53 vs Baseline 1.88",
+      "desc": "Current ROI 1.5 vs Baseline 1.9",
       "severity": "Low",
       "ic": "trending",
       "tone": "info"
@@ -167,7 +167,7 @@
       "name": "South MT Push",
       "channel": "MT",
       "period": "Apr – Jun 25",
-      "roi": 1.53,
+      "roi": 1.5,
       "vsTarget": -18.7,
       "status": "Underperforming"
     },
@@ -175,7 +175,7 @@
       "name": "North General Trade Boost",
       "channel": "GT",
       "period": "Apr – Jun 25",
-      "roi": 1.72,
+      "roi": 1.7,
       "vsTarget": -9.3,
       "status": "Underperforming"
     },
@@ -183,7 +183,7 @@
       "name": "Value Pack Bonanza",
       "channel": "Ecom",
       "period": "Apr – Jun 25",
-      "roi": 1.18,
+      "roi": 1.2,
       "vsTarget": -22.1,
       "status": "Underperforming"
     },
@@ -191,7 +191,7 @@
       "name": "Summer Refresh Promo",
       "channel": "MT",
       "period": "Apr – Jun 25",
-      "roi": 1.95,
+      "roi": 1.9,
       "vsTarget": 2.1,
       "status": "On Track"
     },
@@ -199,7 +199,7 @@
       "name": "Festive Saver",
       "channel": "GT",
       "period": "Apr – Jun 25",
-      "roi": 2.12,
+      "roi": 2.1,
       "vsTarget": 6.5,
       "status": "On Track"
     }

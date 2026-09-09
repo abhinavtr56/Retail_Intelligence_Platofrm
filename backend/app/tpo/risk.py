@@ -195,7 +195,7 @@ def _economic_findings(scenario: dict[str, Any], policy: RiskPolicy) -> list[dic
         "uplift_high": uplift.get("high"),
         "breakeven_uplift": breakeven,
         "headroom_low": headroom,
-        "headroom_low_pp": None if headroom is None else round(headroom * 100, 2),
+        "headroom_low_pp": None if headroom is None else round(headroom * 100, 1),
         "roi_low": roi_low.get("value"),
         "roi_low_display": roi_low.get("display_value"),
         "roi_high": roi_high.get("value"),
@@ -217,7 +217,7 @@ def _economic_findings(scenario: dict[str, Any], policy: RiskPolicy) -> list[dic
             )
         ]
 
-    headroom_pp = round(headroom * 100, 2)
+    headroom_pp = round(headroom * 100, 1)
     narrow = headroom_pp < policy.narrow_headroom_pp
     return [
         _finding(

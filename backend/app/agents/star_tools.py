@@ -337,8 +337,8 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
                 "computable": True,
                 "baseline_weeks": len(base_weeks),
                 "promotion_weeks_measured": len(during_weeks),
-                "expected_sales": round(expected, 2),
-                "actual_sales": round(actual, 2),
+                "expected_sales": round(expected, 1),
+                "actual_sales": round(actual, 1),
                 # (during - baseline) / baseline: POSITIVE means it sold MORE.
                 "sales_change_pct": round((actual - expected) / expected * 100, 1) if expected else None,
             })
@@ -355,8 +355,8 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
             "reason": None if form_expected > 0 else (
                 "Baseline neighbour sales are zero, so a percentage change cannot be expressed."
             ),
-            "expected_neighbour_sales": round(form_expected, 2),
-            "actual_neighbour_sales": round(form_actual, 2),
+            "expected_neighbour_sales": round(form_expected, 1),
+            "actual_neighbour_sales": round(form_actual, 1),
             "neighbour_sales_change_pct": (
                 round((form_actual - form_expected) / form_expected * 100, 1) if form_expected else None
             ),
@@ -386,8 +386,8 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
             "An observed co-movement, not an attribution. A decline here is CONSISTENT WITH "
             "cannibalization and does not establish that the promotion caused it."
         ),
-        "expected_neighbour_sales": round(total_expected, 2),
-        "actual_neighbour_sales": round(total_actual, 2),
+        "expected_neighbour_sales": round(total_expected, 1),
+        "actual_neighbour_sales": round(total_actual, 1),
         "promotions": promo_names,
         "neighbour_sales_change_pct": overall,
         "by_brand_form": per_form,

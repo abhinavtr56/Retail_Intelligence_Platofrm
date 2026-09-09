@@ -114,9 +114,9 @@ WEEKLY_METRICS: tuple[WeeklyMetric, ...] = (
 
 #: Reconciliation tolerance per additive metric: the engine's own rounding step
 #: multiplied by the number of weeks, because each week is rounded once.
-#: aggregate.py rounds Incremental Sales to 2dp and Units to 0dp; Trade Spend it
-#: does not round at all, so the sum should agree to floating-point noise.
-_ROUNDING_STEP = {"incremental_sales": 0.005, "incremental_units": 0.5, "trade_spend": 0.0}
+#: aggregate.py rounds every additive figure to 1dp, so each week can be off
+#: by at most half a step; Units keep the wider step their KPI already used.
+_ROUNDING_STEP = {"incremental_sales": 0.05, "incremental_units": 0.5, "trade_spend": 0.05}
 _FLOAT_NOISE = 0.01
 
 

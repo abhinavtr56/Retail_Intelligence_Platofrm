@@ -236,8 +236,8 @@
       },
       "history": {
         "headline": "8 similar past promotions",
-        "body": "Closest match: Q2 FY24 South MT Push (similarity 88%). That delivered ROI 1.71 vs target 1.85.",
-        "evidence": "Avg ROI of 8 similar promos: 1.62"
+        "body": "Closest match: Q2 FY24 South MT Push (similarity 88%). That delivered ROI 1.7 vs target 1.85.",
+        "evidence": "Avg ROI of 8 similar promos: 1.6"
       },
       "cannib": {
         "headline": "Cannibalization elevated",
@@ -557,19 +557,19 @@
         "history": {
           "headline": "8 similar past promotions",
           "body": "Closest match: Q2 FY24 South MT Push (88% similar). That delivered ROI 1.71.",
-          "evidence": "Avg ROI of 8 similar: 1.62",
+          "evidence": "Avg ROI of 8 similar: 1.6",
           "viz": {
             "type": "bars",
             "unit": "ROI",
             "items": [
               {
                 "label": "Avg of 8",
-                "value": 1.62,
+                "value": 1.6,
                 "tone": "muted"
               },
               {
                 "label": "Closest",
-                "value": 1.71,
+                "value": 1.7,
                 "tone": "accent"
               }
             ]
@@ -691,8 +691,8 @@
         {
           "key": "roi",
           "label": "Modelled ROI",
-          "metric": "2.18",
-          "delta": "+0.65",
+          "metric": "2.2",
+          "delta": "+0.7",
           "trend": "up",
           "impact": "strong",
           "icon": "target",
@@ -810,7 +810,7 @@
           "evidence": "SKU contribution analysis"
         },
         "roi": {
-          "headline": "Modelled ROI: 2.18",
+          "headline": "Modelled ROI: 2.2",
           "body": "Up from baseline 1.53. This is not a forecast and carries no confidence figure.",
           "evidence": "Historical similarity"
         },

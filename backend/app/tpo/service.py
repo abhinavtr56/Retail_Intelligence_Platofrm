@@ -496,7 +496,7 @@ def promotion_events(state: FilterState) -> list[PromotionEvent]:
             # At Stake: the additional incremental revenue this event needs to
             # reach the ROI target. Never negative — an event already at target
             # has nothing at stake.
-            at_stake=round(max(config.target_incremental_sales(spend) - sales, 0.0), 2),
+            at_stake=round(max(config.target_incremental_sales(spend) - sales, 0.0), 1),
         ))
     return events
 
@@ -747,7 +747,7 @@ def promotion_mix(state: FilterState, currency: str = "INR") -> dict[str, Any]:
             "code": promotion_id,
             "label": offer_label(promotion) or promotion_id,
             "type": promotion.type if promotion else "",
-            "spend": round(value, 2),
+            "spend": round(value, 1),
             "spend_display": F.money(value, currency),
             "pct": round(value / total * 100, 1) if total else 0.0,
             "color": _MIX_COLORS[index % len(_MIX_COLORS)],
@@ -755,7 +755,7 @@ def promotion_mix(state: FilterState, currency: str = "INR") -> dict[str, Any]:
 
     return {
         "slices": slices,
-        "total_spend": round(total, 2),
+        "total_spend": round(total, 1),
         "total_spend_display": F.money(total, currency),
         "meta": _meta(state, rows, currency, None),
     }
@@ -787,8 +787,8 @@ def trend(state: FilterState, granularity: str = "week", currency: str = "INR") 
     for point in points:
         labels.append(_period_label(point.period_key, monthly))
         roi.append(A.roi_percent(point.incremental_sales, point.trade_spend))
-        incremental.append(round(point.incremental_sales, 2))
-        spend.append(round(point.trade_spend, 2))
+        incremental.append(round(point.incremental_sales, 1))
+        spend.append(round(point.trade_spend, 1))
 
     return {
         "granularity": "month" if monthly else "week",

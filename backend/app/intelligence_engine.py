@@ -133,7 +133,7 @@ def inc_sales_trend(filters: dict[str, Any] | None = None) -> dict[str, Any]:
     actual = series.get("incremental_sales") or []
     target = [config.target_incremental_sales(s) if s else None for s in spend]
     gap = [
-        round(a - g, 2) if (a is not None and g is not None) else None
+        round(a - g, 1) if (a is not None and g is not None) else None
         for a, g in zip(actual, target)
     ]
     return {
@@ -176,7 +176,7 @@ def risk_summary(filters: dict[str, Any] | None = None) -> dict[str, Any]:
     alerts = service.risk_alerts(build_filter_state(filters), limit=8)
     return {
         "counts": alerts.get("counts"),
-        "at_stake_total": round(sum(a.get("at_stake") or 0 for a in (alerts.get("alerts") or [])), 2),
+        "at_stake_total": round(sum(a.get("at_stake") or 0 for a in (alerts.get("alerts") or [])), 1),
         "top": [
             {
                 "title": a.get("title"),

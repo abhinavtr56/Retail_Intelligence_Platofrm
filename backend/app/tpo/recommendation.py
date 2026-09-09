@@ -197,12 +197,12 @@ RECOMMENDATION_POLICY = RecommendationPolicy(
         "never collapsed, and it is not a confidence or prediction interval."
     ),
     tolerance={
-        "incremental_sales": 0.005,   # engine rounds to 2dp
+        "incremental_sales": 0.05,    # engine rounds to 1dp
         "roi_percent": 0.05,          # 1dp
         "margin_percent": 0.05,       # 1dp
         "incremental_units": 0.5,     # 0dp
         "pei": 0.5,                   # 0dp
-        "trade_spend": 0.005,         # unrounded; half a paisa
+        "trade_spend": 0.05,          # engine rounds to 1dp
     },
 )
 

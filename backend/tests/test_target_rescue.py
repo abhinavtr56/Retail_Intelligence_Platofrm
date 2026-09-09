@@ -966,7 +966,7 @@ def test_run_rate_is_division_and_says_so(name: str, payload: dict) -> None:
     # never a raw calendar-day count that might contradict them.
     assert progress["days_elapsed"] == progress["boundaries"][progress["weeks_completed"] - 1]
     expected_pace = progress["units_mtd"] / progress["days_elapsed"]
-    assert pace["daily_pace"] == pytest.approx(round(expected_pace, 2))
+    assert pace["daily_pace"] == pytest.approx(round(expected_pace, 1))
     assert pace["projected_month_end"] == pytest.approx(
         round(expected_pace * progress["days_in_month"], 0), rel=1e-6
     )
@@ -1369,7 +1369,9 @@ def test_before_the_mid_month_week_is_an_early_month_signal(week: int) -> None:
     assert "third completed business week" in progress["phase_note"]
     # The run-rate still uses the ACTUAL elapsed coverage of those weeks, and the
     # ladder is still offered: the user is informed, not stopped.
-    assert result["pace"]["daily_pace"] == pytest.approx(progress["units_mtd"] / (7 * week))
+    assert result["pace"]["daily_pace"] == pytest.approx(
+        progress["units_mtd"] / (7 * week), abs=0.05
+    )
     assert result["interventions"]
 
 

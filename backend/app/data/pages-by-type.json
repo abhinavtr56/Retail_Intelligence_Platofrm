@@ -271,10 +271,10 @@
           },
           {
             "metric": "Promotion ROI",
-            "cur": "1.53",
-            "opt": "2.14",
+            "cur": "1.5",
+            "opt": "2.1",
             "optDelta": "+39.9%",
-            "agg": "2.28",
+            "agg": "2.3",
             "aggDelta": "+49.0%"
           },
           {
@@ -295,10 +295,10 @@
           },
           {
             "metric": "Not available",
-            "cur": "3.42 Cr",
-            "opt": "4.18 Cr",
+            "cur": "3.4 Cr",
+            "opt": "4.2 Cr",
             "optDelta": "+22.2%",
-            "agg": "4.32 Cr",
+            "agg": "4.3 Cr",
             "aggDelta": "+26.3%"
           }
         ]
@@ -372,7 +372,7 @@
         },
         {
           "label": "Promotion ROI",
-          "value": "2.55",
+          "value": "2.5",
           "delta": "+66.7%",
           "trend": "up"
         },
@@ -414,9 +414,9 @@
         {
           "metric": "Promotion ROI",
           "icon": "target",
-          "s1": "1.53",
-          "s2": "2.55",
-          "s3": "2.28"
+          "s1": "1.5",
+          "s2": "2.5",
+          "s3": "2.3"
         },
         {
           "metric": "Margin Impact (pts)",
@@ -721,10 +721,10 @@
           },
           {
             "metric": "Promotion ROI",
-            "cur": "1.41",
-            "opt": "2.39",
+            "cur": "1.4",
+            "opt": "2.4",
             "optDelta": "+69.5%",
-            "agg": "2.41",
+            "agg": "2.4",
             "aggDelta": "+70.9%"
           },
           {
@@ -745,10 +745,10 @@
           },
           {
             "metric": "Not available",
-            "cur": "2.92 Cr",
-            "opt": "4.62 Cr",
+            "cur": "2.9 Cr",
+            "opt": "4.6 Cr",
             "optDelta": "+58.2%",
-            "agg": "5.04 Cr",
+            "agg": "5.0 Cr",
             "aggDelta": "+72.6%"
           }
         ]
@@ -822,7 +822,7 @@
         },
         {
           "label": "Promotion ROI",
-          "value": "2.39",
+          "value": "2.4",
           "delta": "+69.5%",
           "trend": "up"
         },
@@ -864,9 +864,9 @@
         {
           "metric": "Promotion ROI",
           "icon": "target",
-          "s1": "1.41",
-          "s2": "2.39",
-          "s3": "2.41"
+          "s1": "1.4",
+          "s2": "2.4",
+          "s3": "2.4"
         },
         {
           "metric": "Margin Impact (pts)",
@@ -1163,10 +1163,10 @@
           },
           {
             "metric": "Launch ROI",
-            "cur": "1.90",
-            "opt": "2.69",
+            "cur": "1.9",
+            "opt": "2.7",
             "optDelta": "+41.6%",
-            "agg": "2.32",
+            "agg": "2.3",
             "aggDelta": "+22.1%"
           },
           {
@@ -1264,7 +1264,7 @@
         },
         {
           "label": "Launch ROI",
-          "value": "2.69",
+          "value": "2.7",
           "delta": "+41.6%",
           "trend": "up"
         },
@@ -1306,9 +1306,9 @@
         {
           "metric": "Launch ROI",
           "icon": "target",
-          "s1": "1.90",
-          "s2": "2.69",
-          "s3": "2.32"
+          "s1": "1.9",
+          "s2": "2.7",
+          "s3": "2.3"
         },
         {
           "metric": "Sell-Through Rate",
@@ -1601,10 +1601,10 @@
           },
           {
             "metric": "Portfolio ROI",
-            "cur": "1.58",
-            "opt": "2.18",
+            "cur": "1.6",
+            "opt": "2.2",
             "optDelta": "+38.0%",
-            "agg": "2.12",
+            "agg": "2.1",
             "aggDelta": "+34.2%"
           },
           {
@@ -1702,7 +1702,7 @@
         },
         {
           "label": "Portfolio ROI",
-          "value": "2.18",
+          "value": "2.2",
           "delta": "+38.0%",
           "trend": "up"
         },
@@ -1743,9 +1743,9 @@
         {
           "metric": "Portfolio ROI",
           "icon": "target",
-          "s1": "1.58",
-          "s2": "2.18",
-          "s3": "2.12"
+          "s1": "1.6",
+          "s2": "2.2",
+          "s3": "2.1"
         },
         {
           "metric": "Market Share",

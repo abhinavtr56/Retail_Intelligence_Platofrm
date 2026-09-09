@@ -1061,7 +1061,7 @@ def _level(
     # restated in this module.
     trade_spend = A.calculate_trade_spend(rows)
     margin_pct = A.calculate_margin(rows)
-    sales = None if not rows else round(incremental_sales, 2)
+    sales = None if not rows else round(incremental_sales, 1)
     roi_pct = A.roi_percent(sales, trade_spend)
 
     carried = pop.carried_units
@@ -1072,7 +1072,7 @@ def _level(
     additional = (
         None
         if trade_spend is None or baseline_spend is None
-        else round(trade_spend - baseline_spend, 2)
+        else round(trade_spend - baseline_spend, 1)
     )
 
     within_budget = True
@@ -1439,8 +1439,8 @@ def pace_block(
     pace = units_sold / days_elapsed
     projected = pace * days_in_month
     return {
-        "daily_pace": round(pace, 2),
-        "daily_pace_display": F.quantity(round(pace, 2)),
+        "daily_pace": round(pace, 1),
+        "daily_pace_display": F.quantity(round(pace, 1)),
         "projected_month_end": round(projected, 0),
         "projected_month_end_display": F.quantity(round(projected, 0)),
         "projected_achievement_pct": _achievement(projected, target_units),

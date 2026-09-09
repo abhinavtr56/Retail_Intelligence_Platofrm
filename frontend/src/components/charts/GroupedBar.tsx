@@ -109,7 +109,7 @@ export function GroupedBar({
                 fill={aBelow ? '#B91C1C' : '#047857'}
                 fontWeight={700}
               >
-                {actual[i].toFixed(2)}
+                {actual[i].toFixed(1)}
               </text>
             </g>
           )

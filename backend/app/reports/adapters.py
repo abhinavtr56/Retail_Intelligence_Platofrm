@@ -178,7 +178,7 @@ def _kpi(card: dict[str, Any], kind: str) -> KpiEntry:
         label=card.get("label", card.get("key", "")),
         value=card.get("value"),
         # THE CARD'S OWN RENDERING. See KpiEntry: re-formatting `value` is how a
-        # report turns the screen's "66" into "66.00".
+        # report turns the screen's "66" into "66.0".
         display=card.get("display_value", ""),
         kind=kind,  # type: ignore[arg-type]
         previous=card.get("previous_value"),

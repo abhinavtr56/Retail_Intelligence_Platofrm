@@ -125,7 +125,7 @@ def _display(value: Any, kind: str, currency: str) -> str:
         if kind == "units":
             return F.quantity(float(value))
         if kind == "number":
-            return F.score(float(value), dp=2)
+            return F.score(float(value), dp=1)
     return _safe(str(value))
 
 
@@ -135,9 +135,9 @@ def _kpi_number(value: float | None, kind: str, currency: str) -> str:
     The payload supplies `previous_value` but not always a rendered string for
     it, so this fills the gap — and it must fill it with the SAME rule the card
     used, or the two columns of one row disagree about precision. That is why
-    `score` is called at its default zero decimals here and not at the two the
+    `score` is called at its default zero decimals here and not at the one the
     generic table renderer uses: the Command Center prints PEI as "66", so the
-    previous period must print as "70", not "70.00".
+    previous period must print as "70", not "70.0".
     """
     if value is None:
         return "—"
@@ -245,8 +245,8 @@ def _kpi_grid(section: Section, currency: str, avail: float) -> PdfTable:
     body = []
     for e in section.items:
         # THE CARD'S OWN DISPLAY STRING, not a re-rendering of the raw value.
-        # `formatting.score` at two decimals would print the screen's "66" as
-        # "66.00"; a report must not introduce that drift. See model.KpiEntry.
+        # `formatting.score` at one decimal would print the screen's "66" as
+        # "66.0"; a report must not introduce that drift. See model.KpiEntry.
         if e.available and e.display:
             value = e.display
         elif e.available and e.value is not None:

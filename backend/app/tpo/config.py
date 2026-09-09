@@ -87,7 +87,7 @@ def target_incremental_sales(trade_spend: float) -> float:
     formula. Written as the inversion rather than as a literal 1.5 so the two
     cannot disagree if the target ever moves.
     """
-    return round(trade_spend * (1 + PROMOTION_TARGET_ROI_PCT / 100), 2)
+    return round(trade_spend * (1 + PROMOTION_TARGET_ROI_PCT / 100), 1)
 
 
 # --- approved promotion treatment rules ------------------------------------

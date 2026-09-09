@@ -412,7 +412,7 @@ export function Intelligence() {
               // target/100), which is 1.5× only while the target is 50%. The
               // sentence now moves with the configured hurdle instead of
               // quietly contradicting it.
-              sub: `target is ${Math.round((1 + facts.target_roi_pct / 100) * 100) / 100}× spend`,
+              sub: `target is ${Math.round((1 + facts.target_roi_pct / 100) * 10) / 10}× spend`,
             },
             {
               label: 'Promotion ROI',

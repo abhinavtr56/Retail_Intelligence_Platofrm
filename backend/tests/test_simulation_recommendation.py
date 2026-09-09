@@ -551,7 +551,7 @@ def test_tolerances_are_derived_from_the_engines_precision():
     tolerance = RECOMMENDATION_POLICY.tolerance
     assert tolerance["roi_percent"] == 0.05          # engine rounds ROI to 1dp
     assert tolerance["margin_percent"] == 0.05       # 1dp
-    assert tolerance["incremental_sales"] == 0.005   # 2dp
+    assert tolerance["incremental_sales"] == 0.05    # 1dp
     assert tolerance["incremental_units"] == 0.5     # 0dp
     assert tolerance["pei"] == 0.5                   # 0dp
     assert recommendation.RECOMMENDATION_POLICY.tolerance_for("unknown_metric") == 0.0

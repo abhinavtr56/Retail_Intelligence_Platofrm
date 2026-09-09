@@ -135,7 +135,7 @@ function Reconciled({
         ) : (
           <>
             The weekly {metric} values do not add up to the scenario total (difference{' '}
-            {entry.low.difference?.toFixed(2)}). This is reported rather than hidden.
+            {entry.low.difference?.toFixed(1)}). This is reported rather than hidden.
           </>
         )}
       </span>

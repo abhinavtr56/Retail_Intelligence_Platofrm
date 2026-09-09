@@ -225,7 +225,7 @@ export function SegmentsTab({ D }: { D: IntelligencePageData }) {
                 <Td>{s.share}</Td>
                 <Td className="font-bold">{s.roi}</Td>
                 <Td className={`font-bold ${s.trend < 0 ? 'text-status-danger' : 'text-status-success'}`}>
-                  {s.trend < 0 ? '▼' : '▲'} {Math.abs(s.trend).toFixed(2)}
+                  {s.trend < 0 ? '▼' : '▲'} {Math.abs(s.trend).toFixed(1)}
                 </Td>
                 <Td>
                   <Pill tone={s.status === 'On Track' ? 'success' : s.status === 'Watching' ? 'warning' : 'danger'} dot>

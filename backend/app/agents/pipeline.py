@@ -431,7 +431,7 @@ def assemble_orchestration(
     if totals.get("total_spend") is not None:
         chips["spend"] = f"{totals['total_spend']:,.0f}"
     if totals.get("overall_roi") is not None:
-        chips["roi"] = f"{totals['overall_roi']:.2f}x"
+        chips["roi"] = f"{totals['overall_roi']:.1f}x"
     chips["rows"] = f"{totals.get('rows', 0):,}"
 
     confidence = int(synthesis.get("confidence", 0))
