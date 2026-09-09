@@ -11,6 +11,7 @@ export function InvestigationGraph({
   revealedKeys,
   onNodeClick,
   zoom = 1,
+  expanded = false,
 }: {
   center: { label: string; sub: string }
   nodes: OrchNode[]
@@ -22,6 +23,10 @@ export function InvestigationGraph({
    *  layout maths stays in unscaled pixels and nothing has to be recomputed
    *  when it changes. */
   zoom?: number
+  /** Take the height the parent gives instead of the fixed 560px. Set while the
+   *  card is expanded to fill the window; the stage is measured either way, so
+   *  the radial layout simply recomputes at the larger size. */
+  expanded?: boolean
 }) {
   const { ref, size } = useElementSize<HTMLDivElement>({ width: 720, height: 560 })
   const laidOut = size.width && size.height ? computeRadialLayout(nodes, size.width, size.height) : []
@@ -33,7 +38,7 @@ export function InvestigationGraph({
     <>
       <div
         ref={ref}
-        className="relative h-[560px] overflow-hidden"
+        className={`relative overflow-hidden ${expanded ? 'min-h-0 flex-1' : 'h-[560px]'}`}
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(124,92,255,0.04), transparent 70%)' }}
       >
         {/* ONE transform for the whole stage. Zooming a wrapper keeps the

@@ -342,6 +342,17 @@ export function Investigations() {
   // GRAPH TOOLBAR STATE. Zoom is read by <InvestigationGraph/>, so the
   // control changes the picture rather than announcing that it did.
   const [zoom, setZoom] = useState(1)
+  // The graph card can take over the window. Escape leaves, so the expanded
+  // view is never a state the user has to hunt for a button to get out of.
+  const [graphExpanded, setGraphExpanded] = useState(false)
+  useEffect(() => {
+    if (!graphExpanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGraphExpanded(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [graphExpanded])
   const navigate = useNavigate()
 
   // Share actually copies now. There is no per-investigation permalink to hand
@@ -757,8 +768,19 @@ export function Investigations() {
         <>
       <BizQuestionCard typeMeta={typeMeta} question={activeQuestion} contextChips={view.contextChips} />
 
-      <div className="grid grid-cols-[1.7fr_1fr] gap-4 @max-[1280px]:grid-cols-1">
-        <Card className="fade-in">
+      {/* 1000, not 1280: the content column is 1248px on a 1536-wide screen at
+          100% zoom, so a 1280 threshold stacked the graph and the accelerator
+          list on exactly the machine this is demonstrated on — they only sat
+          side by side once the browser was zoomed out. Same threshold the
+          Command Center's chart rows use. */}
+      <div className="grid grid-cols-[1.7fr_1fr] gap-4 @max-[1000px]:grid-cols-1">
+        <Card
+          className={
+            graphExpanded
+              ? 'fade-in fixed inset-4 z-[9990] m-0 flex flex-col overflow-hidden shadow-[var(--shadow-lg)]'
+              : 'fade-in'
+          }
+        >
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
@@ -789,9 +811,9 @@ export function Investigations() {
                   onClick={() => setZoom((z) => Math.min(1.6, Math.round((z + 0.1) * 10) / 10))}
                 />
                 <IconButton
-                  icon="expand"
-                  title="Fit — reset zoom"
-                  onClick={() => setZoom(1)}
+                  icon={graphExpanded ? 'x' : 'expand'}
+                  title={graphExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+                  onClick={() => setGraphExpanded((v) => !v)}
                 />
               </div>
             }
@@ -802,6 +824,7 @@ export function Investigations() {
             legend={legend}
             revealedKeys={revealedKeys}
             zoom={zoom}
+            expanded={graphExpanded}
             onNodeClick={(node, el) => setPopover({ node, el })}
           />
         </Card>
