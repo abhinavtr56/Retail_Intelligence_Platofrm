@@ -214,7 +214,7 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
 
               Each list below the channel comes from the backend cascade, so a
               value that would empty the scope is never offered. */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-5 max-[620px]:grid-cols-1">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5 @max-[620px]:grid-cols-1">
             <Picker
               label="Month"
               value={MONTH_NAMES[controls.month - 1]}
@@ -278,16 +278,16 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
           {/* THE TARGET AND THE TREATMENT -- what is being measured against, and
               what is running now. Below the hierarchy because they describe the
               scope rather than define it. */}
-          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-border-subtle pt-5 max-[620px]:grid-cols-1">
+          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-border-subtle pt-5 @max-[620px]:grid-cols-1">
             <div className="min-w-0">
               <div className="flex items-baseline justify-between gap-2">
                 <label
                   htmlFor="rescue-target"
-                  className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted"
+                  className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted"
                 >
                   Monthly Target
                 </label>
-                <span className="text-[10.5px] text-ink-muted">units</span>
+                <span className="text-xs text-ink-muted">units</span>
               </div>
               <Input
                 id="rescue-target"
@@ -477,7 +477,7 @@ function Result({
   return (
     <>
       {/* ---- summary cards ---------------------------------------------- */}
-      <div className="fade-in grid grid-cols-5 gap-3 max-[1100px]:grid-cols-3 max-[620px]:grid-cols-2">
+      <div className="fade-in grid grid-cols-5 gap-3 @max-[1100px]:grid-cols-3 @max-[620px]:grid-cols-2">
         <Stat label="Target" value={progress.target_units_display} unit="units" />
         <Stat label="Sold (MTD)" value={progress.units_mtd_display} unit="units to date" />
         <Stat
@@ -506,20 +506,20 @@ function Result({
         />
         <CardBody>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[22px] font-extrabold leading-none tabular-nums text-ink-primary">
+            <span className="text-xl font-extrabold leading-none tabular-nums text-ink-primary">
               {progress.units_mtd_display}
             </span>
-            <span className="text-[13px] text-ink-muted">
+            <span className="text-base text-ink-muted">
               / {progress.target_units_display} units
             </span>
-            <span className="text-[13px] font-bold tabular-nums text-ink-secondary">
+            <span className="text-base font-bold tabular-nums text-ink-secondary">
               {progress.attainment_display}
             </span>
           </div>
 
           <ProgressBar pct={progress.attainment_pct} intent={status.intent} />
 
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-[12px] max-[620px]:grid-cols-1">
+          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm @max-[620px]:grid-cols-1">
             <Line
               label="Completed business weeks"
               value={`${progress.weeks_completed} of ${progress.weeks_total}`}
@@ -690,28 +690,28 @@ function RecommendationCard({
       <CardBody>
         {chosen && chosen.kind !== 'maintain' ? (
           <>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               {chosen.mechanic ? 'Apply approved clearance mechanic' : 'Increase discount'}
             </div>
             <div className="mt-1.5 flex flex-wrap items-baseline gap-2.5">
-              <span className="text-[20px] font-extrabold leading-none tabular-nums text-ink-primary">
+              <span className="text-xl font-extrabold leading-none tabular-nums text-ink-primary">
                 {current?.discount_display ?? '—'}
               </span>
               <Icon name="arrowRight" className="h-4 w-4 text-ink-muted" />
-              <span className="text-[20px] font-extrabold leading-none tabular-nums text-brand-violet">
+              <span className="text-xl font-extrabold leading-none tabular-nums text-brand-violet">
                 {chosen.discount_display}
               </span>
               {chosen.mechanic && (
-                <span className="rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-[11px] font-bold text-brand-violet">
+                <span className="rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-xs font-bold text-brand-violet">
                   {chosen.mechanic}
                 </span>
               )}
-              <span className="text-[11.5px] text-ink-muted">
+              <span className="text-sm text-ink-muted">
                 {chosen.ladder_label} · {chosen.treatment}
               </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-4 gap-3 max-[900px]:grid-cols-2">
+            <div className="mt-4 grid grid-cols-4 gap-3 @max-[900px]:grid-cols-2">
               <Mini label="Expected recovery" value={chosen.recovery_units.display} unit="units" />
               <Mini label="Projected month-end" value={chosen.projected_month_end.display} unit="units" />
               <Mini label="Additional trade spend" value={chosen.additional_trade_spend_display} unit="" />

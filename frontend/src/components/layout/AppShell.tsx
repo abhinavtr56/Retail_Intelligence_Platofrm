@@ -45,7 +45,7 @@ export function AppShell({
         ].join(' ')}
       >
         <Topbar crumbs={crumbs} onMenuClick={() => setSidebarOpen(true)} />
-        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-10 pt-6 sm:px-8">{children}</main>
+        <main className="@container min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-10 pt-6 sm:px-8">{children}</main>
       </div>
     </div>
   )

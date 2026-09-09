@@ -156,7 +156,7 @@ export function Home() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_360px] items-start gap-6 max-[1080px]:grid-cols-1">
+        <div className="grid grid-cols-[1fr_360px] items-start gap-6 @max-[1080px]:grid-cols-1">
           <ModuleGrid />
 
           <div className="flex flex-col gap-6">

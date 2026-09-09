@@ -28,18 +28,18 @@ export function BizQuestionCard({
   }
 
   return (
-    <Card className="fade-in mb-4 grid grid-cols-[1.4fr_2fr_auto] items-center gap-[18px] p-[18px_22px] max-[1000px]:grid-cols-1">
+    <Card className="fade-in mb-4 grid grid-cols-[1.4fr_2fr_auto] items-center gap-[18px] p-[18px_22px] @max-[1000px]:grid-cols-1">
       <div>
         <div className="flex items-center gap-1.5">
-          <span className={`inline-flex h-[18px] items-center rounded-[var(--r-pill)] px-2 text-[10.5px] font-semibold tracking-[0.04em] ${toneClasses[tone]}`}>
+          <span className={`inline-flex h-[18px] items-center rounded-[var(--r-pill)] px-2 text-xs font-semibold tracking-[0.04em] ${toneClasses[tone]}`}>
             {typeMeta.badge}
           </span>
-          <span className="text-[12px] font-bold uppercase tracking-[0.06em] text-brand-violet">Business Question</span>
+          <span className="text-sm font-bold uppercase tracking-[0.06em] text-brand-violet">Business Question</span>
         </div>
-        <div className="mt-2 text-[19px] font-bold leading-[1.35] text-ink-primary">{question}</div>
+        <div className="mt-2 text-xl font-bold leading-[1.35] text-ink-primary">{question}</div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3.5 border-l border-border-subtle pl-[18px] max-[1000px]:border-l-0 max-[1000px]:pl-0">
+      <div className="grid grid-cols-4 gap-3.5 border-l border-border-subtle pl-[18px] @max-[1000px]:border-l-0 @max-[1000px]:pl-0">
         <MetaItem icon="calendar" label="Period" value={contextChips.period} />
         <MetaItem icon="flow" label="Channel" value={contextChips.channel} />
         <MetaItem icon="target" label="Region" value={contextChips.region} />

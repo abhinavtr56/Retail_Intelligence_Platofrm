@@ -124,14 +124,14 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
           subtitle={scope.data ? scope.data.scope.period_label : 'Select a scope to measure'}
           actions={
             scope.data ? (
-              <span className="text-[11px] font-semibold text-ink-muted">
+              <span className="text-xs font-semibold text-ink-muted">
                 {scope.data.scope.candidate_count} products in scope
               </span>
             ) : null
           }
         />
         <CardBody>
-          <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-1">
+          <div className="grid grid-cols-3 gap-4 @max-[900px]:grid-cols-1">
             <Picker
               label="Category"
               value={controls.category ?? ALL_CATEGORIES}
@@ -156,7 +156,7 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
             />
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-border-subtle pt-5 max-[900px]:grid-cols-1">
+          <div className="mt-5 grid grid-cols-2 gap-x-8 gap-y-5 border-t border-border-subtle pt-5 @max-[900px]:grid-cols-1">
             <Slider
               label="Maximum Trade Spend"
               value={Math.min(ceiling, ceilingMax)}
@@ -373,7 +373,7 @@ function Result({ result }: { result: OptimizationResponse }) {
           }
         />
         <CardBody>
-          <div className="grid grid-cols-4 gap-4 max-[1100px]:grid-cols-2 max-[620px]:grid-cols-1">
+          <div className="grid grid-cols-4 gap-4 @max-[1100px]:grid-cols-2 @max-[620px]:grid-cols-1">
             <Compare
               label="Units"
               before={historical.units_display}

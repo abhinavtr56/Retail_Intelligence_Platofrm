@@ -50,7 +50,7 @@ export function OverviewTab({ D, onGoTab }: { D: IntelligencePageData; onGoTab: 
 
   return (
     <>
-      <div className="grid grid-cols-[2fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="grid grid-cols-[2fr_1fr] gap-4 @max-[1280px]:grid-cols-1">
         <Card className="fade-in">
           <CardHeader
             title={
@@ -84,14 +84,14 @@ export function OverviewTab({ D, onGoTab }: { D: IntelligencePageData; onGoTab: 
             <KeyInsightsList items={insights} />
           </div>
           <div className="border-t border-border-subtle px-5 py-3">
-            <button onClick={() => onGoTab(7)} className="text-[13px] font-semibold text-brand-violet">
+            <button onClick={() => onGoTab(7)} className="text-base font-semibold text-brand-violet">
               View All Insights →
             </button>
           </div>
         </Card>
       </div>
 
-      <div className="mt-4 grid grid-cols-[1fr_1.2fr_1.2fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-4 grid grid-cols-[1fr_1.2fr_1.2fr] gap-4 @max-[1280px]:grid-cols-1">
         <Card className="fade-in">
           <CardHeader title={<span className="flex items-center gap-1.5">Discount Saturation Curve <Icon name="info" className="h-3.5 w-3.5 text-ink-muted" /></span>} />
           <CardBody>

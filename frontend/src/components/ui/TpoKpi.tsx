@@ -20,7 +20,7 @@ const TINTS: Record<string, { bg: string; fg: string }> = {
 // owns the vertical rhythm between bands, so every gap is stated in one place.
 export function TpoKpiGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-6 gap-4 max-[1500px]:grid-cols-3 max-[900px]:grid-cols-2">{children}</div>
+    <div className="grid grid-cols-6 gap-4 @max-[1500px]:grid-cols-3 @max-[900px]:grid-cols-2">{children}</div>
   )
 }
 

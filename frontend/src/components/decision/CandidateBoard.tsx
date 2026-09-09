@@ -203,7 +203,7 @@ export function CandidateBoard({
           }
         />
         <CardBody>
-          <div className="grid grid-cols-3 gap-3 max-[1180px]:grid-cols-2 max-[720px]:grid-cols-1">
+          <div className="grid grid-cols-3 gap-3 @max-[1180px]:grid-cols-2 @max-[720px]:grid-cols-1">
             {candidates.map((c) => (
               <CandidateCard
                 key={c.id}

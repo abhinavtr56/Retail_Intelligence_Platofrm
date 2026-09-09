@@ -400,7 +400,7 @@ export function Intelligence() {
           scope is worth — a portfolio effect measured by another agent sat
           here as a headline KPI of this one. */}
       {facts && k && (
-        <div className="mt-3.5 grid grid-cols-3 gap-3 max-[900px]:grid-cols-2">
+        <div className="mt-3.5 grid grid-cols-3 gap-3 @max-[900px]:grid-cols-2">
           {[
             { label: 'Trade Spend in scope', value: fmtCr(k.trade_spend), sub: describeScope(investigation.scope) },
             {

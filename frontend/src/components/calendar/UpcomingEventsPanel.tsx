@@ -87,21 +87,21 @@ export function UpcomingEventsPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Fixed header — only the list below it scrolls. */}
       <div className="shrink-0 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Upcoming</h3>
-        <p className="mt-0.5 truncate text-[11.5px] text-ink-muted" title={contextLabel}>
+        <h3 className="text-md font-bold">Upcoming</h3>
+        <p className="mt-0.5 truncate text-sm text-ink-muted" title={contextLabel}>
           {contextLabel}
         </p>
       </div>
 
       {events.length === 0 ? (
-        <div className="grid min-h-[140px] place-items-center px-6 text-center text-[12px] text-ink-muted">
+        <div className="grid min-h-[140px] place-items-center px-6 text-center text-sm text-ink-muted">
           {loading ? 'Loading upcoming activity…' : 'No upcoming events for this selection.'}
         </div>
       ) : (
         <>
           {/* Fills whatever height the column gives it; capped only when the
               layout has stacked and there is no row height to fill. */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 max-[1179px]:max-h-[420px]">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 @max-[1179px]:max-h-[420px]">
             {events.map((event, i) => (
               <EventRow key={`${event.date}-${event.channel_id ?? 'all'}-${event.promotion_id ?? event.name}-${i}`} event={event} />
             ))}

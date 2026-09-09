@@ -239,7 +239,7 @@ export function FilterBar({
                 Clear all
               </Button>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 max-[640px]:grid-cols-1">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2 @max-[640px]:grid-cols-1">
               <FilterSelect label="Month" allLabel="All Months" value={filters.month ? String(filters.month) : null}
                 options={options.months} onChange={(v) => set('month', v ? Number(v) : null)} size="sm" />
               <FilterMulti label="Category" allLabel="All Categories" dimension="category"

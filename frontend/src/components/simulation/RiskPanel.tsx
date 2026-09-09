@@ -275,7 +275,7 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
 
       {/* Donut left, the engine's own breakdown right — and the breakdown
           scrolls inside its own column rather than widening the card. */}
-      <div className="grid grid-cols-[minmax(240px,320px)_1fr] gap-5 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-[minmax(240px,320px)_1fr] gap-5 @max-[900px]:grid-cols-1">
         <div>
           <DonutBreakdown
             segments={segments}

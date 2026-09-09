@@ -135,25 +135,25 @@ export function PromotionDetailPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 max-[1179px]:max-h-[560px]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 @max-[1179px]:max-h-[560px]">
         <div className="flex items-center gap-2">
           <LegendSwatch kind={cell.kind} />
-          <span className="text-[13px] font-bold text-ink-primary">{cell.label}</span>
+          <span className="text-base font-bold text-ink-primary">{cell.label}</span>
         </div>
-        <p className="mt-1 text-[11.5px] text-ink-muted">
+        <p className="mt-1 text-sm text-ink-muted">
           {cell.promotion_ids.join(' + ') || 'No promotion scheduled'}
         </p>
         {/* The MONTH total: distinct products across every promotion in this
             cell. Worded apart from the per-promotion "Products in Promotion
             (n)" heading below, which counts one promotion only — the two are
             different questions and must not read as the same number. */}
-        <p className="mt-1 text-[12px] font-semibold text-ink-secondary">
+        <p className="mt-1 text-sm font-semibold text-ink-secondary">
           {cell.product_count} distinct products promoted this month
         </p>
 
         {promotions.length === 0 ? (
           /* A genuinely empty month. No placeholder promotion, no products. */
-          <p className="mt-4 rounded-[var(--r-sm)] bg-ink-primary/[0.03] px-3 py-3 text-[12px] text-ink-muted">
+          <p className="mt-4 rounded-[var(--r-sm)] bg-ink-primary/[0.03] px-3 py-3 text-sm text-ink-muted">
             No promotion is scheduled for this period.
           </p>
         ) : (

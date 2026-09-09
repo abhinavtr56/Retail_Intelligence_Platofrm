@@ -43,9 +43,9 @@ export function Connections() {
 
       <div className="mb-3 flex items-center justify-between">
         <h2>Available Connectors</h2>
-        <span className="text-sm text-ink-muted">Connect a source to start pulling data in</span>
+        <span className="text-base text-ink-muted">Connect a source to start pulling data in</span>
       </div>
-      <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-4 @max-[900px]:grid-cols-1">
         {available.map((c, i) => (
           <Card
             key={c.key}

@@ -732,15 +732,15 @@ export function Simulation() {
             </div>
 
             <div className="mt-4">
-              <ScenarioRow scenarios={scenarios} activeId={activeId} onSelect={select} onAdd={addScenario} />
+              <ScenarioRow scenarios={scenarios} activeId={activeId} onSelect={select} />
             </div>
 
-            <div className="mt-4 grid grid-cols-[320px_1fr_300px] gap-4 max-[1400px]:grid-cols-[280px_1fr_280px] max-[1180px]:grid-cols-1">
+            <div className="mt-4 grid grid-cols-[320px_1fr_300px] gap-4 @max-[1400px]:grid-cols-[280px_1fr_280px] @max-[1180px]:grid-cols-1">
               <Card className="fade-in">
                 <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
                   <div>
-                    <h3 className="text-[15px] font-bold">TPO Levers</h3>
-                    <div className="mt-0.5 text-[11.5px] text-ink-muted">{active.name}</div>
+                    <h3 className="text-md font-bold">TPO Levers</h3>
+                    <div className="mt-0.5 text-sm text-ink-muted">{active.name}</div>
                   </div>
                   {(run.isPending || active.running) && <Spinner />}
                 </div>

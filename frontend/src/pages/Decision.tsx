@@ -801,45 +801,42 @@ function RecommendedPlanSection({ record }: { record: DecisionRecord }) {
         </span>
       </div>
       <CardBody>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 max-[900px]:grid-cols-1">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-6 @max-[900px]:grid-cols-1">
           <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Selected scenario
             </div>
-            <div className="mt-1 text-[15px] font-extrabold text-ink-primary">{scenario.name}</div>
-            <div className="mt-0.5 text-[12px] text-ink-secondary">
+            <div className="mt-1 text-md font-extrabold text-ink-primary">{scenario.name}</div>
+            <div className="mt-0.5 text-sm text-ink-secondary">
               {scenario.treatment} · {scenario.discount_pct}%
             </div>
 
-            <div className="mt-3 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="mt-3 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Recommended scenario
             </div>
             {/* The NAME a person gave it, resolved from the comparison. This
                 card used to print `scenario-b` — a session-local id — at a
                 commercial director. */}
-            <div className="mt-1 text-[13px] font-bold text-ink-primary">
+            <div className="mt-1 text-base font-bold text-ink-primary">
               {recommendation.recommended_scenario_name ??
                 recommendation.recommended_scenario_id ??
                 'None recommended'}
             </div>
             {recommendation.recommended_scenario_id && (
-              <div className="mt-0.5 font-mono text-[10.5px] text-ink-muted">
+              <div className="mt-0.5 font-mono text-xs text-ink-muted">
                 {recommendation.recommended_scenario_id}
               </div>
             )}
           </div>
 
           <div className="min-w-0">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Why this scenario?
             </div>
-            <div className="mt-1 text-[12.5px] leading-[1.6] text-ink-secondary">
+            <div className="mt-1 text-base leading-[1.6] text-ink-secondary">
               {recommendation.reason}
             </div>
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px] text-ink-muted">
-              <span>
-                <span className="font-semibold">Policy:</span> v{recommendation.policy_version}
-              </span>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-ink-muted">
               <span>
                 <span className="font-semibold">Objective:</span> {recommendation.objective}
               </span>
@@ -865,25 +862,30 @@ function ImpactSection({ record }: { record: DecisionRecord }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-bold">Expected Impact</h3>
+          <h3 className="text-md font-bold">Expected Impact</h3>
           {/* Said once, in the header, so no reader can take a row below for a
               historical actual. */}
-          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
             Simulated
           </span>
         </div>
-        <span className="text-[11px] text-ink-muted">
+        <span className="text-xs text-ink-muted">
           {record.scenario.range_label} · low – high
         </span>
       </div>
       <div className="px-5 py-3">
         <ExcludedRowsNote scope={record.scope} />
-        <div className="grid grid-cols-2 gap-x-8 max-[760px]:grid-cols-1">
-          {record.expected_impact.map((metric) => (
-            <ImpactRow key={metric.metric} metric={metric} />
-          ))}
+        <div className="grid grid-cols-2 gap-x-8 @max-[760px]:grid-cols-1">
+          {record.expected_impact
+            // NOT SHOWN IN DECISION CENTER. The record still carries it and the
+            // KPI engine still computes it — Simulation Studio reports it in
+            // full. This page does not.
+            .filter((metric) => metric.metric !== 'cannibalization')
+            .map((metric) => (
+              <ImpactRow key={metric.metric} metric={metric} />
+            ))}
         </div>
-        <div className="mt-2 border-t border-border-subtle pt-2.5 text-[11px] leading-[1.5] text-ink-muted">
+        <div className="mt-2 border-t border-border-subtle pt-2.5 text-xs leading-[1.5] text-ink-muted">
           Both ends of the treatment&apos;s approved uplift range are shown. There is no midpoint and
           no expected value between them, and this is not a confidence interval. These are
           simulated values for a hypothetical scenario — the measured figures for this scope are in
@@ -1195,20 +1197,20 @@ function ActionsSection({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Actions</h3>
+        <h3 className="text-md font-bold">Actions</h3>
         {stored && (
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-xs text-ink-muted">
             Stored as <span className="font-mono">{stored.decision_id}</span> · version{' '}
             {stored.version}
           </span>
         )}
       </div>
       <CardBody>
-        <div className="grid grid-cols-2 gap-6 max-[900px]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-6 @max-[900px]:grid-cols-1">
           {/* --- save */}
           <div>
-            <div className="text-[13px] font-bold text-ink-primary">Save Decision</div>
-            <div className="mt-1 max-w-[420px] text-[12px] leading-[1.6] text-ink-secondary">
+            <div className="text-base font-bold text-ink-primary">Save Decision</div>
+            <div className="mt-1 max-w-[420px] text-sm leading-[1.6] text-ink-secondary">
               Stores this record on the server, which mints the decision id and appends a version.
               Re-saving never overwrites: the previous version stays exactly where it was.
             </div>

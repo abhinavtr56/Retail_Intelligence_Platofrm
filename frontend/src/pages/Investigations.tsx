@@ -65,26 +65,26 @@ function AskSomething({
 }) {
   return (
     <Card className="fade-in mt-4">
-      <div className="grid place-items-center gap-2 p-[36px_24px_10px] text-center">
+      <div className="grid place-items-center gap-2 p-[24px_24px_10px] text-center">
         <div className="grid h-12 w-12 place-items-center rounded-xl bg-brand-violet-50 text-brand-violet">
           <Icon name="search" className="h-6 w-6" />
         </div>
         <h2 className="text-lg font-extrabold">Ask a question to start an investigation</h2>
-        <p className="max-w-[520px] text-[13px] leading-[1.6] text-ink-muted">
+        <p className="max-w-[520px] text-base leading-[1.6] text-ink-muted">
           Specialist agents will pick the analyses your question needs, run them against your data, and report a root
           cause with evidence. Ask in plain English, or start from one of these.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3 p-[14px_24px_26px] max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-3 p-[14px_24px_26px] @max-[900px]:grid-cols-1">
         {(types ?? []).map((t) => (
           <div key={t.key} className="rounded-[var(--r-lg)] border border-border-subtle p-[12px_14px]">
-            <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">{t.title}</div>
+            <div className="mb-1.5 text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">{t.title}</div>
             <div className="flex flex-col gap-1.5">
               {(t.questions ?? []).slice(0, 2).map((q) => (
                 <button
                   key={q}
                   onClick={() => onPick(q)}
-                  className="text-left text-[12.5px] leading-[1.5] text-brand-violet hover:underline"
+                  className="text-left text-base leading-[1.5] text-brand-violet hover:underline"
                 >
                   {q}
                 </button>
@@ -757,7 +757,7 @@ export function Investigations() {
         <>
       <BizQuestionCard typeMeta={typeMeta} question={activeQuestion} contextChips={view.contextChips} />
 
-      <div className="grid grid-cols-[1.7fr_1fr] gap-4 max-[1280px]:grid-cols-1">
+      <div className="grid grid-cols-[1.7fr_1fr] gap-4 @max-[1280px]:grid-cols-1">
         <Card className="fade-in">
           <CardHeader
             title={

@@ -8,7 +8,7 @@ export function ModuleGrid() {
   const { show } = useToast()
 
   return (
-    <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-2 max-[620px]:grid-cols-1">
+    <div className="grid grid-cols-3 gap-4 @max-[900px]:grid-cols-2 @max-[620px]:grid-cols-1">
       {MODULES.map((m) => {
         const card = (
           <div

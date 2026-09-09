@@ -377,7 +377,7 @@ export function CommandCenter() {
         />
       )}
 
-      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
         <Card>
           <CardHeader
             title={
@@ -491,13 +491,13 @@ export function CommandCenter() {
         </Card>
       </div>
 
-      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1280px]:grid-cols-1">
+      <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
         <Card>
           <CardHeader
             title="Top Underperforming Promotions"
             actions={
               underperforming.data ? (
-                <span className="text-[11px] font-semibold text-ink-muted">
+                <span className="text-xs font-semibold text-ink-muted">
                   {underperforming.data.total} below {meta.target_roi_pct}% target
                 </span>
               ) : null
@@ -596,15 +596,15 @@ export function CommandCenter() {
       </div>
 
       {/* ---- Chart sections. Each reads the same filter state as the cards. ---- */}
-      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+      <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
         <ChannelSection />
         <TopPerformingSection />
       </div>
-      <div className="mt-[18px] grid grid-cols-2 gap-4 max-[1100px]:grid-cols-1">
+      <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
         <RetailerDistributorSection />
         <PromotionContributionSection />
       </div>
-      <div className="mt-[18px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 max-[1100px]:grid-cols-1">
+      <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
         <ProductSection />
         <PromotionTypeSection />
       </div>

@@ -206,19 +206,19 @@ function RecommendedScenario({ scenario, reason }: { scenario: EligibleScenario;
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-sm font-bold text-ink-primary">{scenario.name}</span>
-        <span className="text-[12px] text-ink-secondary">
+        <span className="text-base font-bold text-ink-primary">{scenario.name}</span>
+        <span className="text-sm text-ink-secondary">
           {scenario.treatment} · {scenario.discount_pct}% discount
         </span>
         {scenario.uplift && (
-          <span className="text-[11.5px] text-ink-muted">
+          <span className="text-sm text-ink-muted">
             Approved uplift range {(scenario.uplift.low * 100).toFixed(0)}–
             {(scenario.uplift.high * 100).toFixed(0)}%
           </span>
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 max-[700px]:grid-cols-1">
+      <div className="mt-3 grid grid-cols-2 gap-3 @max-[700px]:grid-cols-1">
         <Conservative
           label="Conservative Incremental Sales"
           metric={scenario.evidence.incremental_sales}

@@ -36,10 +36,10 @@ export function Settings() {
     <AppShell activeKey="settings" crumbs={crumbs}>
       <div className="fade-in mb-5">
         <h1>Settings</h1>
-        <p className="mt-1.5 text-sm text-ink-muted">Profile, preferences and integrations</p>
+        <p className="mt-1.5 text-base text-ink-muted">Profile, preferences and integrations</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-4 @max-[900px]:grid-cols-1">
         <Card className="fade-in">
           <CardHeader title="Profile" />
           <div className="p-5">
@@ -91,13 +91,13 @@ export function Settings() {
           </div>
         </Card>
 
-        <Card className="fade-in col-span-2 max-[900px]:col-span-1">
+        <Card className="fade-in col-span-2 @max-[900px]:col-span-1">
           <CardHeader title="Integrations" />
           <div className="flex flex-col p-5">
             {D.integrations.map((i, idx, arr) => (
               <div
                 key={i}
-                className={`flex items-center gap-2.5 py-3 text-[13px] ${idx < arr.length - 1 ? 'border-b border-border-subtle' : ''}`}
+                className={`flex items-center gap-2.5 py-3 text-base ${idx < arr.length - 1 ? 'border-b border-border-subtle' : ''}`}
               >
                 <span className="grid place-items-center text-ink-muted [&_svg]:h-[18px] [&_svg]:w-[18px]">
                   <Icon name="x" />

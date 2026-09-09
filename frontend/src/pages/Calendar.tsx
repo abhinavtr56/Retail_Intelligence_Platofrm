@@ -94,14 +94,14 @@ export function Calendar() {
           absorbs any overflow with internal scrolling, so the page never grows
           taller than the calendar itself. Below 1180px the two stack and each
           panel falls back to its own height. */}
-      <div className="grid gap-4 min-[1180px]:grid-cols-[minmax(0,1fr)_336px] min-[1180px]:items-stretch">
+      <div className="grid gap-4 @min-[1180px]:grid-cols-[minmax(0,1fr)_336px] @min-[1180px]:items-stretch">
         <Card className="fade-in flex min-w-0 flex-col">
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
                 {year} Promotion Plan
                 <InfoPopover label="About the promotion calendar" title="What this shows">
-                  <p className="mt-1.5 text-[11px] leading-snug text-ink-secondary">
+                  <p className="mt-1.5 text-xs leading-snug text-ink-secondary">
                     Every promotion running in each channel, by month. The month comes from the
                     promotion's business week via the date dimension, not from a transaction date.
                     Weekly channels summarise several promotions per cell — open one to see the weeks.
@@ -192,15 +192,15 @@ export function Calendar() {
             this item contribute nothing to the row height, then fill exactly
             what the calendar sets. Below 1180px it returns to normal flow and
             the panels stack at their own heights. */}
-        <div className="min-[1180px]:relative">
-          <div className="flex min-h-0 flex-col gap-4 min-[1180px]:absolute min-[1180px]:inset-0">
+        <div className="@min-[1180px]:relative">
+          <div className="flex min-h-0 flex-col gap-4 @min-[1180px]:absolute @min-[1180px]:inset-0">
           {/* Details takes the larger share while it is open; expanding
               Upcoming flips the weighting. With nothing selected, Upcoming is
               the only child and fills the column on its own. */}
           {selected && (
             <Card
               className={`fade-in flex min-h-0 flex-col overflow-hidden ${
-                upcomingExpanded ? 'min-[1180px]:flex-[1]' : 'min-[1180px]:flex-[1.35]'
+                upcomingExpanded ? '@min-[1180px]:flex-[1]' : '@min-[1180px]:flex-[1.35]'
               }`}
             >
               <PromotionDetailPanel
@@ -212,7 +212,7 @@ export function Calendar() {
           )}
           <Card
             className={`fade-in flex min-h-0 flex-col overflow-hidden ${
-              selected && !upcomingExpanded ? 'min-[1180px]:flex-[1]' : 'min-[1180px]:flex-[1.6]'
+              selected && !upcomingExpanded ? '@min-[1180px]:flex-[1]' : '@min-[1180px]:flex-[1.6]'
             }`}
           >
             <UpcomingEventsPanel

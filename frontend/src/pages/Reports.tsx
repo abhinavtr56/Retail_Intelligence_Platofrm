@@ -473,7 +473,7 @@ function ReportPreviewModal({
             <Icon name="x" />
           </Button>
         </div>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[12.5px] max-[620px]:grid-cols-1">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-base @max-[620px]:grid-cols-1">
           <Line label="Module" value={report.module_label} />
           <Line label="Report" value={report.title} />
           <Line label="Scope" value={report.scope_label || '—'} />
@@ -531,10 +531,10 @@ function ReportPreviewModal({
 
         {preview?.highlights?.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Summary
             </div>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-[12.5px] max-[620px]:grid-cols-1">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-base @max-[620px]:grid-cols-1">
               {preview.highlights.map((h) => (
                 <Line key={h.label} label={h.label} value={h.value} />
               ))}

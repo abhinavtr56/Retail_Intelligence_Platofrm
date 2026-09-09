@@ -155,15 +155,15 @@ const SEVERITY_TONE = {
 
 export function KeyInsightsGrid({ insights }: { insights: KeyInsight[] }) {
   return (
-    <div className="grid grid-cols-2 gap-3.5 max-[900px]:grid-cols-1">
+    <div className="grid grid-cols-2 gap-3.5 @max-[900px]:grid-cols-1">
       {insights.map((k) => (
         <div key={k.title} className="rounded-[var(--r-lg)] border border-border-subtle bg-surface-card p-[14px_16px]">
           <div className="mb-1.5 flex items-start justify-between gap-2">
-            <strong className="text-[13.5px] leading-[1.35]">{k.title}</strong>
+            <strong className="text-base leading-[1.35]">{k.title}</strong>
             <Pill tone={SEVERITY_TONE[k.severity]}>{k.severity}</Pill>
           </div>
-          <p className="text-[12.5px] leading-[1.55] text-ink-secondary">{k.detail}</p>
-          <div className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-bold text-ink-primary">
+          <p className="text-base leading-[1.55] text-ink-secondary">{k.detail}</p>
+          <div className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-ink-primary">
             <Icon name={k.trend === 'down' ? 'arrowDown' : k.trend === 'up' ? 'arrowUp' : 'variance'} className="h-3 w-3" />
             {k.impact}
           </div>
@@ -222,38 +222,38 @@ export function RecommendationsPanel({
       {recommendations.map((r, i) => (
         <Card key={i} className="fade-in">
           <div className="flex items-start gap-3 p-[16px_18px]">
-            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-brand-violet-50 text-[13px] font-extrabold text-brand-violet">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] bg-brand-violet-50 text-base font-extrabold text-brand-violet">
               {i + 1}
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                <strong className="text-[14px] leading-[1.35]">{r.action}</strong>
+                <strong className="text-base leading-[1.35]">{r.action}</strong>
                 <Pill tone={PRIORITY_TONE[r.priority]}>{r.priority} priority</Pill>
                 <Pill tone="neutral">{r.effort} effort</Pill>
                 <Pill tone="violet">{r.confidence}% confident</Pill>
               </div>
-              <p className="text-[12.5px] leading-[1.55] text-ink-secondary">{r.rationale}</p>
+              <p className="text-base leading-[1.55] text-ink-secondary">{r.rationale}</p>
 
-              <div className="mt-2.5 grid grid-cols-2 gap-2.5 max-[760px]:grid-cols-1">
+              <div className="mt-2.5 grid grid-cols-2 gap-2.5 @max-[760px]:grid-cols-1">
                 <div className="rounded-[var(--r-md)] bg-surface-muted p-[9px_12px]">
-                  <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-muted">Evidence</div>
-                  <div className="mt-0.5 text-[12px] leading-[1.5] text-ink-secondary">{r.evidence}</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">Evidence</div>
+                  <div className="mt-0.5 text-sm leading-[1.5] text-ink-secondary">{r.evidence}</div>
                 </div>
                 <div className="rounded-[var(--r-md)] border border-[rgba(16,185,129,0.25)] bg-status-success-bg p-[9px_12px]">
-                  <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-muted">Expected impact</div>
-                  <div className="mt-0.5 text-[12px] leading-[1.5] text-ink-secondary">{r.expected_impact}</div>
+                  <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">Expected impact</div>
+                  <div className="mt-0.5 text-sm leading-[1.5] text-ink-secondary">{r.expected_impact}</div>
                 </div>
               </div>
 
               <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 rounded-[var(--r-md)] border border-[rgba(124,92,255,0.2)] bg-[linear-gradient(135deg,rgba(124,92,255,0.06),rgba(79,124,255,0.04))] p-[9px_12px]">
-                <div className="min-w-0 text-[11.5px] leading-[1.5] text-ink-secondary">
+                <div className="min-w-0 text-sm leading-[1.5] text-ink-secondary">
                   <span className="font-bold text-ink-primary">Simulate:</span> {r.simulation.lever} ·{' '}
                   <span className="text-ink-muted">{r.simulation.current_value}</span> → {r.simulation.proposed_value}
                   <span className="text-ink-muted"> · watch {r.simulation.metric_to_watch}</span>
                 </div>
                 <button
                   onClick={() => onSimulate(r)}
-                  className="shrink-0 whitespace-nowrap text-[12.5px] font-semibold text-brand-violet"
+                  className="shrink-0 whitespace-nowrap text-base font-semibold text-brand-violet"
                 >
                   Open in Simulation →
                 </button>
@@ -305,10 +305,10 @@ export function RiskPanel({ risk }: { risk: RiskFacts }) {
     <Card className="fade-in">
       <CardHeader title="Risk Exposure" actions={<Pill tone="danger">{fmtCr(risk.at_stake_total)} at stake (top events)</Pill>} />
       <div className="p-5">
-        <div className="mb-4 grid grid-cols-4 gap-2.5 max-[760px]:grid-cols-2">
+        <div className="mb-4 grid grid-cols-4 gap-2.5 @max-[760px]:grid-cols-2">
           {order.map(([k, label]) => (
             <div key={k} className="rounded-[var(--r-md)] bg-surface-muted p-[10px_12px]">
-              <div className="text-[11px] font-semibold text-ink-muted">{label}</div>
+              <div className="text-xs font-semibold text-ink-muted">{label}</div>
               <div className="mt-0.5 text-lg font-extrabold [font-variant-numeric:tabular-nums]">
                 {(counts[k] ?? 0).toLocaleString()}
               </div>

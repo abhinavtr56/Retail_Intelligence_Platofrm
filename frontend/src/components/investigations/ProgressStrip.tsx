@@ -31,9 +31,9 @@ export function ProgressStrip({
     // percentage — 82%, "↑ +6 pp vs last run" — that nothing in this project
     // computes. The remaining tiles count findings and rows, which are
     // properties of the run itself.
-    <Card className="fade-in mt-4 grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-6 p-[20px_24px] max-[1000px]:grid-cols-1 max-[1000px]:gap-4">
+    <Card className="fade-in mt-4 grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-6 p-[20px_24px] @max-[1000px]:grid-cols-1 @max-[1000px]:gap-4">
       <div>
-        <div className="mb-1.5 text-[15px] font-bold text-ink-primary">Investigation Progress</div>
+        <div className="mb-1.5 text-md font-bold text-ink-primary">Investigation Progress</div>
         <div className="flex items-center gap-2.5">
           <div className="h-2.5 flex-1 overflow-hidden rounded [background:var(--surface-muted)]">
             <div

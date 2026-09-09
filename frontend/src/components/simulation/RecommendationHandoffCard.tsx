@@ -54,7 +54,7 @@ export function RecommendationHandoffCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3 p-[14px_18px] max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 p-[14px_18px] @max-[900px]:grid-cols-1">
         <Field label="Investigation question" value={handoff.question} />
         {handoff.rootCause && <Field label="Root cause found" value={handoff.rootCause} />}
         {r && <Field label="Evidence" value={r.evidence} />}
