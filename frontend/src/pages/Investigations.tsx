@@ -806,7 +806,7 @@ export function Investigations() {
           />
         </Card>
 
-        <Card className="fade-in">
+        <Card className="fade-in flex h-full flex-col">
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
@@ -815,7 +815,10 @@ export function Investigations() {
             }
             actions={<Pill tone="violet">{typeMeta.title}</Pill>}
           />
-          <div className="px-4.5 py-1">
+          {/* Same `fill` shape the ChartFrame cards use: the card is a flex
+              column and the body takes the remaining height, so the list can
+              spread into it instead of leaving the card's tail blank. */}
+          <div className="flex flex-1 flex-col px-4.5 py-1">
             <AccelList
               accelerators={runAccelerators ?? view.accelerators}
               statusOverride={runAccelState}
