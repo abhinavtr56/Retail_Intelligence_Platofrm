@@ -402,10 +402,16 @@ def validate(items: list[Classified], unrecognised: list[str] | None = None) -> 
         )
 
     if problems:
+        # The trailing instruction only fits when something is actually absent.
+        # With all six present and an extra file alongside them, "upload the
+        # missing file(s)" told the user to do the opposite of what was needed.
+        remedy = (
+            " Please upload the missing file(s) to continue the pipeline."
+            if len(satisfied) < len(ROLE_COLUMNS)
+            else " Remove the extra file(s) to continue the pipeline."
+        )
         raise StarDatasetError(
-            f"{len(satisfied)} of 6 tables ready. "
-            + " ".join(problems)
-            + " Please upload the missing file(s) to continue the pipeline."
+            f"{len(satisfied)} of 6 tables ready. " + " ".join(problems) + remedy
         )
 
 

@@ -8,7 +8,7 @@ import { ModuleGrid } from '../components/portal/ModuleGrid'
 import { ConnectorRail } from '../components/portal/ConnectorRail'
 import { INITIAL_CONNECTORS } from '../components/portal/connectors'
 import { UploadModal } from '../components/portal/modals/UploadModal'
-import { AzureModal } from '../components/portal/modals/AzureModal'
+import { AzureDatasetModal } from '../components/portal/modals/AzureDatasetModal'
 import { DatabricksModal } from '../components/portal/modals/DatabricksModal'
 import { SapModal } from '../components/portal/modals/SapModal'
 import { PowerBiModal } from '../components/portal/modals/PowerBiModal'
@@ -175,7 +175,7 @@ export function Home() {
 
       {modal === 'upload' && uploadTarget && <UploadModal connector={uploadTarget} onClose={closeModal} onConnected={onConnected('xls')} />}
       {modal === 'azure' && (
-        <AzureModal connector={connectors.find((c) => c.key === 'azure')!} onClose={closeModal} onConnected={onConnected('azure')} />
+        <AzureDatasetModal connector={connectors.find((c) => c.key === 'azure')!} onClose={closeModal} onConnected={onConnected('azure')} />
       )}
       {modal === 'databricks' && (
         <DatabricksModal

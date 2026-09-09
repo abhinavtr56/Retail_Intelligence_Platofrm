@@ -108,3 +108,49 @@ export interface UploadResult {
   /** Present when the upload included star-schema files. */
   star: StarInstallResult | null
 }
+
+// ===== Azure Blob Storage source =====
+// The same six tables as the Excel connector, reached from a storage account.
+// Credentials are passed per request and never persisted server-side — see
+// backend/app/azure_blob.py.
+
+export interface AzureContainer {
+  name: string
+}
+
+export interface AzureBlob {
+  /** Full blob name, including any virtual-folder prefix. The address. */
+  name: string
+  /** Just the part below the folder being viewed — what the list shows. */
+  display_name: string
+  size_bytes: number
+  modified: string
+}
+
+export interface AzureBlobListing {
+  container: string
+  prefix: string
+  /** Virtual subfolders at this level, as full prefixes ending in '/'. */
+  folders: string[]
+  files: AzureBlob[]
+  /** Azure cut the listing short — more blobs exist than are shown. */
+  truncated: boolean
+}
+
+/** One file in an inspect result, matched to a table by its header. */
+export interface StarInspectFile {
+  filename: string
+  role: StarRole | null
+  label: string | null
+  missing_columns: string[]
+  recognised: boolean
+}
+
+export interface StarInspectResult {
+  files: StarInspectFile[]
+  missing_roles: { role: StarRole; label: string; required_columns: string[] }[]
+  ready: boolean
+  /** Empty when ready; otherwise names exactly what is wrong. */
+  message: string
+  locked: boolean
+}

@@ -2,8 +2,10 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
 
-from app import star_dataset
+from app import azure_blob, star_dataset
+from app.azure_blob import AzureError, BlobRef
 from app.dataset_store import delete_dataset, get_dataset, list_datasets
 from app.deps import current_user
 from app.star_dataset import StarDatasetError
@@ -165,6 +167,117 @@ async def inspect_star_upload(
             # 21 MB fact table never has to be held in memory to preview it.
             uploads.append((name, await upload.read(HEADER_PREVIEW_BYTES)))
     return star_dataset.inspect(uploads)
+
+
+# ======================================================== Azure Blob Storage ====
+# The same six-table contract as the Excel upload above, reached from a storage
+# account instead of a file dialog. Everything about WHAT is acceptable — header
+# identification, all-six-or-nothing, the lock, the reset — is star_dataset's and
+# is not restated here; these routes only get the bytes out of Azure.
+#
+# Credentials arrive per request and are never stored. See app/azure_blob.py.
+class AzureCredsReq(BaseModel):
+    account: str = ""
+    sas: str = ""
+
+
+class AzureListBlobsReq(AzureCredsReq):
+    container: str = ""
+    #: Virtual-folder path within the container, "" for its root.
+    prefix: str = ""
+
+
+class AzureBlobSel(BaseModel):
+    container: str
+    name: str
+
+
+class AzureSelectionReq(AzureCredsReq):
+    blobs: list[AzureBlobSel] = []
+
+
+def _refs(req: AzureSelectionReq) -> list[BlobRef]:
+    if not req.blobs:
+        raise HTTPException(400, "Select the 6 files to load.")
+    return [BlobRef(container=b.container, name=b.name) for b in req.blobs]
+
+
+@router.post("/azure/containers")
+async def azure_containers(
+    req: AzureCredsReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """List the containers a SAS token can see — the picker's first screen."""
+    try:
+        return {"containers": await azure_blob.list_containers(req.account, req.sas)}
+    except AzureError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/azure/blobs")
+async def azure_blobs(
+    req: AzureListBlobsReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """One level of a container: its subfolders and the CSV/Excel blobs in it."""
+    if not req.container:
+        raise HTTPException(400, "container is required.")
+    try:
+        return await azure_blob.list_blobs(req.account, req.sas, req.container, req.prefix)
+    except AzureError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/azure/inspect")
+async def azure_inspect(
+    req: AzureSelectionReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Identify the selected blobs by their headers, WITHOUT installing.
+
+    Only a 256 KB range of each blob is fetched, so telling the user which table
+    each file is — and what is still missing — never downloads the 21 MB fact
+    table. Same rules as the install, so the two cannot disagree.
+    """
+    try:
+        uploads = await azure_blob.inspect_blobs(req.account, req.sas, _refs(req))
+    except AzureError as e:
+        raise HTTPException(400, str(e)) from e
+    return star_dataset.inspect(uploads)
+
+
+@router.post("/azure/install")
+async def azure_install(
+    req: AzureSelectionReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Download the selected blobs and install them as the star schema.
+
+    Refused while a complete set is already loaded, exactly as the Excel upload
+    is: the user resets first. Checked before anything is downloaded, so a
+    locked account doesn't pay for 21 MB of transfer to be told no.
+    """
+    if star_dataset.is_locked():
+        raise HTTPException(
+            409,
+            "A complete dataset is already loaded. Use Reset to clear all 6 files "
+            "before loading a new set.",
+        )
+    refs = _refs(req)
+    try:
+        downloaded = await azure_blob.fetch_all(req.account, req.sas, refs)
+    except AzureError as e:
+        raise HTTPException(400, str(e)) from e
+
+    items: list[star_dataset.Classified] = []
+    unrecognised: list[str] = []
+    for name, content in downloaded:
+        classified = star_dataset.classify(name, content)
+        if classified is None:
+            unrecognised.append(name)
+        else:
+            items.append(classified)
+
+    try:
+        return star_dataset.install(items, unrecognised)
+    except StarDatasetError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @router.get("")

@@ -1,14 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiDelete, apiFetch, apiUpload } from '../lib/api'
+import { apiDelete, apiFetch, apiPost, apiUpload } from '../lib/api'
 import type {
+  AzureBlobListing,
+  AzureContainer,
   DatasetDetail,
   DatasetSummary,
+  StarInspectResult,
+  StarInstallResult,
   StarPreview,
   StarResetResult,
   StarRole,
   StarStatus,
   UploadResult,
 } from '../types/dataset'
+
+/** Storage account + SAS, as the Azure routes take them. Held in component
+ *  state for the life of the modal and sent per request — never persisted. */
+export interface AzureCreds {
+  account: string
+  sas: string
+}
+
+/** A blob the user has picked, addressed within the account. */
+export interface AzureBlobSel {
+  container: string
+  name: string
+}
 
 export function useDatasets() {
   return useQuery({
@@ -77,6 +94,46 @@ export function useResetStar() {
       // Same reasoning as a star install: every KPI, chart and filter in the
       // app was derived from the files just deleted, so nothing cached still
       // describes the current state.
+      queryClient.invalidateQueries()
+    },
+  })
+}
+
+// ===== Azure Blob Storage =====
+// All four are mutations rather than queries: each carries a SAS token in its
+// body, which must not end up in a react-query cache key.
+
+export function useAzureContainers() {
+  return useMutation({
+    mutationFn: (creds: AzureCreds) =>
+      apiPost<{ containers: AzureContainer[] }>('/datasets/azure/containers', creds),
+  })
+}
+
+export function useAzureBlobs() {
+  return useMutation({
+    mutationFn: (req: AzureCreds & { container: string; prefix: string }) =>
+      apiPost<AzureBlobListing>('/datasets/azure/blobs', req),
+  })
+}
+
+// Header-only reads of the picked blobs, so the modal can name which table each
+// file is before committing to downloading 21 MB.
+export function useAzureInspect() {
+  return useMutation({
+    mutationFn: (req: AzureCreds & { blobs: AzureBlobSel[] }) =>
+      apiPost<StarInspectResult>('/datasets/azure/inspect', req),
+  })
+}
+
+export function useAzureInstall() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (req: AzureCreds & { blobs: AzureBlobSel[] }) =>
+      apiPost<StarInstallResult>('/datasets/azure/install', req),
+    onSuccess: () => {
+      // Same blanket invalidation as an Excel install: this replaced the CSVs
+      // behind every KPI, chart and filter in the platform.
       queryClient.invalidateQueries()
     },
   })
