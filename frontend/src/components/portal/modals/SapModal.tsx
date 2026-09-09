@@ -103,11 +103,11 @@ export function SapModal({
           <div className="mt-3.5">
             {records.length ? (
               <>
-                <div className="mb-1.5 text-xs text-ink-muted">
+                <div className="mb-1.5 text-sm text-ink-muted">
                   {recordCount} record{recordCount === 1 ? '' : 's'} returned{recordCount > records.length ? ` (showing first ${records.length})` : ''}
                 </div>
                 <div className="max-h-[220px] overflow-auto rounded-[var(--r-md)] border border-border-subtle">
-                  <table className="w-full border-collapse text-[11.5px]">
+                  <table className="w-full border-collapse text-sm">
                     <thead>
                       <tr>
                         {keys.map((k) => (
@@ -132,7 +132,7 @@ export function SapModal({
                 </div>
               </>
             ) : (
-              <div className="text-xs text-ink-muted">No records returned.</div>
+              <div className="text-sm text-ink-muted">No records returned.</div>
             )}
           </div>
         )}

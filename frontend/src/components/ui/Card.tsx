@@ -27,11 +27,11 @@ export function CardHeader({
     // granularity dropdown) sits ~6px lower than one holding plain text, so
     // two cards side by side start their content at different heights.
     <div
-      className={`flex min-h-[63px] items-center justify-between gap-3 border-b border-border-subtle px-5 py-4 ${className}`}
+      className={`flex min-h-[52px] items-center justify-between gap-3 border-b border-border-subtle px-5 py-3 ${className}`}
     >
       <div>
-        <h3 className="text-[15px] font-bold">{title}</h3>
-        {subtitle && <div className="mt-0.5 text-xs text-ink-muted">{subtitle}</div>}
+        <h3 className="text-md font-bold">{title}</h3>
+        {subtitle && <div className="mt-0.5 text-sm text-ink-muted">{subtitle}</div>}
       </div>
       {actions}
     </div>
@@ -39,7 +39,7 @@ export function CardHeader({
 }
 
 export function CardBody({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`p-5 ${className}`} {...props} />
+  return <div className={`p-4 ${className}`} {...props} />
 }
 
 export function CardFooter({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {

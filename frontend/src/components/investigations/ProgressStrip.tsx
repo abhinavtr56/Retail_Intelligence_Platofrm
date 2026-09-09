@@ -41,9 +41,9 @@ export function ProgressStrip({
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[17px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">{pct}%</span>
+          <span className="text-lg font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">{pct}%</span>
         </div>
-        <div className="mt-1.5 text-[12.5px] text-ink-muted">{sub}</div>
+        <div className="mt-1.5 text-base text-ink-muted">{sub}</div>
       </div>
 
       <Stat label="Insights Identified" value={insights.toLocaleString()} sub="Key findings" />
@@ -66,11 +66,11 @@ export function ProgressStrip({
 function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
     <div>
-      <div className="text-[12.5px] font-semibold text-ink-muted">{label}</div>
-      <div className="mt-0.5 text-[26px] font-extrabold leading-tight text-ink-primary [font-variant-numeric:tabular-nums]">
+      <div className="text-base font-semibold text-ink-muted">{label}</div>
+      <div className="mt-0.5 text-2xl font-extrabold leading-tight text-ink-primary [font-variant-numeric:tabular-nums]">
         {value}
       </div>
-      <div className="mt-0.5 text-[11.5px] text-ink-muted">{sub}</div>
+      <div className="mt-0.5 text-sm text-ink-muted">{sub}</div>
     </div>
   )
 }

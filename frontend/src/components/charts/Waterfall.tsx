@@ -19,7 +19,7 @@ const PALETTE: Record<WaterfallItem['type'], string> = {
 // the original's imperative `.update()` controller.
 export function Waterfall({
   items,
-  height = 280,
+  height = 250,
   fixedMax,
 }: {
   items: WaterfallItem[]

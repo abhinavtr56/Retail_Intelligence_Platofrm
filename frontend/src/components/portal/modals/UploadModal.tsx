@@ -103,8 +103,8 @@ export function UploadModal({
             <BrandLogo logo="excel" name={connector.name} />
           </div>
           <div>
-            <h3 className="text-[15px] font-bold">Upload your dataset</h3>
-            <div className="mt-0.5 text-xs text-ink-muted">All 6 tables · recognised by their column headers</div>
+            <h3 className="text-md font-bold">Upload your dataset</h3>
+            <div className="mt-0.5 text-sm text-ink-muted">All 6 tables · recognised by their column headers</div>
           </div>
         </div>
         <IconButton icon="x" onClick={onClose} />
@@ -126,8 +126,8 @@ export function UploadModal({
           <div className="mx-auto mb-2.5 grid h-10 w-10 place-items-center rounded-[10px] bg-tint-lavender text-tint-lavender-icon [&_svg]:h-5 [&_svg]:w-5">
             <Icon name="plus" />
           </div>
-          <strong className="mb-1 block text-[13px]">Click to choose files, or drag them here</strong>
-          <span className="text-[11.5px] text-ink-muted">File names don't matter — tables are matched on their columns</span>
+          <strong className="mb-1 block text-base">Click to choose files, or drag them here</strong>
+          <span className="text-sm text-ink-muted">File names don't matter — tables are matched on their columns</span>
         </div>
         <input
           ref={inputRef}
@@ -152,8 +152,8 @@ export function UploadModal({
                     className={`h-4 w-4 shrink-0 ${ok ? 'text-[#047857]' : c.undetermined ? 'text-ink-muted' : 'text-[#B91C1C]'}`}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[12.5px] font-semibold">{c.file.name}</div>
-                    <div className="mt-px text-[10.5px] leading-[1.45]">
+                    <div className="truncate text-base font-semibold">{c.file.name}</div>
+                    <div className="mt-px text-xs leading-[1.45]">
                       {ok && c.role ? (
                         <span className="text-[#047857]">{STAR_ROLE_LABELS[c.role]}</span>
                       ) : c.role ? (
@@ -167,7 +167,7 @@ export function UploadModal({
                       )}
                     </div>
                   </div>
-                  <span className="shrink-0 text-[11px] text-ink-muted">{fmtSize(c.file.size)}</span>
+                  <span className="shrink-0 text-xs text-ink-muted">{fmtSize(c.file.size)}</span>
                   <button
                     onClick={() => setClassified((prev) => prev.filter((_, idx) => idx !== i))}
                     className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-status-danger-bg hover:text-[#B91C1C]"
@@ -183,7 +183,7 @@ export function UploadModal({
         {/* What is still needed, named table by table. */}
         {classified.length > 0 && missingRoles.length > 0 && undetermined.length === 0 && (
           <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[11px_13px]">
-            <div className="mb-1.5 flex items-center gap-1.5 text-[12px] font-bold text-[#B91C1C] [&_svg]:h-[14px] [&_svg]:w-[14px]">
+            <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-[#B91C1C] [&_svg]:h-[14px] [&_svg]:w-[14px]">
               <Icon name="info" />
               {missingRoles.length} of 6 tables still missing — upload to continue the pipeline
             </div>
@@ -191,7 +191,7 @@ export function UploadModal({
               {missingRoles.map((role) => {
                 const incomplete = incompleteFiles.find((c) => c.role === role)
                 return (
-                  <li key={role} className="text-[11px] leading-[1.5] text-[#B91C1C]">
+                  <li key={role} className="text-xs leading-[1.5] text-[#B91C1C]">
                     <strong>{STAR_ROLE_LABELS[role]}</strong>
                     {duplicated.includes(role) ? (
                       <> — uploaded more than once, keep one</>
@@ -208,13 +208,13 @@ export function UploadModal({
         )}
 
         {error && (
-          <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_12px] text-[11.5px] leading-[1.55] text-[#B91C1C]">
+          <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_12px] text-sm leading-[1.55] text-[#B91C1C]">
             {error}
           </div>
         )}
 
         {classified.length > 0 && missingRoles.length === 0 && (
-          <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
+          <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
             <Icon name="check" />
             <span>All 6 tables recognised. They'll be written to the data folder and every dashboard will load from them.</span>
           </div>
@@ -222,7 +222,7 @@ export function UploadModal({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border-subtle p-[14px_22px]">
-        <span className="text-[11px] text-ink-muted">
+        <span className="text-xs text-ink-muted">
           {classified.length > 0 ? `${satisfied.size} of 6 ready` : '.csv, .xlsx or .xls'}
         </span>
         <div className="flex gap-2">

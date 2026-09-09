@@ -48,7 +48,7 @@ export function ComparisonTable({ comparison }: { comparison: ScenarioComparison
             {columns.map((scenario) => (
               <Th key={scenario.scenario_id} className="text-right">
                 <div className="normal-case leading-[1.3] text-ink-primary">{scenario.name}</div>
-                <div className="text-[10px] font-normal normal-case text-ink-muted">
+                <div className="text-2xs font-normal normal-case text-ink-muted">
                   {scenario.is_baseline
                     ? 'Measured baseline'
                     : `Simulated · ${scenario.treatment} at ${scenario.discount_pct}%`}
@@ -88,7 +88,7 @@ function SectionRow({ label, span }: { label: string; span: number }) {
     <tr>
       <Td
         colSpan={span}
-        className="!text-[10.5px] !font-bold !uppercase !tracking-[0.05em] !text-ink-muted"
+        className="!text-xs !font-bold !uppercase !tracking-[0.05em] !text-ink-muted"
       >
         {label}
       </Td>
@@ -105,7 +105,7 @@ function MetricRow({ metric, columns }: { metric: ComparisonMetric; columns: Com
         <div className="flex items-center gap-1.5">
           <span>{metric.label}</span>
           <InfoPopover label={`How ${metric.label} is compared`} title={metric.label} width={288}>
-            <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-1 space-y-1.5 text-sm leading-[1.5] text-ink-secondary">
               <div>
                 <span className="font-semibold text-ink-primary">Delta:</span>{' '}
                 {metric.delta_type.replace('_', ' ')}
@@ -157,11 +157,11 @@ function ScenarioCell({ cell }: { cell: MetricScenario }) {
       <div className="font-bold text-ink-primary">
         {cell.low.display_value} – {cell.high.display_value}
       </div>
-      <div className="mt-0.5 text-[11px] text-ink-muted">
+      <div className="mt-0.5 text-xs text-ink-muted">
         <Delta direction={cell.direction_low} display={cell.delta_low.display} />
         {' / '}
         <Delta direction={cell.direction_high} display={cell.delta_high.display} />
-        <span className="ml-1 text-[10px]">vs baseline</span>
+        <span className="ml-1 text-2xs">vs baseline</span>
       </div>
     </Td>
   )
@@ -185,7 +185,7 @@ function Unavailable({ reason }: { reason: string | null }) {
       —
       {reason && (
         <InfoPopover label="Why this metric is unavailable" title="Not available" width={272}>
-          <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{reason}</div>
+          <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{reason}</div>
         </InfoPopover>
       )}
     </span>
@@ -198,12 +198,12 @@ function Unavailable({ reason }: { reason: string | null }) {
 function ExcludedNote({ excluded }: { excluded: ComparisonScenario[] }) {
   return (
     <div className="border-t border-border-subtle px-5 py-3">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         Not compared
       </div>
       <div className="mt-1.5 flex flex-col gap-1">
         {excluded.map((scenario) => (
-          <div key={scenario.scenario_id} className="text-[11.5px] leading-[1.45] text-ink-muted">
+          <div key={scenario.scenario_id} className="text-sm leading-[1.45] text-ink-muted">
             <span className="font-semibold text-ink-secondary">{scenario.name}</span> —{' '}
             {scenario.exclusion_reason}
           </div>
@@ -216,7 +216,7 @@ function ExcludedNote({ excluded }: { excluded: ComparisonScenario[] }) {
 /** The statement this whole card exists to make. */
 function Footnote({ comparison }: { comparison: ScenarioComparison }) {
   return (
-    <div className="flex items-start gap-1.5 border-t border-border-subtle px-5 py-3 text-[11px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-3 [&_svg]:w-3 [&_svg]:shrink-0">
+    <div className="flex items-start gap-1.5 border-t border-border-subtle px-5 py-3 text-xs leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-3 [&_svg]:w-3 [&_svg]:shrink-0">
       <Icon name="info" />
       <span>
         <span className="font-semibold text-ink-secondary">This is a comparison, not a recommendation.</span>{' '}
@@ -236,12 +236,12 @@ function NotComparable({ comparison }: { comparison: ScenarioComparison }) {
       : 'No scenario has been simulated for this scope yet. Run one to compare it with the measured baseline.'
 
   return (
-    <div className="px-6 py-10 text-center">
+    <div className="px-6 py-7 text-center">
       <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
         <Icon name="layers" />
       </div>
-      <div className="text-sm font-bold text-ink-primary">Nothing to compare yet</div>
-      <div className="mx-auto mt-1.5 max-w-[440px] text-[12.5px] leading-[1.55] text-ink-secondary">
+      <div className="text-base font-bold text-ink-primary">Nothing to compare yet</div>
+      <div className="mx-auto mt-1.5 max-w-[440px] text-base leading-[1.55] text-ink-secondary">
         {message}
       </div>
       {comparison.scenarios.some((s) => !s.comparable) && (

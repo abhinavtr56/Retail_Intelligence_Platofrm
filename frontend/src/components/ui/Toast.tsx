@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`fade-in-up flex max-w-[360px] items-center gap-2.5 rounded-[var(--r-md)] bg-ink-primary px-4 py-2.5 text-[13px] font-medium text-white shadow-[var(--shadow-lg)] transition-[opacity,transform] duration-[280ms] ease-out [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0 ${
+            className={`fade-in-up flex max-w-[360px] items-center gap-2.5 rounded-[var(--r-md)] bg-ink-primary px-4 py-2.5 text-base font-medium text-white shadow-[var(--shadow-lg)] transition-[opacity,transform] duration-[280ms] ease-out [&_svg]:h-4 [&_svg]:w-4 [&_svg]:shrink-0 ${
               t.leaving ? 'translate-y-2 opacity-0' : ''
             }`}
           >

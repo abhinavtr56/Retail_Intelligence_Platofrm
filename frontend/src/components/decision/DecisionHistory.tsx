@@ -75,9 +75,9 @@ export function DecisionHistory({
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Decision History</h3>
+        <h3 className="text-md font-bold">Decision History</h3>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-xs text-ink-muted">
             {history.data ? `${stored} stored` : 'Every decision saved here'}
           </span>
           <Button
@@ -96,16 +96,16 @@ export function DecisionHistory({
       </div>
       <CardBody>
         {history.isPending ? (
-          <div className="flex items-center gap-2 text-[12.5px] text-ink-muted">
+          <div className="flex items-center gap-2 text-base text-ink-muted">
             <Spinner /> <span>Reading the store…</span>
           </div>
         ) : history.isError ? (
-          <div className="text-[12.5px] leading-[1.6] text-ink-secondary">
+          <div className="text-base leading-[1.6] text-ink-secondary">
             Could not read the decision store — {history.error.message}. Nothing on this page has
             changed.
           </div>
         ) : !history.data || history.data.decisions.length === 0 ? (
-          <div className="text-[12.5px] leading-[1.6] text-ink-muted">
+          <div className="text-base leading-[1.6] text-ink-muted">
             No decision has been saved yet. Saving one stores it here, with the dataset it was
             computed against, and it stays retrievable after a reload.
           </div>
@@ -136,7 +136,7 @@ export function DecisionHistory({
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 border-t border-border-subtle pt-2.5 text-[11px] leading-[1.5] text-ink-muted">
+            <div className="mt-3 border-t border-border-subtle pt-2.5 text-xs leading-[1.5] text-ink-muted">
               {history.data.owner_note}
             </div>
           </>
@@ -158,27 +158,27 @@ function HistoryRow({
   return (
     <tr className="border-b border-border-subtle last:border-b-0">
       <td className="py-2.5 pr-3 align-middle">
-        <span className="font-mono text-[11.5px] font-semibold text-ink-primary">
+        <span className="font-mono text-sm font-semibold text-ink-primary">
           {row.decision_id}
         </span>
       </td>
-      <td className="py-2.5 pr-3 align-middle text-[12.5px] text-ink-secondary">
+      <td className="py-2.5 pr-3 align-middle text-base text-ink-secondary">
         {row.scenario_name ?? '—'}
       </td>
-      <td className="py-2.5 pr-3 align-middle text-[12.5px] text-ink-secondary [font-variant-numeric:tabular-nums]">
+      <td className="py-2.5 pr-3 align-middle text-base text-ink-secondary [font-variant-numeric:tabular-nums]">
         v{row.version}
       </td>
-      <td className="py-2.5 pr-3 align-middle text-[11.5px] text-ink-muted">{row.saved_at}</td>
+      <td className="py-2.5 pr-3 align-middle text-sm text-ink-muted">{row.saved_at}</td>
       <td className="py-2.5 pr-3 align-middle">
         {/* The store's own status. It is 'draft' on every row because no
             approval workflow exists to produce another state. */}
-        <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+        <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
           {row.status}
         </span>
       </td>
       <td className="py-2.5 pr-3 align-middle">
         <span
-          className={`rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${
+          className={`rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] ${
             row.stale
               ? 'bg-status-warning-bg text-status-warning'
               : 'bg-status-success-bg text-status-success'
@@ -189,7 +189,7 @@ function HistoryRow({
       </td>
       <td className="py-2.5 text-right align-middle">
         {isCurrent ? (
-          <span className="text-[11.5px] font-semibold text-ink-muted">Showing</span>
+          <span className="text-sm font-semibold text-ink-muted">Showing</span>
         ) : (
           <Button variant="secondary" onClick={onOpen}>
             <Icon name="arrowRight" /> <span>Open</span>
@@ -202,7 +202,7 @@ function HistoryRow({
 
 function Th({ children }: { children?: React.ReactNode }) {
   return (
-    <th className="pb-2 pr-3 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+    <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
       {children}
     </th>
   )

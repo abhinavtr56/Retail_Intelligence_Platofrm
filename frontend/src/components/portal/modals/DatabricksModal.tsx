@@ -117,7 +117,7 @@ export function DatabricksModal({
           </>
         ) : !activeWh ? (
           <>
-            <div className="mb-2 text-xs text-ink-muted">
+            <div className="mb-2 text-sm text-ink-muted">
               {warehouses.length} warehouse{warehouses.length === 1 ? '' : 's'} — pick one to run a query
             </div>
             <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
@@ -125,29 +125,29 @@ export function DatabricksModal({
                 <button
                   key={w.id}
                   onClick={() => setActiveWh(w)}
-                  className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-[12.5px] font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
+                  className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
                 >
                   <Icon name="database" className="h-4 w-4 text-ink-muted" />
                   <span className="flex-1">{w.name}</span>
                   <span className="text-ink-muted">{w.state}</span>
                 </button>
               ))}
-              {!warehouses.length && <div className="text-xs text-ink-muted">No SQL warehouses visible to this token.</div>}
+              {!warehouses.length && <div className="text-sm text-ink-muted">No SQL warehouses visible to this token.</div>}
             </div>
           </>
         ) : (
           <>
             <Breadcrumb label="All warehouses" onClick={() => { setActiveWh(null); setResult(null); }} />
-            <div className="mb-2 text-xs text-ink-muted">Running against {activeWh.name}</div>
-            <Textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={3} className="font-mono text-xs" />
+            <div className="mb-2 text-sm text-ink-muted">Running against {activeWh.name}</div>
+            <Textarea value={sql} onChange={(e) => setSql(e.target.value)} rows={3} className="font-mono text-sm" />
             <Button variant="primary" block className="mt-2.5" onClick={runQuery} disabled={running}>
               <Icon name="play" /> {running ? 'Running…' : 'Run query'}
             </Button>
             <div className="mt-3">
-              {queryError && <div className="text-xs text-[#B91C1C]">{queryError}</div>}
+              {queryError && <div className="text-sm text-[#B91C1C]">{queryError}</div>}
               {result && (
                 <>
-                  <div className="mb-1.5 text-xs text-ink-muted">
+                  <div className="mb-1.5 text-sm text-ink-muted">
                     {result.row_count} row{result.row_count === 1 ? '' : 's'} returned
                     {result.row_count > result.rows.length ? ` (showing first ${result.rows.length})` : ''}
                   </div>

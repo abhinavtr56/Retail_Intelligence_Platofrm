@@ -36,18 +36,18 @@ export function AiDecisionBrief({
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
         <div className="flex items-center gap-2">
           <Icon name="sparkles" className="h-4 w-4 text-brand-violet" />
-          <h3 className="text-[15px] font-bold">AI Decision Brief</h3>
-          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+          <h3 className="text-md font-bold">AI Decision Brief</h3>
+          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
             Explanation only
           </span>
         </div>
         {brief.isSuccess && brief.data && (
-          <span className="text-[11px] text-ink-muted">{brief.data.model}</span>
+          <span className="text-xs text-ink-muted">{brief.data.model}</span>
         )}
       </div>
       <CardBody>
         {brief.isPending ? (
-          <div className="flex items-center gap-2.5 text-[12.5px] text-ink-secondary">
+          <div className="flex items-center gap-2.5 text-base text-ink-secondary">
             <Spinner />
             <span>Generating explanation…</span>
           </div>
@@ -66,7 +66,7 @@ export function AiDecisionBrief({
 function Idle({ onGenerate, disabled }: { onGenerate: () => void; disabled?: boolean }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="max-w-[560px] text-[12.5px] leading-[1.6] text-ink-secondary">
+      <div className="max-w-[560px] text-base leading-[1.6] text-ink-secondary">
         Generates a short executive explanation of the decision above — why this scenario, what it
         is expected to do, what supports it, what is risky and what remains unverified. It explains
         the record; it does not produce any figure in it.
@@ -88,7 +88,7 @@ function Brief({ data, onRegenerate }: { data: DecisionBriefResponse; onRegenera
       {data.unverified_figures.length > 0 && (
         <div className="mb-3 flex items-start gap-2.5 rounded-[var(--r-md)] border border-[rgba(245,158,11,0.4)] bg-status-warning-bg px-3 py-2.5">
           <Icon name="warning" className="mt-px h-4 w-4 shrink-0 text-status-warning" />
-          <div className="min-w-0 text-[11.5px] leading-[1.5] text-ink-secondary">
+          <div className="min-w-0 text-sm leading-[1.5] text-ink-secondary">
             <span className="font-bold text-ink-primary">Check these figures.</span> The explanation
             below mentions {data.unverified_figures.join(', ')}, which {' '}
             {data.unverified_figures.length === 1 ? 'does' : 'do'} not appear in the decision
@@ -100,10 +100,10 @@ function Brief({ data, onRegenerate }: { data: DecisionBriefResponse; onRegenera
       <div className="flex flex-col gap-3.5">
         {data.sections.map((section) => (
           <div key={section.key}>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-brand-violet">
+            <div className="text-xs font-semibold uppercase tracking-[0.04em] text-brand-violet">
               {section.heading}
             </div>
-            <p className="mt-1 max-w-[860px] text-[12.5px] leading-[1.65] text-ink-secondary">
+            <p className="mt-1 max-w-[860px] text-base leading-[1.65] text-ink-secondary">
               {data.brief[section.key]}
             </p>
           </div>
@@ -111,7 +111,7 @@ function Brief({ data, onRegenerate }: { data: DecisionBriefResponse; onRegenera
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle pt-3">
-        <div className="flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <div className="flex items-center gap-1.5 text-xs text-ink-muted">
           <Icon name="sparkles" className="h-3 w-3" />
           <span>AI-generated explanation · Based on decision evidence · {data.model}</span>
         </div>
@@ -119,7 +119,7 @@ function Brief({ data, onRegenerate }: { data: DecisionBriefResponse; onRegenera
           <Icon name="refresh" /> <span>Regenerate</span>
         </Button>
       </div>
-      <div className="mt-2 max-w-[860px] text-[11px] leading-[1.5] text-ink-muted">
+      <div className="mt-2 max-w-[860px] text-xs leading-[1.5] text-ink-muted">
         {data.disclaimer}
       </div>
     </>
@@ -132,8 +132,8 @@ function Failure({ error, onRetry }: { error: Error; onRetry: () => void }) {
     <div className="flex items-start gap-2.5">
       <Icon name="warning" className="mt-px h-4 w-4 shrink-0 text-status-warning" />
       <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-bold text-ink-primary">{title}</div>
-        <div className="mt-0.5 max-w-[680px] break-words text-[11.5px] leading-[1.55] text-ink-secondary">
+        <div className="text-base font-bold text-ink-primary">{title}</div>
+        <div className="mt-0.5 max-w-[680px] break-words text-sm leading-[1.55] text-ink-secondary">
           {detail}
         </div>
         <Button variant="secondary" className="mt-2.5" onClick={onRetry}>

@@ -44,12 +44,12 @@ export function RecommendationPanel({ recommendation }: { recommendation: Recomm
       <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border-subtle px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-bold">Recommendation</h3>
+            <h3 className="text-md font-bold">Recommendation</h3>
             <StatusPill status={status} />
           </div>
           {/* The qualifier is permanent furniture, not a tooltip. */}
-          <div className="mt-0.5 text-[11.5px] text-ink-muted">
-            Under the current decision policy · v{recommendation.policy.version}
+          <div className="mt-0.5 text-sm text-ink-muted">
+            Under the current decision policy
           </div>
         </div>
         <PolicyPopover recommendation={recommendation} />
@@ -59,10 +59,10 @@ export function RecommendationPanel({ recommendation }: { recommendation: Recomm
         {status === 'recommended' && winner ? (
           <RecommendedScenario scenario={winner} reason={recommendation.reason} />
         ) : (
-          <div className="max-w-[640px] text-[12.5px] leading-[1.6] text-ink-secondary">
+          <div className="max-w-[640px] text-base leading-[1.6] text-ink-secondary">
             {status === 'maintain_current_plan' && (
               <>
-                <div className="text-sm font-bold text-ink-primary">Maintain Current Plan</div>
+                <div className="text-base font-bold text-ink-primary">Maintain Current Plan</div>
                 <div className="mt-1.5">{recommendation.reason}</div>
                 {recommendation.evidence.current_plan && (
                   <EvidenceGrid evidence={recommendation.evidence.current_plan} className="mt-3" />
@@ -71,13 +71,13 @@ export function RecommendationPanel({ recommendation }: { recommendation: Recomm
             )}
             {status === 'no_clear_winner' && (
               <>
-                <div className="text-sm font-bold text-ink-primary">No clear winner</div>
+                <div className="text-base font-bold text-ink-primary">No clear winner</div>
                 <div className="mt-1.5">{recommendation.reason}</div>
               </>
             )}
             {status === 'insufficient_data' && (
               <>
-                <div className="text-sm font-bold text-ink-primary">Not enough data to decide</div>
+                <div className="text-base font-bold text-ink-primary">Not enough data to decide</div>
                 <div className="mt-1.5">{recommendation.reason}</div>
                 {recommendation.missing && recommendation.missing.length > 0 && (
                   <ul className="mt-2 list-disc pl-5">
@@ -98,7 +98,7 @@ export function RecommendationPanel({ recommendation }: { recommendation: Recomm
         {alsoConsidered.length > 0 && (
           <Section label="Also considered">
             {alsoConsidered.map((scenario) => (
-              <div key={scenario.scenario_id} className="text-[11.5px] leading-[1.5] text-ink-muted">
+              <div key={scenario.scenario_id} className="text-sm leading-[1.5] text-ink-muted">
                 <span className="font-semibold text-ink-secondary">{scenario.name}</span>
                 {scenario.treatment && ` · ${scenario.treatment} at ${scenario.discount_pct}%`} —{' '}
                 {describe(scenario)}
@@ -110,7 +110,7 @@ export function RecommendationPanel({ recommendation }: { recommendation: Recomm
         {recommendation.excluded_scenarios.length > 0 && (
           <Section label="Not considered">
             {recommendation.excluded_scenarios.map((s) => (
-              <div key={s.scenario_id} className="text-[11.5px] leading-[1.45] text-ink-muted">
+              <div key={s.scenario_id} className="text-sm leading-[1.45] text-ink-muted">
                 <span className="font-semibold text-ink-secondary">{s.name}</span> — {s.reason}
               </div>
             ))}
@@ -156,7 +156,7 @@ function DecisionPath({ recommendation }: { recommendation: Recommendation }) {
     <Section label="How this was decided">
       <div className="flex flex-col gap-2">
         {recommendation.decision_path.map((step, index) => (
-          <div key={`${step.criterion}-${index}`} className="text-[11.5px] leading-[1.5]">
+          <div key={`${step.criterion}-${index}`} className="text-sm leading-[1.5]">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span className="font-semibold text-ink-secondary">
                 {step.role === 'primary' ? 'Primary' : 'Tie-breaker'}:{' '}
@@ -188,13 +188,13 @@ function Outcome({ step }: { step: DecisionStep }) {
     tied: 'could not separate them',
     skipped: 'skipped',
   }[step.outcome]
-  return <span className="text-[10.5px] uppercase tracking-[0.04em] text-ink-muted">{label}</span>
+  return <span className="text-xs uppercase tracking-[0.04em] text-ink-muted">{label}</span>
 }
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-4 border-t border-border-subtle pt-3">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {label}
       </div>
       <div className="mt-1.5 flex flex-col gap-1">{children}</div>
@@ -226,7 +226,7 @@ function RecommendedScenario({ scenario, reason }: { scenario: EligibleScenario;
         <Conservative label="Conservative ROI" metric={scenario.evidence.roi_percent} />
       </div>
 
-      <div className="mt-3 max-w-[640px] text-[12.5px] leading-[1.6] text-ink-secondary">{reason}</div>
+      <div className="mt-3 max-w-[640px] text-base leading-[1.6] text-ink-secondary">{reason}</div>
 
       <EvidenceGrid evidence={scenario.evidence} className="mt-3" />
     </div>
@@ -238,20 +238,20 @@ function RecommendedScenario({ scenario, reason }: { scenario: EligibleScenario;
 function Conservative({ label, metric }: { label: string; metric: EvidenceMetric | undefined }) {
   return (
     <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {label}
       </div>
       {metric?.available ? (
         <>
-          <div className="mt-1 text-[17px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
+          <div className="mt-1 text-lg font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
             {metric.display_low}
           </div>
-          <div className="mt-0.5 text-[11px] text-ink-muted">
+          <div className="mt-0.5 text-xs text-ink-muted">
             low end · {metric.display_high} at the high end
           </div>
         </>
       ) : (
-        <div className="mt-1 text-[12px] text-ink-muted">{metric?.unavailable_reason ?? '—'}</div>
+        <div className="mt-1 text-sm text-ink-muted">{metric?.unavailable_reason ?? '—'}</div>
       )}
     </div>
   )
@@ -272,7 +272,7 @@ function EvidenceGrid({ evidence, className = '' }: { evidence: Evidence; classN
       {rows.map(([label, key]) => {
         const metric = evidence[key]
         return (
-          <div key={key} className="text-[11px]">
+          <div key={key} className="text-xs">
             <span className="font-semibold text-ink-muted">{label}: </span>
             {metric?.available ? (
               <span className="text-ink-primary [font-variant-numeric:tabular-nums]">
@@ -285,7 +285,7 @@ function EvidenceGrid({ evidence, className = '' }: { evidence: Evidence; classN
                 —
                 {metric?.unavailable_reason && (
                   <InfoPopover label={`Why ${label} is unavailable`} title={label} width={264}>
-                    <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+                    <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
                       {metric.unavailable_reason}
                     </div>
                   </InfoPopover>
@@ -312,7 +312,7 @@ function StatusPill({ status }: { status: Recommendation['status'] }) {
       : 'bg-surface-muted text-ink-muted'
   return (
     <span
-      className={`inline-flex items-center rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${tone}`}
+      className={`inline-flex items-center rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] ${tone}`}
     >
       {label}
     </span>
@@ -323,11 +323,11 @@ function StatusPill({ status }: { status: Recommendation['status'] }) {
 function PolicyPopover({ recommendation }: { recommendation: Recommendation }) {
   const { policy } = recommendation
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
+    <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
       <Icon name="info" className="h-3 w-3" />
       Why this policy?
       <InfoPopover label="The decision policy" title="Decision policy" width={320}>
-        <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+        <div className="mt-1 space-y-1.5 text-sm leading-[1.5] text-ink-secondary">
           <div>{policy.objective}</div>
           <div>
             <span className="font-semibold text-ink-primary">Constraint:</span>{' '}

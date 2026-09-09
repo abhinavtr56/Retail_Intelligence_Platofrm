@@ -227,7 +227,7 @@ export function FilterBar({
             className="panel-enter cc-filter-surface absolute right-0 top-full z-30 mt-2 w-[min(680px,calc(100vw-2rem))] max-h-[min(70vh,560px)] overflow-y-auto rounded-[var(--r-lg)] border border-border-subtle p-4 shadow-[var(--shadow-lg)]"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
-              <span className="text-[13px] font-bold text-ink-primary">Additional Filters</span>
+              <span className="text-base font-bold text-ink-primary">Additional Filters</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -296,7 +296,7 @@ function CurrencyToggle({ currency, onChange }: { currency: Currency; onChange: 
           aria-checked={currency === code}
           aria-label={code === 'INR' ? 'Indian rupees' : 'US dollars'}
           onClick={() => onChange(code)}
-          className={`cursor-pointer rounded-[calc(var(--r-md)-3px)] px-2.5 py-1 text-xs font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
+          className={`cursor-pointer rounded-[calc(var(--r-md)-3px)] px-2.5 py-1 text-sm font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
             currency === code
               ? 'bg-brand-violet text-white shadow-[var(--shadow-card-soft)]'
               : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'

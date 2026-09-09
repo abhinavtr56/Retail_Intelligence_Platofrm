@@ -124,7 +124,7 @@ export function PowerBiModal({
           </>
         ) : !activeWs ? (
           <>
-            <div className="mb-2 text-xs text-ink-muted">
+            <div className="mb-2 text-sm text-ink-muted">
               {workspaces.length} workspace{workspaces.length === 1 ? '' : 's'} — pick one to list reports
             </div>
             <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
@@ -132,30 +132,30 @@ export function PowerBiModal({
                 <button
                   key={w.id}
                   onClick={() => openWorkspace(w)}
-                  className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-[12.5px] font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
+                  className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
                 >
                   <Icon name="folder" className="h-4 w-4 text-ink-muted" />
                   <span className="flex-1">{w.name}</span>
                   <Icon name="chevronRight" className="h-4 w-4 text-ink-muted" />
                 </button>
               ))}
-              {!workspaces.length && <div className="text-xs text-ink-muted">No workspaces visible to this account.</div>}
+              {!workspaces.length && <div className="text-sm text-ink-muted">No workspaces visible to this account.</div>}
             </div>
           </>
         ) : (
           <>
             <Breadcrumb label="All workspaces" onClick={() => { setActiveWs(null); setReports(null); }} />
-            <div className="mb-2 text-xs text-ink-muted">
+            <div className="mb-2 text-sm text-ink-muted">
               {activeWs.name} · {loadingReports ? 'loading…' : `${reports?.length ?? 0} report${reports?.length === 1 ? '' : 's'}`}
             </div>
             <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
               {(reports ?? []).map((r) => (
-                <div key={r.name} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-[12.5px] font-medium">
+                <div key={r.name} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-base font-medium">
                   <Icon name="file" className="h-4 w-4 shrink-0 text-ink-muted" />
                   <span>{r.name}</span>
                 </div>
               ))}
-              {reports && !reports.length && <div className="text-xs text-ink-muted">No reports in this workspace.</div>}
+              {reports && !reports.length && <div className="text-sm text-ink-muted">No reports in this workspace.</div>}
             </div>
           </>
         )}

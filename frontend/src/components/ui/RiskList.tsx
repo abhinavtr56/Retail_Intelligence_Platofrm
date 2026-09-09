@@ -49,8 +49,8 @@ export function RiskList({ items, onSelect }: { items: RiskItem[]; onSelect?: (i
             <Icon name={r.ic} />
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-bold text-ink-primary">{r.title}</div>
-            <div className="mt-0.5 text-[11.5px] text-ink-muted">{r.desc}</div>
+            <div className="text-base font-bold text-ink-primary">{r.title}</div>
+            <div className="mt-0.5 text-sm text-ink-muted">{r.desc}</div>
           </div>
           <Pill tone={PILL_TONE[r.tone]}>{r.severity}</Pill>
         </div>

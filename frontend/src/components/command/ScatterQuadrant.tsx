@@ -19,7 +19,7 @@ export function ScatterQuadrant({
   targetRoi,
   rate,
   symbol,
-  height = 260,
+  height = 230,
 }: {
   groups: BreakdownGroup[]
   targetRoi: number
@@ -115,7 +115,7 @@ export function ScatterQuadrant({
 
       {active && (
         <div
-          className="pointer-events-none absolute z-20 w-52 rounded-[var(--r-md)] border border-border-default bg-surface-card p-2.5 text-[11px] shadow-[var(--shadow-lg)]"
+          className="pointer-events-none absolute z-20 w-52 rounded-[var(--r-md)] border border-border-default bg-surface-card p-2.5 text-xs shadow-[var(--shadow-lg)]"
           style={{
             left: Math.min(Math.max(0, x(active.trade_spend) - 104), Math.max(0, width - 208)),
             top: Math.max(0, y(active.roi as number) - 96),

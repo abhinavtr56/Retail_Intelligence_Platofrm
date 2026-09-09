@@ -40,8 +40,8 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <Icon name={opts.icon ?? 'checkCircle'} />
               </div>
               <div>
-                <h3 className="text-base font-bold">{opts.title}</h3>
-                <p className="mt-1 text-[13px] leading-[1.5] text-ink-muted">{opts.body}</p>
+                <h3 className="text-md font-bold">{opts.title}</h3>
+                <p className="mt-1 text-base leading-[1.5] text-ink-muted">{opts.body}</p>
               </div>
               <IconButton icon="x" onClick={close} />
             </div>

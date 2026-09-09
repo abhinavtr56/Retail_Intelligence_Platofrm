@@ -156,9 +156,9 @@ export function NotificationBell() {
             style={{ left: coords.left, top: coords.top, width: coords.width }}
           >
             <div className="flex items-center justify-between border-b border-border-subtle px-4 py-2.5">
-              <span className="text-[13px] font-bold text-ink-primary">Notifications</span>
+              <span className="text-base font-bold text-ink-primary">Notifications</span>
               {total > 0 && (
-                <span className="rounded-full bg-status-danger-bg px-2 py-0.5 text-[11px] font-bold tabular-nums text-status-danger">
+                <span className="rounded-full bg-status-danger-bg px-2 py-0.5 text-xs font-bold tabular-nums text-status-danger">
                   {total}
                 </span>
               )}
@@ -174,7 +174,7 @@ export function NotificationBell() {
             />
 
             {rows.length > 0 && total > rows.length && (
-              <div className="border-t border-border-subtle px-4 py-2 text-[11px] text-ink-muted">
+              <div className="border-t border-border-subtle px-4 py-2 text-xs text-ink-muted">
                 Showing the top {rows.length} of {total}. The Command Center lists them all.
               </div>
             )}
@@ -213,8 +213,8 @@ function PanelBody({
         <span className="grid h-9 w-9 place-items-center rounded-full bg-status-success-bg text-status-success [&_svg]:h-[18px] [&_svg]:w-[18px]">
           <Icon name="check" />
         </span>
-        <span className="text-[13px] font-bold text-ink-primary">No active alerts</span>
-        <span className="text-[11.5px] text-ink-muted">Everything looks good.</span>
+        <span className="text-base font-bold text-ink-primary">No active alerts</span>
+        <span className="text-sm text-ink-muted">Everything looks good.</span>
       </div>
     )
   }
@@ -229,7 +229,7 @@ function PanelBody({
 }
 
 function Message({ text }: { text: string }) {
-  return <div className="px-4 py-7 text-center text-[12px] text-ink-muted">{text}</div>
+  return <div className="px-4 py-7 text-center text-sm text-ink-muted">{text}</div>
 }
 
 function AlertRow({ alert, onSelect }: { alert: RiskAlert; onSelect: (a: RiskAlert) => void }) {
@@ -252,20 +252,20 @@ function AlertRow({ alert, onSelect }: { alert: RiskAlert; onSelect: (a: RiskAle
 
       <span className="min-w-0">
         <span className="flex items-baseline gap-1.5">
-          <span className="truncate text-[12.5px] font-bold text-ink-primary">
+          <span className="truncate text-base font-bold text-ink-primary">
             {alertHeadline(alert)}
           </span>
           <span
-            className="shrink-0 text-[10px] font-bold uppercase tracking-[0.03em]"
+            className="shrink-0 text-2xs font-bold uppercase tracking-[0.03em]"
             style={{ color: TONE_FG[alert.tone] }}
           >
             {alert.severity}
           </span>
         </span>
-        <span className="mt-0.5 block truncate text-[11.5px] text-ink-muted">
+        <span className="mt-0.5 block truncate text-sm text-ink-muted">
           {alert.product_id} · {alert.channel}
         </span>
-        <span className="mt-0.5 flex items-center gap-1.5 text-[11px] tabular-nums">
+        <span className="mt-0.5 flex items-center gap-1.5 text-xs tabular-nums">
           <span
             className={
               roi !== null && roi < 0 ? 'font-bold text-status-danger' : 'font-bold text-ink-primary'
@@ -277,7 +277,7 @@ function AlertRow({ alert, onSelect }: { alert: RiskAlert; onSelect: (a: RiskAle
         </span>
         {/* The business week the event ran. The API carries no timestamp, so no
             relative time is shown — see the note at the top of this file. */}
-        <span className="mt-0.5 block text-[10.5px] text-ink-disabled">{alert.week}</span>
+        <span className="mt-0.5 block text-xs text-ink-disabled">{alert.week}</span>
       </span>
     </button>
   )

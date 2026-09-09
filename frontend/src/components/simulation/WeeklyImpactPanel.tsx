@@ -41,14 +41,14 @@ export function WeeklyImpactPanel({
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
         <div>
-          <h3 className="text-[15px] font-bold">Weekly Impact</h3>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-ink-muted">
+          <h3 className="text-md font-bold">Weekly Impact</h3>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
             <span>
               {weekly.treatment} · {weekly.discount_pct}% · {weekly.range_label}{' '}
               {(weekly.uplift.low * 100).toFixed(0)}–{(weekly.uplift.high * 100).toFixed(0)}%
             </span>
             {isRecommended && (
-              <span className="rounded-[4px] bg-status-success-bg px-1.5 py-[2px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-success">
+              <span className="rounded-[4px] bg-status-success-bg px-1.5 py-[2px] text-2xs font-extrabold uppercase tracking-[0.04em] text-status-success">
                 Recommended under the current decision policy
               </span>
             )}
@@ -62,7 +62,7 @@ export function WeeklyImpactPanel({
           <button
             key={m.key}
             onClick={() => setMetricKey(m.key)}
-            className={`rounded-[var(--r-pill)] px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
+            className={`rounded-[var(--r-pill)] px-2.5 py-1 text-sm font-semibold transition-colors ${
               m.key === metric.key
                 ? 'bg-surface-muted text-ink-primary'
                 : 'text-ink-muted hover:text-ink-secondary'
@@ -76,7 +76,7 @@ export function WeeklyImpactPanel({
       <div className="px-5 py-4">
         <RangeChart weeks={weekly.weeks} metricKey={metric.key} label={metric.label} />
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block h-2 w-3 rounded-sm bg-brand-violet/20" /> Approved uplift range
           </span>
@@ -90,7 +90,7 @@ export function WeeklyImpactPanel({
           <Reconciled metric={metric.label} entry={reconciliation} />
         ) : (
           nonAdditive && (
-            <div className="mt-3 rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-3 rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-sm leading-[1.5] text-ink-secondary">
               <span className="font-semibold text-ink-primary">{metric.label} is not additive.</span>{' '}
               {nonAdditive.reason} For the whole scope it is{' '}
               <span className="font-bold [font-variant-numeric:tabular-nums]">
@@ -104,7 +104,7 @@ export function WeeklyImpactPanel({
         <WeeklyTable weeks={weekly.weeks} metricKey={metric.key} label={metric.label} />
 
         {weekly.scope.weeks_without_promotion > 0 && (
-          <div className="mt-3 text-[11px] leading-[1.45] text-ink-muted">
+          <div className="mt-3 text-xs leading-[1.45] text-ink-muted">
             {weekly.scope.weeks_without_promotion} of {weekly.scope.weeks_in_scope} weeks in scope
             carried no promotion and are not shown. {weekly.scope.omitted_note}
           </div>
@@ -124,7 +124,7 @@ function Reconciled({
 }) {
   const ok = entry.low.within_tolerance && entry.high.within_tolerance
   return (
-    <div className="mt-3 flex items-start gap-1.5 rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-[11.5px] leading-[1.5] [&_svg]:mt-px [&_svg]:h-3 [&_svg]:w-3 [&_svg]:shrink-0">
+    <div className="mt-3 flex items-start gap-1.5 rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-sm leading-[1.5] [&_svg]:mt-px [&_svg]:h-3 [&_svg]:w-3 [&_svg]:shrink-0">
       <Icon name={ok ? 'checkCircle' : 'warning'} />
       <span className="text-ink-secondary">
         {ok ? (
@@ -171,7 +171,7 @@ function RangeChart({
 
   if (!usable) {
     return (
-      <div ref={ref} className="grid h-[220px] place-items-center text-[12px] text-ink-muted">
+      <div ref={ref} className="grid h-[220px] place-items-center text-sm text-ink-muted">
         {label} is not available for these weeks.
       </div>
     )
@@ -205,7 +205,7 @@ function RangeChart({
 
   return (
     <div ref={ref}>
-      <div className="mb-1.5 text-xs text-ink-muted">{label} by business week</div>
+      <div className="mb-1.5 text-sm text-ink-muted">{label} by business week</div>
       <svg width={width} height={height} role="img" aria-label={`${label} range by week`}>
         {zeroY !== null && (
           <line x1={padL} x2={width - padR} y1={zeroY} y2={zeroY} stroke="var(--border-default)" strokeWidth={1} />
@@ -236,7 +236,7 @@ function RangeChart({
               x={x(i)}
               y={height - 8}
               textAnchor="middle"
-              className="fill-[var(--ink-muted)] text-[9px]"
+              className="fill-[var(--ink-muted)] text-2xs"
             >
               {week.week_id.slice(5)}
             </text>
@@ -262,13 +262,13 @@ function WeeklyTable({
       <table className="w-full border-collapse">
         <thead className="sticky top-0 bg-surface-muted">
           <tr>
-            <th className="p-[8px_12px] text-left text-[10px] font-bold uppercase tracking-[0.05em] text-ink-muted">
+            <th className="p-[8px_12px] text-left text-2xs font-bold uppercase tracking-[0.05em] text-ink-muted">
               Week
             </th>
-            <th className="p-[8px_12px] text-right text-[10px] font-bold uppercase tracking-[0.05em] text-ink-muted">
+            <th className="p-[8px_12px] text-right text-2xs font-bold uppercase tracking-[0.05em] text-ink-muted">
               {label} · low
             </th>
-            <th className="p-[8px_12px] text-right text-[10px] font-bold uppercase tracking-[0.05em] text-ink-muted">
+            <th className="p-[8px_12px] text-right text-2xs font-bold uppercase tracking-[0.05em] text-ink-muted">
               high
             </th>
           </tr>
@@ -279,16 +279,16 @@ function WeeklyTable({
             const high = week.high[metricKey]
             return (
               <tr key={week.week_id} className="border-t border-border-subtle">
-                <td className="p-[7px_12px] text-[11.5px] text-ink-secondary">
+                <td className="p-[7px_12px] text-sm text-ink-secondary">
                   {week.week_label}
                   {week.week_start && (
-                    <span className="ml-1.5 text-[10px] text-ink-muted">from {week.week_start}</span>
+                    <span className="ml-1.5 text-2xs text-ink-muted">from {week.week_start}</span>
                   )}
                 </td>
-                <td className="p-[7px_12px] text-right text-[11.5px] text-ink-primary [font-variant-numeric:tabular-nums]">
+                <td className="p-[7px_12px] text-right text-sm text-ink-primary [font-variant-numeric:tabular-nums]">
                   {low?.available ? low.display_value : <Absent reason={low?.unavailable_reason} />}
                 </td>
-                <td className="p-[7px_12px] text-right text-[11.5px] text-ink-primary [font-variant-numeric:tabular-nums]">
+                <td className="p-[7px_12px] text-right text-sm text-ink-primary [font-variant-numeric:tabular-nums]">
                   {high?.available ? high.display_value : <Absent reason={high?.unavailable_reason} />}
                 </td>
               </tr>
@@ -306,7 +306,7 @@ function Absent({ reason }: { reason?: string | null }) {
       —
       {reason && (
         <InfoPopover label="Why this week has no value" title="Not available" width={264}>
-          <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{reason}</div>
+          <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{reason}</div>
         </InfoPopover>
       )}
     </span>
@@ -316,11 +316,11 @@ function Absent({ reason }: { reason?: string | null }) {
 function MethodPopover({ weekly }: { weekly: WeeklyResponse }) {
   const p = weekly.provenance
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
+    <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
       <Icon name="info" className="h-3 w-3" />
       How this is built
       <InfoPopover label="How the weekly view is built" title="Weekly decomposition" width={320}>
-        <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+        <div className="mt-1 space-y-1.5 text-sm leading-[1.5] text-ink-secondary">
           <div>{p.method}</div>
           <div>
             <span className="font-semibold text-ink-primary">Weeks:</span> {p.week_source}

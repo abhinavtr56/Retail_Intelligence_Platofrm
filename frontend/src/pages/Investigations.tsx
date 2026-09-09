@@ -130,13 +130,13 @@ function FailedState({
             <Icon name="warning" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-[14px] font-bold text-ink-primary">Investigation stopped</div>
-            <div className="mt-1 truncate text-[13.5px] text-ink-muted">{question}</div>
+            <div className="text-base font-bold text-ink-primary">Investigation stopped</div>
+            <div className="mt-1 truncate text-base text-ink-muted">{question}</div>
           </div>
         </div>
       </div>
       <div className="p-[16px_20px]">
-        <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-[12.5px] leading-[1.5] text-ink-secondary">
+        <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-3 text-base leading-[1.5] text-ink-secondary">
           {message}
         </div>
         <Button variant="primary" onClick={onRetry} className="mt-3">
@@ -164,12 +164,12 @@ function RunningState({
         <div className="flex items-center gap-2.5">
           <Spinner className="h-4 w-4 text-brand-violet" />
           <div className="min-w-0 flex-1">
-            <div className="text-[16px] font-bold">
+            <div className="text-md font-bold">
               {stage === 'planning' || !specialists.length
                 ? 'Planning the investigation…'
                 : `Specialist agents running — ${done} of ${specialists.length} complete`}
             </div>
-            <div className="mt-0.5 truncate text-[12px] text-ink-muted">{question}</div>
+            <div className="mt-0.5 truncate text-sm text-ink-muted">{question}</div>
           </div>
         </div>
         <div className="mt-3 h-1.5 overflow-hidden rounded-[3px] bg-surface-muted">
@@ -191,11 +191,11 @@ function RunningState({
                 }`}
               />
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold">{sp.name}</div>
-                <div className="text-[11.5px] text-ink-muted">{sp.desc}</div>
+                <div className="text-base font-semibold">{sp.name}</div>
+                <div className="text-sm text-ink-muted">{sp.desc}</div>
               </div>
               <span
-                className={`shrink-0 text-[11.5px] font-semibold ${
+                className={`shrink-0 text-sm font-semibold ${
                   sp.status === 'done' ? 'text-status-success' : sp.status === 'running' ? 'text-brand-violet' : 'text-ink-muted'
                 }`}
               >
@@ -205,7 +205,7 @@ function RunningState({
           ))}
         </div>
       ) : (
-        <div className="p-[18px_20px] text-[12.5px] leading-[1.6] text-ink-muted">
+        <div className="p-[18px_20px] text-base leading-[1.6] text-ink-muted">
           Choosing which specialists this question needs, and the scope they should analyse.
         </div>
       )}
@@ -225,11 +225,11 @@ function OutOfScope({ question, reason, onReset }: { question: string; reason: s
           <Icon name="info" className="h-6 w-6" />
         </div>
         <h2 className="text-lg font-extrabold">That's outside what this data can answer</h2>
-        <p className="max-w-[540px] text-[13px] leading-[1.6] text-ink-muted">{reason}</p>
-        <p className="max-w-[540px] text-[12px] italic leading-[1.5] text-ink-disabled">You asked: "{question}"</p>
+        <p className="max-w-[540px] text-base leading-[1.6] text-ink-muted">{reason}</p>
+        <p className="max-w-[540px] text-sm italic leading-[1.5] text-ink-disabled">You asked: "{question}"</p>
         <button
           onClick={onReset}
-          className="mt-1 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-[13px] font-semibold text-white"
+          className="mt-1 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-base font-semibold text-white"
         >
           Ask something else
         </button>
@@ -522,7 +522,7 @@ export function Investigations() {
   if (!typeMeta) {
     return (
       <AppShell activeKey="investigations" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Investigations…</div>
+        <div className="grid min-h-[60vh] place-items-center text-base text-ink-muted">Loading Investigations…</div>
       </AppShell>
     )
   }
@@ -598,12 +598,12 @@ export function Investigations() {
       <div className="fade-in flex items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">
+            <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em]">
               Promotion Investigation Workspace <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
             </h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             {/* Agent count only means something once a run has produced one —
                 "0 specialist agents orchestrated" reads like a failure. */}
             Investigation Compression Engine
@@ -652,7 +652,7 @@ export function Investigations() {
 
       {/* Which uploaded dataset the agents analyse. Without one there's nothing
           real to investigate, so the page falls back to the sample orchestration. */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-muted">
+      <div className="mt-2.5 flex flex-wrap items-center gap-2 text-base text-ink-muted">
         <Icon name="database" className="h-3.5 w-3.5" />
         <span>Analysing</span>
         <Dropdown
@@ -681,7 +681,7 @@ export function Investigations() {
       </div>
 
       {run?.status === 'error' && (
-        <div className="mt-3 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_14px] text-[12.5px] text-[#B91C1C]">
+        <div className="mt-3 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_14px] text-base text-[#B91C1C]">
           Investigation failed — {run.error}
         </div>
       )}
@@ -700,19 +700,19 @@ export function Investigations() {
             actions={<Pill tone="violet">{run.result.synthesis.confidence}% confidence</Pill>}
           />
           <div className="flex flex-col gap-2.5 p-5 pt-3.5">
-            <p className="text-[15px] leading-[1.65] text-ink-secondary">{run.result.synthesis.summary}</p>
+            <p className="text-md leading-[1.65] text-ink-secondary">{run.result.synthesis.summary}</p>
             <div className="rounded-[var(--r-md)] border border-[rgba(124,92,255,0.2)] bg-brand-violet-50 p-[10px_14px]">
-              <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">Root cause</div>
-              <div className="mt-1 text-[15px] font-semibold text-ink-primary">{run.result.synthesis.root_cause}</div>
+              <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">Root cause</div>
+              <div className="mt-1 text-md font-semibold text-ink-primary">{run.result.synthesis.root_cause}</div>
             </div>
             {run.result.synthesis.recommendations.length > 0 && (
               <div>
-                <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                <div className="mb-1.5 text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
                   Recommended actions
                 </div>
                 <ul className="flex flex-col gap-1.5">
                   {run.result.synthesis.recommendations.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2 text-[14px] leading-[1.55] text-ink-secondary">
+                    <li key={i} className="flex items-start gap-2 text-base leading-[1.55] text-ink-secondary">
                       <Icon name="checkCircle" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
                       <span>{r}</span>
                     </li>
@@ -770,7 +770,7 @@ export function Investigations() {
                 {/* Names the arrangement on screen. Not a control: there is
                     one layout, so a picker here would be a click target that
                     could not change anything. */}
-                <span className="mr-1 text-[12px] font-semibold text-ink-muted">Radial</span>
+                <span className="mr-1 text-sm font-semibold text-ink-muted">Radial</span>
                 {/* Zoom is clamped so the stage can never be scaled past the
                     point where nodes leave it or become unreadable. */}
                 <IconButton
@@ -779,7 +779,7 @@ export function Investigations() {
                   disabled={zoom <= 0.6}
                   onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
                 />
-                <span className="min-w-[42px] text-center text-[12px] font-semibold tabular-nums text-ink-muted">
+                <span className="min-w-[42px] text-center text-sm font-semibold tabular-nums text-ink-muted">
                   {Math.round(zoom * 100)}%
                 </span>
                 <IconButton

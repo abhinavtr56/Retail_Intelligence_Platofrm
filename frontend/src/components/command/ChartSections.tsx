@@ -92,7 +92,7 @@ export function ChannelSection() {
       title="Channel Performance"
       hint={`Compares channel-level promotion performance at the selected promotion mechanic. Metrics: Incremental Sales, Trade Spend, ROI. Currently showing ${level?.label ?? '—'}.`}
       actions={
-        <div className="inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
+        <div className="inline-flex items-center gap-1.5 text-xs text-ink-muted">
           <span>Mechanic</span>
           <div
             className="inline-flex overflow-hidden rounded-[var(--r-sm)] border border-border-subtle"
@@ -289,7 +289,7 @@ export function TopPerformingSection() {
       onRetry={() => void q.refetch()}
       isEmpty={rows.length === 0}
       emptyMessage="No promotion with a measurable return in this scope."
-      height={260}
+      height={230}
       footnote={`${rows.length} promotions ranked by ROI, among those at or above median Trade Spend. At most ${PER_MECHANIC_CAP} per mechanic.`}
     >
       {/* The list takes the height the card actually has instead of a fixed
@@ -313,7 +313,7 @@ ${r.channel} · ${r.period}
               `Incremental Sales: ${r.incremental_sales_display}`
             }
           >
-            <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
               <span className="min-w-0 truncate font-semibold text-ink-primary">
                 <span className="mr-1.5 tabular-nums text-ink-disabled">{i + 1}</span>
                 {r.promotion}
@@ -326,7 +326,7 @@ ${r.channel} · ${r.period}
                 style={{ width: `${Math.max(0, Math.min(100, (r.roi_pct / peak) * 100))}%` }}
               />
             </div>
-            <div className="mt-0.5 flex items-baseline justify-between gap-2 text-[10.5px] text-ink-muted">
+            <div className="mt-0.5 flex items-baseline justify-between gap-2 text-xs text-ink-muted">
               <span className="min-w-0 truncate">
                 {r.channel} · {r.period} · {r.mechanic}
               </span>
@@ -398,7 +398,7 @@ function MetricSelect({ value, onChange }: { value: MetricKey; onChange: (v: Met
           role="radio"
           aria-checked={value === m.key}
           onClick={() => onChange(m.key)}
-          className={`cursor-pointer px-2 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+          className={`cursor-pointer px-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
             value === m.key
               ? 'bg-brand-violet text-white'
               : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
@@ -496,14 +496,14 @@ export function RetailerDistributorSection() {
               `ROI: ${g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}`,
             ].join('\n')}
           >
-            <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-baseline gap-1.5">
                 <span className="tabular-nums text-ink-disabled">{i + 1}</span>
                 <span className="truncate font-semibold text-ink-primary">{g.label}</span>
                 {/* Type is a quiet qualifier, not a second ranking: it says
                     which population the row came from without competing with
                     the name or the numbers. */}
-                <span className="shrink-0 rounded-[var(--r-sm)] border border-border-subtle px-1 py-px text-[10px] font-semibold text-ink-muted">
+                <span className="shrink-0 rounded-[var(--r-sm)] border border-border-subtle px-1 py-px text-2xs font-semibold text-ink-muted">
                   {g.type}
                 </span>
               </span>
@@ -608,7 +608,7 @@ export function PromotionContributionSection() {
               role="radio"
               aria-checked={metric === m.key}
               onClick={() => setMetric(m.key)}
-              className={`cursor-pointer px-2 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+              className={`cursor-pointer px-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
                 metric === m.key
                   ? 'bg-brand-violet text-white'
                   : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
@@ -645,7 +645,7 @@ export function PromotionContributionSection() {
                 `ROI: ${g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}`,
               ].join('\n')}
             >
-              <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+              <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="flex min-w-0 items-baseline gap-1.5">
                   <span className="tabular-nums text-ink-disabled">{i + 1}</span>
                   <span className="truncate font-semibold text-ink-primary">{g.label}</span>
@@ -714,7 +714,7 @@ function PerfMetricSelect({
           role="radio"
           aria-checked={value === m.key}
           onClick={() => onChange(m.key)}
-          className={`cursor-pointer px-2 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+          className={`cursor-pointer px-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
             value === m.key
               ? 'bg-brand-violet text-white'
               : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
@@ -810,7 +810,7 @@ export function PromotionTypeSection() {
                 `ROI: ${g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}`,
               ].join('\n')}
             >
-              <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+              <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="truncate font-semibold text-ink-primary">{g.code}</span>
                 <span className="shrink-0 tabular-nums">
                   <span className="font-bold text-ink-primary">{perfDisplay(g, metric)}</span>
@@ -836,7 +836,7 @@ export function PromotionTypeSection() {
                   Ranking BY ROI already prints it above, so the second copy is
                   dropped rather than shown twice. */}
               {metric !== 'roi' && (
-                <div className="mt-1 text-[11px] text-ink-muted">
+                <div className="mt-1 text-xs text-ink-muted">
                   ROI{' '}
                   <span
                     className={
@@ -912,7 +912,7 @@ export function ProductSection() {
               `ROI: ${g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}`,
             ].join('\n')}
           >
-            <div className="flex items-baseline justify-between gap-2 text-[11.5px]">
+            <div className="flex items-baseline justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-baseline gap-1.5">
                 <span className="tabular-nums text-ink-disabled">{i + 1}</span>
                 <span className="truncate font-semibold text-ink-primary">{g.label}</span>

@@ -37,11 +37,11 @@ export function AlertBanner({
         <Icon name="warning" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-base font-semibold text-[var(--alert-ink)]">
+        <div className="text-md font-semibold text-[var(--alert-ink)]">
           <strong className="mr-1.5 font-bold text-[var(--alert-ink)]">ALERT:</strong>
           {title}
         </div>
-        <div className="mt-[3px] text-[13.5px] font-medium text-[var(--alert-ink-soft)]">{desc}</div>
+        <div className="mt-[3px] text-base font-medium text-[var(--alert-ink-soft)]">{desc}</div>
       </div>
       <Link
         to={ctaTo}
@@ -62,7 +62,7 @@ export function AlertBanner({
           e.preventDefault()
           onClick()
         }}
-        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[var(--r-md)] border border-[var(--alert-border)] bg-surface-card px-[18px] text-[13px] font-semibold text-[var(--alert-ink)] transition-colors hover:border-[var(--alert-ink)] hover:bg-[var(--alert-cta-hover)] [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-[var(--alert-ink)]"
+        className="inline-flex h-9 shrink-0 items-center gap-2 rounded-[var(--r-md)] border border-[var(--alert-border)] bg-surface-card px-[18px] text-base font-semibold text-[var(--alert-ink)] transition-colors hover:border-[var(--alert-ink)] hover:bg-[var(--alert-cta-hover)] [&_svg]:h-4 [&_svg]:w-4 [&_svg]:text-[var(--alert-ink)]"
       >
         View Details
         <Icon name="arrowRight" />

@@ -120,7 +120,14 @@ export function CandidateBoard({
   const ranking = rankCandidates(candidates)
   const winner = candidates.find((c) => c.id === ranking.winnerId) ?? null
   const why = explainWinner(candidates, ranking)
-  const metricKeys = Array.from(new Set(candidates.flatMap((c) => c.metrics.map((m) => m.key))))
+  // A ROW EVERY SCENARIO LEAVES BLANK IS NOT A COMPARISON. A metric whose every
+  // cell reads "unavailable" spends a line of the table saying nothing, so a
+  // metric earns a row once at least ONE scenario has a value in it. The
+  // per-cell "unavailable" still appears where some scenario has the figure and
+  // another does not, which is a real difference between them.
+  const metricKeys = Array.from(
+    new Set(candidates.flatMap((c) => c.metrics.map((m) => m.key))),
+  ).filter((key) => candidates.some((c) => c.metrics.find((m) => m.key === key)?.available))
   const selectedName = candidates.find((c) => c.id === selectedId)?.name ?? 'the selected scenario'
 
   /** THE BOARD, AS A REPORT PAYLOAD.
@@ -218,22 +225,22 @@ export function CandidateBoard({
         </CardBody>
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <CardHeader
           title="Scenario Comparison"
           subtitle="Every figure is the one its own module computed. A metric a module does not produce is left blank rather than filled in."
         />
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[12.5px]">
+          <table className="w-full border-collapse text-base">
             <thead>
               <tr className="border-b border-border-subtle">
-                <th className="sticky left-0 bg-surface-card px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-muted">
+                <th className="sticky left-0 bg-surface-card px-4 py-2.5 text-left text-xs font-bold uppercase tracking-[0.04em] text-ink-muted">
                   Metric
                 </th>
                 {candidates.map((c) => (
-                  <th key={c.id} className="min-w-[150px] px-4 py-2.5 text-right text-[11.5px] font-bold text-ink-primary">
+                  <th key={c.id} className="min-w-[150px] px-4 py-2.5 text-right text-sm font-bold text-ink-primary">
                     <div className="truncate" title={c.name}>{c.name}</div>
-                    <div className="mt-0.5 text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+                    <div className="mt-0.5 text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
                       {c.sourceLabel}
                     </div>
                   </th>
@@ -250,7 +257,7 @@ export function CandidateBoard({
                     <td className="sticky left-0 bg-surface-card px-4 py-2.5 text-left text-ink-secondary">
                       {label}
                       {direction && direction !== 'neutral' && (
-                        <span className="ml-1.5 text-[10px] text-ink-muted">
+                        <span className="ml-1.5 text-2xs text-ink-muted">
                           {direction === 'higher' ? '↑ better' : '↓ better'}
                         </span>
                       )}
@@ -291,16 +298,16 @@ export function CandidateBoard({
         </div>
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <CardHeader
           title="Recommended scenario"
           subtitle="Ranked on the metrics these scenarios have in common — a deterministic comparison, not a model."
           actions={
             <InfoPopover label="How the ranking works" title="Ranking rule" width={340}>
               <InfoBlock label="Rule">{ranking.rule}</InfoBlock>
-              <div className="mt-1.5 text-[10.5px] leading-[1.4] text-ink-muted">
+              <div className="mt-1.5 text-xs leading-[1.4] text-ink-muted">
                 No model is called and no service ranks these scenarios. This is arithmetic over the
-                figures each module already produced, and every point it awards is shown below.
+                figures each module already produced.
               </div>
             </InfoPopover>
           }
@@ -310,36 +317,36 @@ export function CandidateBoard({
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <Pill tone="violet">{winner.sourceLabel}</Pill>
-                <span className="text-[15px] font-extrabold text-ink-primary">{winner.name}</span>
-                <span className="text-[12px] text-ink-muted">
+                <span className="text-md font-extrabold text-ink-primary">{winner.name}</span>
+                <span className="text-sm text-ink-muted">
                   {ranking.totals.find((t) => t.id === winner.id)?.points} of{' '}
                   {ranking.criteria.length * (candidates.length - 1)} available points
                 </span>
               </div>
-              <div className="mt-1 text-[12px] text-ink-muted">{winner.scopeLabel}</div>
+              <div className="mt-1 text-sm text-ink-muted">{winner.scopeLabel}</div>
 
 
               {ranking.tieBreak && (
-                <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-[var(--r-sm)] bg-surface-muted px-2 py-1 text-[11.5px] text-ink-secondary">
+                <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-[var(--r-sm)] bg-surface-muted px-2 py-1 text-sm text-ink-secondary">
                   <Icon name="info" className="h-3 w-3 text-ink-muted" /> {ranking.tieBreak}
                 </div>
               )}
 
               <div className="mt-4">
-                <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
                   Why this plan is recommended
                 </div>
                 {why.strengths.length > 0 ? (
                   <ul className="mt-1.5 flex flex-col gap-1.5">
                     {why.strengths.map((line, i) => (
-                      <li key={i} className="flex gap-2 text-[12.5px] leading-[1.55] text-ink-secondary">
+                      <li key={i} className="flex gap-2 text-base leading-[1.55] text-ink-secondary">
                         <Icon name="checkCircle" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-success" />
                         <span>{line}</span>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <div className="mt-1.5 text-[12.5px] text-ink-muted">
+                  <div className="mt-1.5 text-base text-ink-muted">
                     It leads on points without beating any single scenario outright on a metric.
                   </div>
                 )}
@@ -347,12 +354,12 @@ export function CandidateBoard({
 
               {why.caveats.length > 0 && (
                 <div className="mt-4">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                  <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
                     Where it does not lead
                   </div>
                   <ul className="mt-1.5 flex flex-col gap-1.5">
                     {why.caveats.map((line, i) => (
-                      <li key={i} className="flex gap-2 text-[12.5px] leading-[1.55] text-ink-secondary">
+                      <li key={i} className="flex gap-2 text-base leading-[1.55] text-ink-secondary">
                         <Icon name="alertTriangle" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
                         <span>{line}</span>
                       </li>
@@ -362,7 +369,7 @@ export function CandidateBoard({
               )}
             </>
           ) : (
-            <div className="text-[12.5px] leading-[1.6] text-ink-secondary">{ranking.blocked}</div>
+            <div className="text-base leading-[1.6] text-ink-secondary">{ranking.blocked}</div>
           )}
 
           {/* RECORDING THE DECISION is the existing save path, unchanged: it
@@ -385,58 +392,12 @@ export function CandidateBoard({
               {approving ? <Spinner /> : <Icon name="checkCircle" />}
               <span>{approving ? 'Recording…' : 'Approve & record decision'}</span>
             </Button>
-            <span className="text-[11.5px] text-ink-muted">
+            <span className="text-sm text-ink-muted">
               {canApprove
                 ? `Records the selected scenario — ${selectedName} — in Decision History.`
                 : approveHint}
             </span>
           </div>
-
-          {ranking.criteria.length > 0 && (
-            <div className="mt-4 overflow-x-auto border-t border-border-subtle pt-3">
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
-                Points awarded
-              </div>
-              <table className="w-full border-collapse text-[12px]">
-                <thead>
-                  <tr className="border-b border-border-subtle text-ink-muted">
-                    <th className="px-3 py-1.5 text-left font-semibold">Criterion</th>
-                    {candidates.map((c) => (
-                      <th key={c.id} className="min-w-[110px] px-3 py-1.5 text-right font-semibold">
-                        <span className="truncate">{c.name}</span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {ranking.criteria.map((criterion) => (
-                    <tr key={criterion.key} className="border-b border-border-subtle last:border-b-0">
-                      <td className="px-3 py-1.5 text-ink-secondary">
-                        {criterion.label}{' '}
-                        <span className="text-[10px] text-ink-muted">
-                          {criterion.direction === 'higher' ? '↑' : '↓'}
-                        </span>
-                      </td>
-                      {candidates.map((c) => (
-                        <td key={c.id} className="px-3 py-1.5 text-right tabular-nums text-ink-secondary">
-                          {criterion.points[c.id] ?? 0}
-                          <span className="ml-1 text-[10.5px] text-ink-muted">{criterion.values[c.id]}</span>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                  <tr className="border-t border-border-default">
-                    <td className="px-3 py-1.5 font-bold text-ink-primary">Total</td>
-                    {candidates.map((c) => (
-                      <td key={c.id} className="px-3 py-1.5 text-right font-bold tabular-nums text-ink-primary">
-                        {ranking.totals.find((t) => t.id === c.id)?.points ?? 0}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
         </CardBody>
       </Card>
     </>
@@ -484,13 +445,13 @@ function CandidateCard({
         </button>
       </div>
 
-      <div className="mt-2 text-[13.5px] font-bold text-ink-primary">{candidate.name}</div>
-      <div className="mt-0.5 text-[11px] text-ink-muted">{candidate.scopeLabel}</div>
+      <div className="mt-2 text-base font-bold text-ink-primary">{candidate.name}</div>
+      <div className="mt-0.5 text-xs text-ink-muted">{candidate.scopeLabel}</div>
 
       {candidate.plan.length > 0 && (
         <div className="mt-2.5 flex flex-col gap-1 border-t border-dashed border-border-default pt-2">
           {candidate.plan.slice(0, 4).map((f) => (
-            <div key={f.key} className="flex items-baseline justify-between gap-2 text-[11.5px]">
+            <div key={f.key} className="flex items-baseline justify-between gap-2 text-sm">
               <span className="text-ink-muted">{f.label}</span>
               <span className="truncate font-semibold text-ink-secondary" title={f.display}>{f.display}</span>
             </div>
@@ -499,10 +460,10 @@ function CandidateCard({
       )}
 
       <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-ink-muted">{candidate.sourceLabel.toLowerCase()}</span>
+        <span className="text-xs text-ink-muted">{candidate.sourceLabel.toLowerCase()}</span>
         <button
           onClick={onSelect}
-          className="text-[12px] font-semibold text-brand-violet disabled:text-ink-muted"
+          className="text-sm font-semibold text-brand-violet disabled:text-ink-muted"
           disabled={selected}
         >
           {selected ? 'Viewing' : 'View'}
@@ -521,12 +482,12 @@ function EmptyBoard({
 }) {
   return (
     <Card className="fade-in mt-4">
-      <div className="grid place-items-center gap-3 p-10 text-center">
+      <div className="grid place-items-center gap-3 p-7 text-center">
         <div className="grid h-12 w-12 place-items-center rounded-xl bg-brand-violet-50 text-brand-violet">
           <Icon name="target" className="h-6 w-6" />
         </div>
         <h2 className="text-lg font-extrabold">No scenarios selected</h2>
-        <p className="max-w-[520px] text-[13px] leading-[1.6] text-ink-muted">
+        <p className="max-w-[520px] text-base leading-[1.6] text-ink-muted">
           Add scenarios from Investigation, Optimization, Target Rescue, or Simulation Studio to
           compare them here. Each module keeps its own scenario — this page holds a copy for the
           comparison and nothing more.

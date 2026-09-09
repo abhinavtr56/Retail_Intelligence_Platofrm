@@ -5,7 +5,7 @@ export function DualLine({
   weeks,
   spend,
   lift,
-  height = 240,
+  height = 215,
 }: {
   weeks: string[]
   spend: number[]

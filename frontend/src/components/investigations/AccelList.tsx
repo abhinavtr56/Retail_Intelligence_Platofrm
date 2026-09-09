@@ -49,11 +49,11 @@ export function AccelList({
               <Icon name={a.icon as IconName} />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-ink-primary">{a.name}</div>
-              <div className="mt-px text-[11.5px] text-ink-muted">{a.desc}</div>
+              <div className="text-base font-bold text-ink-primary">{a.name}</div>
+              <div className="mt-px text-sm text-ink-muted">{a.desc}</div>
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-[11px] font-bold ${STATUS_STYLES[state]}`}
+              className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[state]}`}
             >
               {state === 'done' && <Icon name="checkCircle" className="h-[13px] w-[13px]" />}
               {state === 'progress' && <Spinner />}

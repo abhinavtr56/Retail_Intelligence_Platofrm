@@ -199,7 +199,7 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
                 valueLabel={`${controls.maxDiscountPct}%`}
                 onChange={(v) => setControl('maxDiscountPct', v)}
               />
-              <div className="col-span-2 -mt-1 text-[11px] leading-[1.45] text-ink-muted">
+              <div className="col-span-2 -mt-1 text-xs leading-[1.45] text-ink-muted">
                 {scope.data?.discount.note ??
                   'Only approved treatment depths can be priced.'}
               </div>
@@ -207,7 +207,7 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
           </div>
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">
-            <div className="text-[11.5px] text-ink-muted">
+            <div className="text-sm text-ink-muted">
               {scope.isPending
                 ? 'Measuring the selected scope…'
                 : scope.data
@@ -233,7 +233,7 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
       {optimize.isPending && (
         <Card className="fade-in">
           <CardBody>
-            <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 text-sm text-ink-muted">
+            <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 text-base text-ink-muted">
               <Spinner />
               <span>Optimizing…</span>
             </div>
@@ -261,7 +261,7 @@ function Picker({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
       <Dropdown
         selected={value}
         options={options.map((o) => ({ label: o }))}
@@ -286,8 +286,8 @@ function Problem({ title, detail }: { title: string; detail: string }) {
             <Icon name="warning" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-bold text-ink-primary">{title}</div>
-            <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{detail}</div>
+            <div className="text-base font-bold text-ink-primary">{title}</div>
+            <div className="mt-1 break-words text-base text-ink-secondary">{detail}</div>
           </div>
         </div>
       </CardBody>
@@ -341,8 +341,8 @@ function Result({ result }: { result: OptimizationResponse }) {
               <Icon name="alertTriangle" />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-ink-primary">{STATUS_TITLE[result.status]}</div>
-              <div className="mt-1 text-[12.5px] leading-[1.5] text-ink-secondary">{result.message}</div>
+              <div className="text-base font-bold text-ink-primary">{STATUS_TITLE[result.status]}</div>
+              <div className="mt-1 text-base leading-[1.5] text-ink-secondary">{result.message}</div>
             </div>
           </div>
         </CardBody>
@@ -402,13 +402,13 @@ function Result({ result }: { result: OptimizationResponse }) {
           </div>
 
           {result.constraints.clamped && (
-            <div className="mt-4 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted">
+            <div className="mt-4 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted">
               The requested ceiling was above the historical average for this scope and was reduced to{' '}
               <strong className="text-ink-primary">{result.constraints.effective_max_trade_spend_display}</strong>.
             </div>
           )}
 
-          <div className="mt-3 text-[11px] leading-[1.5] text-ink-muted">{result.provenance.basis}</div>
+          <div className="mt-3 text-xs leading-[1.5] text-ink-muted">{result.provenance.basis}</div>
         </CardBody>
       </Card>
 
@@ -485,13 +485,13 @@ function PlanRow({ row, showChannel }: { row: OptimizationRow; showChannel: bool
       <Td className="whitespace-nowrap text-right">
         {row.base_promoted ? (
           <span
-            className="inline-flex items-center rounded-[var(--r-pill)] bg-surface-muted px-2 py-0.5 text-[11px] font-bold tabular-nums text-ink-secondary"
+            className="inline-flex items-center rounded-[var(--r-pill)] bg-surface-muted px-2 py-0.5 text-xs font-bold tabular-nums text-ink-secondary"
             title={`Measured depth over the rows in scope · ${row.base_promotions.join(', ')}`}
           >
             {row.base_discount_display}
           </span>
         ) : (
-          <span className="text-[11px] text-ink-muted">Not promoted</span>
+          <span className="text-xs text-ink-muted">Not promoted</span>
         )}
       </Td>
 
@@ -499,7 +499,7 @@ function PlanRow({ row, showChannel }: { row: OptimizationRow; showChannel: bool
       <Td className="whitespace-nowrap text-right">
         {row.promoted ? (
           <span
-            className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-brand-violet"
+            className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-xs font-bold tabular-nums text-brand-violet"
             title={`${row.treatment} · approved uplift ${(row.uplift.low * 100).toFixed(0)}–${(row.uplift.high * 100).toFixed(0)}%`}
           >
             {row.discount_display}
@@ -507,7 +507,7 @@ function PlanRow({ row, showChannel }: { row: OptimizationRow; showChannel: bool
         ) : (
           // Not "0%" — the product was not given a treatment at all, and
           // saying so is different from saying it was given a zero one.
-          <span className="text-[11px] text-ink-muted">Not promoted</span>
+          <span className="text-xs text-ink-muted">Not promoted</span>
         )}
       </Td>
 
@@ -537,9 +537,9 @@ function Compare({
   const good = changePct == null ? null : lowerIsBetter ? changePct <= 0 : changePct >= 0
   return (
     <div className="rounded-[var(--r-lg)] border border-border-subtle bg-surface-muted p-[12px_14px]">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
-      <div className="mt-1.5 text-[15px] font-extrabold leading-[1.2] tabular-nums text-ink-primary">{after}</div>
-      <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[11px] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="mt-1.5 text-md font-extrabold leading-[1.2] tabular-nums text-ink-primary">{after}</div>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
         <span className="tabular-nums">from {before}</span>
         {changePct != null && (
           <span className={`font-bold tabular-nums ${good ? 'text-status-success' : 'text-status-danger'}`}>

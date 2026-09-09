@@ -75,7 +75,7 @@ export function Dropdown({
                     setOpen(false)
                     onSelect(val)
                   }}
-                  className={`flex cursor-pointer items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-[13px] font-medium hover:bg-surface-hover ${
+                  className={`flex cursor-pointer items-center gap-2 rounded-[var(--r-sm)] px-3 py-2 text-base font-medium hover:bg-surface-hover ${
                     isSelected ? 'font-bold text-brand-violet' : 'text-ink-primary'
                   }`}
                 >

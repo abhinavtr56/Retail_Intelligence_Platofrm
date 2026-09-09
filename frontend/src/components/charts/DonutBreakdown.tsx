@@ -71,19 +71,19 @@ export function DonutBreakdown({
               {centerValue && (
                 <div className="text-lg font-extrabold text-ink-primary">{centerValue}</div>
               )}
-              {centerLabel && <div className="mt-0.5 text-[10px] font-semibold text-ink-muted">{centerLabel}</div>}
+              {centerLabel && <div className="mt-0.5 text-2xs font-semibold text-ink-muted">{centerLabel}</div>}
             </div>
           </div>
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         {segments.map((s) => (
-          <div key={s.key} className="flex items-center gap-2 text-[12.5px]" title={s.key}>
+          <div key={s.key} className="flex items-center gap-2 text-base" title={s.key}>
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
             <span className="min-w-0 flex-1 truncate text-ink-secondary">{s.key}</span>
             <span className="shrink-0 font-semibold tabular-nums text-ink-primary">{s.pct}%</span>
             {s.value && (
-              <span className="shrink-0 tabular-nums text-[11.5px] text-ink-muted">{s.value}</span>
+              <span className="shrink-0 tabular-nums text-sm text-ink-muted">{s.value}</span>
             )}
           </div>
         ))}

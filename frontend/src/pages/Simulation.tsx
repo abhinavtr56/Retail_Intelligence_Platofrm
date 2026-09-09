@@ -129,7 +129,7 @@ export function Simulation() {
   const requested = useRef<string | null>(null)
   const compared = useRef<string | null>(null)
 
-  const { scenarios, activeId, seed, select, setLever, resetLevers, addScenario, startRun, applyResult, failRun } =
+  const { scenarios, activeId, seed, select, setLever, resetLevers, startRun, applyResult, failRun } =
     useScenarioStore()
 
   const body = useMemo(() => ({ filters: toSimulationFilters(filters), currency }), [filters, currency])
@@ -609,12 +609,12 @@ export function Simulation() {
       <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">
+            <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em]">
               TPO Simulation Studio <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
             </h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             {mode === 'general'
               ? 'Allocate a trade-spend budget across a category and channel, at approved discount depths.'
               : mode === 'rescue'
@@ -696,8 +696,8 @@ export function Simulation() {
                   <Icon name="warning" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-bold text-ink-primary">Could not load the baseline</div>
-                  <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{run.error.message}</div>
+                  <div className="text-base font-bold text-ink-primary">Could not load the baseline</div>
+                  <div className="mt-1 break-words text-base text-ink-secondary">{run.error.message}</div>
                   <Button
                     variant="secondary"
                     className="mt-3"
@@ -713,7 +713,7 @@ export function Simulation() {
 
         {!result && run.isPending && (
           <div className="mt-4 grid min-h-[40vh] place-items-center">
-            <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+            <div className="flex flex-col items-center gap-3 text-base text-ink-muted">
               <Spinner />
               <span>Calculating baseline KPIs…</span>
             </div>
@@ -772,12 +772,12 @@ export function Simulation() {
                   <>
                     <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
                       <div>
-                        <h3 className="text-[15px] font-bold">Projected Business Impact</h3>
-                        <div className="mt-0.5 text-[11.5px] text-ink-muted">
+                        <h3 className="text-md font-bold">Projected Business Impact</h3>
+                        <div className="mt-0.5 text-sm text-ink-muted">
                           {active.name} · {result.context.period}
                         </div>
                       </div>
-                      <span className="rounded-[var(--r-pill)] bg-status-success-bg px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.04em] text-status-success">
+                      <span className="rounded-[var(--r-pill)] bg-status-success-bg px-2.5 py-1 text-xs font-bold uppercase tracking-[0.04em] text-status-success">
                         Measured
                       </span>
                     </div>
@@ -793,7 +793,7 @@ export function Simulation() {
                   </>
                 ) : active.running ? (
                   <div className="grid min-h-[300px] place-items-center">
-                    <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+                    <div className="flex flex-col items-center gap-3 text-base text-ink-muted">
                       <Spinner />
                       <span>Running {active.name} through the KPI engine…</span>
                     </div>
@@ -824,8 +824,8 @@ export function Simulation() {
 
               <Card className="fade-in">
                 <div className="border-b border-border-subtle px-5 py-4">
-                  <h3 className="text-[15px] font-bold">Current Plan</h3>
-                  <div className="mt-0.5 text-[11.5px] text-ink-muted">Observed from the data</div>
+                  <h3 className="text-md font-bold">Current Plan</h3>
+                  <div className="mt-0.5 text-sm text-ink-muted">Observed from the data</div>
                 </div>
                 <CardBody>
                   <CurrentPlanPanel plan={result.current_plan} />
@@ -837,13 +837,13 @@ export function Simulation() {
                 else on this page: pending, failed with a real message and a
                 retry, or an answer. It is never silently absent. */}
             {(recommendation.data || recommendation.isPending || recommendation.isError) && (
-              <Card className="fade-in mt-[18px]">
+              <Card className="fade-in mt-[14px]">
                 {recommendation.isError ? (
                   <div className="px-5 py-6">
-                    <div className="text-[13px] font-bold text-ink-primary">
+                    <div className="text-base font-bold text-ink-primary">
                       Could not produce a recommendation
                     </div>
-                    <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
+                    <div className="mt-1 break-words text-base text-ink-secondary">
                       {recommendation.error.message}
                     </div>
                     <Button
@@ -859,7 +859,7 @@ export function Simulation() {
                 ) : recommendation.data ? (
                   <RecommendationPanel recommendation={recommendation.data} />
                 ) : (
-                  <div className="flex items-center gap-2 px-5 py-6 text-[12.5px] text-ink-muted">
+                  <div className="flex items-center gap-2 px-5 py-6 text-base text-ink-muted">
                     <Spinner /> Applying the decision policy…
                   </div>
                 )}
@@ -872,15 +872,15 @@ export function Simulation() {
                 still tells the risk assessment whether a weekly view was
                 included, and still travels with a Decision Center hand-off.
                 Only the standalone card is gone. */}
-            <Card className="fade-in mt-[18px]">
+            <Card className="fade-in mt-[14px]">
               {!active.simulation ? (
                 <RiskEmptyState />
               ) : risk.isError ? (
                 <div className="px-5 py-6">
-                  <div className="text-[13px] font-bold text-ink-primary">
+                  <div className="text-base font-bold text-ink-primary">
                     Could not assess risk and governance
                   </div>
-                  <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
+                  <div className="mt-1 break-words text-base text-ink-secondary">
                     {risk.error.message}
                   </div>
                   <Button
@@ -896,18 +896,18 @@ export function Simulation() {
               ) : risk.data && risk.data.scenario_id === active.id ? (
                 <RiskPanel risk={risk.data} />
               ) : (
-                <div className="flex items-center gap-2 px-5 py-8 text-[12.5px] text-ink-muted">
+                <div className="flex items-center gap-2 px-5 py-8 text-base text-ink-muted">
                   <Spinner /> Assessing risk and governance…
                 </div>
               )}
             </Card>
 
             {scenarios.length > 1 && (
-              <Card className="fade-in mt-[18px]">
+              <Card className="fade-in mt-[14px]">
                 <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-5 py-4">
                   <div>
-                    <h3 className="text-[15px] font-bold">Scenario Comparison</h3>
-                    <div className="mt-0.5 text-[11.5px] text-ink-muted">
+                    <h3 className="text-md font-bold">Scenario Comparison</h3>
+                    <div className="mt-0.5 text-sm text-ink-muted">
                       Measured, simulated and unrun scenarios side by side — facts and deltas, not a ranking.
                     </div>
                   </div>
@@ -915,13 +915,13 @@ export function Simulation() {
                 </div>
                 <div className="overflow-x-auto rounded-b-[var(--r-lg)]">
                   {compare.isError ? (
-                    <div className="px-5 py-6 text-center text-[12.5px] text-ink-secondary">
+                    <div className="px-5 py-6 text-center text-base text-ink-secondary">
                       Could not build the comparison: {compare.error.message}
                     </div>
                   ) : compare.data ? (
                     <ComparisonTable comparison={compare.data} />
                   ) : (
-                    <div className="px-5 py-6 text-center text-[12.5px] text-ink-muted">
+                    <div className="px-5 py-6 text-center text-base text-ink-muted">
                       Preparing the comparison…
                     </div>
                   )}
@@ -931,8 +931,8 @@ export function Simulation() {
           </>
         )}
 
-        <div className="mt-[18px] flex items-center justify-end gap-2.5">
-          <span className="mr-auto text-[11.5px] text-ink-muted">
+        <div className="mt-[14px] flex items-center justify-end gap-2.5">
+          <span className="mr-auto text-sm text-ink-muted">
             {saveScenario.isError ? (
               <span className="text-status-danger">
                 Could not save the scenario — {saveScenario.error.message}. Nothing on this
@@ -1115,7 +1115,7 @@ function ModeSwitch({
             aria-selected={on}
             title={m.title}
             onClick={() => onChange(m.key)}
-            className={`cursor-pointer whitespace-nowrap rounded-[var(--r-sm)] px-3 py-1.5 text-[12px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
+            className={`cursor-pointer whitespace-nowrap rounded-[var(--r-sm)] px-3 py-1.5 text-sm font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet ${
               on
                 ? 'bg-surface-card text-ink-primary shadow-[var(--shadow-sm)]'
                 : 'text-ink-muted hover:text-ink-primary'

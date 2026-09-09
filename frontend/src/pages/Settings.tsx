@@ -27,7 +27,7 @@ export function Settings() {
   if (isLoading || !D) {
     return (
       <AppShell activeKey="settings" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center text-sm text-ink-muted">Loading Settings…</div>
+        <div className="grid min-h-[60vh] place-items-center text-base text-ink-muted">Loading Settings…</div>
       </AppShell>
     )
   }
@@ -48,11 +48,11 @@ export function Settings() {
                 {user?.initials}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-base font-extrabold text-ink-primary">{user?.name}</div>
-                <div className="truncate text-sm text-ink-muted">
+                <div className="text-md font-extrabold text-ink-primary">{user?.name}</div>
+                <div className="truncate text-base text-ink-muted">
                   {user?.email || 'No email recorded'}
                 </div>
-                <div className="mt-0.5 text-[11px] text-ink-muted">
+                <div className="mt-0.5 text-xs text-ink-muted">
                   Signed in locally — this application has no identity provider, so nothing
                   here is verified.
                 </div>
@@ -62,11 +62,11 @@ export function Settings() {
               </Button>
             </div>
             <div className="flex flex-col">
-              <div className="flex justify-between border-b border-dashed border-border-subtle py-2.5 text-[13px]">
+              <div className="flex justify-between border-b border-dashed border-border-subtle py-2.5 text-base">
                 <span className="text-ink-muted">Region</span>
                 <span className="font-bold text-ink-primary">{D.profile.region}</span>
               </div>
-              <div className="flex justify-between py-2.5 text-[13px]">
+              <div className="flex justify-between py-2.5 text-base">
                 <span className="text-ink-muted">Timezone</span>
                 <span className="font-bold text-ink-primary">{D.profile.timezone}</span>
               </div>
@@ -83,7 +83,7 @@ export function Settings() {
               ['Default Period', D.preferences.defaultPeriod],
               ['Default Channel', D.preferences.defaultChannel],
             ].map(([k, v], i, arr) => (
-              <div key={k} className={`flex justify-between py-2.5 text-[13px] ${i < arr.length - 1 ? 'border-b border-dashed border-border-subtle' : ''}`}>
+              <div key={k} className={`flex justify-between py-2.5 text-base ${i < arr.length - 1 ? 'border-b border-dashed border-border-subtle' : ''}`}>
                 <span className="text-ink-muted">{k}</span>
                 <span className="font-bold text-ink-primary">{v}</span>
               </div>
@@ -108,7 +108,7 @@ export function Settings() {
                 </Pill>
               </div>
             ))}
-            <div className="mt-2 border-t border-border-subtle pt-3 text-[11.5px] leading-[1.5] text-ink-muted">
+            <div className="mt-2 border-t border-border-subtle pt-3 text-sm leading-[1.5] text-ink-muted">
               None of these is connected. Sign-in is a local stand-in with no identity
               provider behind it, and this application sends no notification of any kind.
             </div>

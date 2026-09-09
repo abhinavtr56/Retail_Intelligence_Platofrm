@@ -37,16 +37,16 @@ export function RecommendationHandoffCard({
             {r && <Pill tone={r.priority === 'high' ? 'danger' : 'warning'}>{r.priority} priority</Pill>}
             {r && <Pill tone="neutral">{r.confidence}% confidence</Pill>}
           </div>
-          <div className="text-[14px] font-bold leading-[1.4]">{r ? r.action : handoff.question}</div>
-          {r && <div className="mt-1 text-[12.5px] leading-[1.55] text-ink-secondary">{r.rationale}</div>}
+          <div className="text-base font-bold leading-[1.4]">{r ? r.action : handoff.question}</div>
+          {r && <div className="mt-1 text-base leading-[1.55] text-ink-secondary">{r.rationale}</div>}
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <Link to="/intelligence" className="whitespace-nowrap text-[12.5px] font-semibold text-brand-violet">
+          <Link to="/intelligence" className="whitespace-nowrap text-base font-semibold text-brand-violet">
             ← Back to Promotion Intelligence
           </Link>
           <button
             onClick={onClear}
-            className="whitespace-nowrap text-[12.5px] font-semibold text-ink-muted hover:text-ink-primary"
+            className="whitespace-nowrap text-base font-semibold text-ink-muted hover:text-ink-primary"
             title="Stop simulating this recommendation and return to the current selection"
           >
             Clear
@@ -68,7 +68,7 @@ export function RecommendationHandoffCard({
         {r && <Field label="Metric to watch" value={r.simulation.metric_to_watch} />}
       </div>
 
-      <div className="flex items-start gap-2 border-t border-border-subtle bg-surface-muted p-[10px_18px] text-[12px] leading-[1.5] text-ink-secondary">
+      <div className="flex items-start gap-2 border-t border-border-subtle bg-surface-muted p-[10px_18px] text-sm leading-[1.5] text-ink-secondary">
         <Icon name="info" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-muted" />
         <span>{leverNote}</span>
       </div>
@@ -79,8 +79,8 @@ export function RecommendationHandoffCard({
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-muted">{label}</div>
-      <div className="mt-0.5 text-[12.5px] leading-[1.5] text-ink-secondary">{value}</div>
+      <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">{label}</div>
+      <div className="mt-0.5 text-base leading-[1.5] text-ink-secondary">{value}</div>
     </div>
   )
 }

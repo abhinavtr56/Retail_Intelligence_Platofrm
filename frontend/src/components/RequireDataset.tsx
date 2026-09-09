@@ -43,15 +43,15 @@ export function RequireDataset({ children }: { children: ReactNode }) {
           <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-[11px] bg-status-danger-bg text-[#B91C1C] [&_svg]:h-5 [&_svg]:w-5">
             <Icon name="info" />
           </div>
-          <h2 className="text-[15px] font-bold">Can't reach the server</h2>
-          <p className="mt-1.5 text-[12.5px] leading-[1.6] text-ink-muted">
+          <h2 className="text-md font-bold">Can't reach the server</h2>
+          <p className="mt-1.5 text-base leading-[1.6] text-ink-muted">
             The backend isn't responding. Start it with{' '}
-            <code className="rounded bg-surface-muted px-1 py-0.5 text-[11.5px]">uvicorn app.main:app --reload --port 8100</code>{' '}
+            <code className="rounded bg-surface-muted px-1 py-0.5 text-sm">uvicorn app.main:app --reload --port 8100</code>{' '}
             and try again.
           </p>
           <button
             onClick={() => refetch()}
-            className="mt-4 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-[12.5px] font-bold text-white"
+            className="mt-4 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-base font-bold text-white"
           >
             Retry
           </button>
@@ -74,8 +74,8 @@ export function RequireDataset({ children }: { children: ReactNode }) {
               <Icon name="database" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-[16px] font-bold">Upload your dataset to continue</h2>
-              <p className="mt-1 text-[12.5px] leading-[1.6] text-ink-muted">
+              <h2 className="text-md font-bold">Upload your dataset to continue</h2>
+              <p className="mt-1 text-base leading-[1.6] text-ink-muted">
                 The platform reads six core tables. All of them are required — every dashboard, KPI and report is
                 built from them, so nothing can load until the full set is in place. Files are matched on their
                 column headers, so it doesn't matter what they're named.
@@ -86,8 +86,8 @@ export function RequireDataset({ children }: { children: ReactNode }) {
 
         <div className="p-[16px_24px]">
           <div className="mb-2.5 flex items-center justify-between">
-            <span className="text-[11px] font-bold uppercase tracking-wide text-ink-muted">Required tables</span>
-            <span className="text-[11.5px] font-semibold text-ink-muted">{present} of {total} present</span>
+            <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">Required tables</span>
+            <span className="text-sm font-semibold text-ink-muted">{present} of {total} present</span>
           </div>
           <div className="flex flex-col gap-1.5">
             {status.files.map((f) => (
@@ -103,11 +103,11 @@ export function RequireDataset({ children }: { children: ReactNode }) {
                   {f.present && <Icon name="check" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className={`truncate text-[12.5px] ${f.present ? 'font-semibold' : 'text-ink-muted'}`}>
+                  <div className={`truncate text-base ${f.present ? 'font-semibold' : 'text-ink-muted'}`}>
                     {f.label ?? STAR_ROLE_LABELS[f.role]}
                   </div>
                   {!f.present && (
-                    <div className="mt-px truncate text-[10px] text-ink-muted" title={f.required_columns?.join(', ')}>
+                    <div className="mt-px truncate text-2xs text-ink-muted" title={f.required_columns?.join(', ')}>
                       needs {f.required_columns?.join(', ')}
                     </div>
                   )}
@@ -118,10 +118,10 @@ export function RequireDataset({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-border-subtle p-[14px_24px]">
-          <span className="text-[11px] text-ink-muted">.csv, .xlsx or .xls</span>
+          <span className="text-xs text-ink-muted">.csv, .xlsx or .xls</span>
           <button
             onClick={() => setUploadOpen(true)}
-            className="flex items-center gap-1.5 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-[12.5px] font-bold text-white [&_svg]:h-[13px] [&_svg]:w-[13px]"
+            className="flex items-center gap-1.5 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-base font-bold text-white [&_svg]:h-[13px] [&_svg]:w-[13px]"
           >
             <Icon name="plus" /> Upload all 6 files
           </button>

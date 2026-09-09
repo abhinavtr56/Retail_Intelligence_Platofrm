@@ -53,7 +53,7 @@ export function RankedBar({
     <div className={`flex flex-col gap-2.5 ${fill ? 'h-full justify-between' : ''}`}>
       {groups.map((g) => (
         <div key={g.code} className="group" title={rowTooltip?.(g)}>
-          <div className="flex items-baseline justify-between gap-3 text-[11.5px]">
+          <div className="flex items-baseline justify-between gap-3 text-sm">
             <span className="truncate font-semibold text-ink-primary" title={g.label}>
               {g.label}
             </span>
@@ -90,7 +90,7 @@ export function RankedBar({
           </div>
         </div>
       ))}
-      <div className="mt-1 flex items-center gap-3 text-[10.5px] text-ink-muted">
+      <div className="mt-1 flex items-center gap-3 text-xs text-ink-muted">
         <span className="inline-flex items-center gap-1">
           <span className="h-2 w-3 rounded-sm bg-brand-violet" /> Incremental Sales
         </span>

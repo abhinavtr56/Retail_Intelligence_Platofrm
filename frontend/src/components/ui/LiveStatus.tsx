@@ -18,7 +18,7 @@ export function useLiveStatus() {
 
 export function LiveStatus({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[var(--r-pill)] border border-border-subtle bg-surface-card px-3 py-1 text-xs text-ink-secondary">
+    <span className="inline-flex items-center gap-1.5 rounded-[var(--r-pill)] border border-border-subtle bg-surface-card px-3 py-1 text-sm text-ink-secondary">
       <span className="inline-block h-[7px] w-[7px] animate-[liveDot_1.4s_infinite] rounded-full bg-status-success" />
       <span>
         <strong className="font-bold text-status-success">Live</strong> · refreshed {label}

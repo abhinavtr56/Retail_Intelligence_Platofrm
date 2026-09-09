@@ -26,8 +26,8 @@ export function PlaceholderPage({
         <h1>{title}</h1>
         <Card className="max-w-md">
           <CardBody>
-            <p className="text-sm text-ink-muted">{description}</p>
-            <p className="mt-3 text-xs text-ink-disabled">Ported from the vanilla app in Phase 4 of the migration.</p>
+            <p className="text-base text-ink-muted">{description}</p>
+            <p className="mt-3 text-sm text-ink-disabled">Ported from the vanilla app in Phase 4 of the migration.</p>
           </CardBody>
         </Card>
       </div>

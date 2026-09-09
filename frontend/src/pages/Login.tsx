@@ -47,13 +47,13 @@ export function Login() {
       <div className="fade-in-up w-full max-w-[400px] rounded-[var(--r-xl)] border border-border-subtle bg-surface-card p-[36px_32px_30px] shadow-[var(--shadow-lg)]">
         <div className="mb-7 flex items-center gap-2.5">
           <img src="/image.png" alt="TransOrg" className="h-8 w-8" />
-          <span className="text-sm font-extrabold tracking-[-0.01em]">TRANSORG ANALYTICS</span>
+          <span className="text-base font-extrabold tracking-[-0.01em]">TRANSORG ANALYTICS</span>
         </div>
         <h1 className="mb-1.5 text-xl">Retail Intelligence Platform</h1>
-        <p className="mb-6 text-[13px] leading-[1.5] text-ink-muted">Sign in to continue to your workspace.</p>
+        <p className="mb-6 text-base leading-[1.5] text-ink-muted">Sign in to continue to your workspace.</p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          {error && <div className="rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-[12.5px] text-[#B91C1C]">{error}</div>}
+          {error && <div className="rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-base text-[#B91C1C]">{error}</div>}
 
           <Field label="Work email">
             {/* An INSTRUCTION, not a specimen address. The placeholder used to be
@@ -68,13 +68,13 @@ export function Login() {
           </Field>
 
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-1.5 text-[12.5px] text-ink-secondary">
+            <label className="flex items-center gap-1.5 text-base text-ink-secondary">
               <input type="checkbox" defaultChecked className="h-3.5 w-3.5 accent-brand-violet" /> Keep me signed in
             </label>
             <button
               type="button"
               onClick={() => show('Password reset coming soon.')}
-              className="text-[12.5px] font-semibold text-brand-violet"
+              className="text-base font-semibold text-brand-violet"
             >
               Forgot password?
             </button>
@@ -85,7 +85,7 @@ export function Login() {
           </Button>
         </form>
 
-        <div className="mt-5 border-t border-border-subtle pt-4 text-center text-[11.5px] leading-[1.6] text-ink-muted">
+        <div className="mt-5 border-t border-border-subtle pt-4 text-center text-sm leading-[1.6] text-ink-muted">
           First sign-in creates your workspace — after that, your password is checked for real.
         </div>
       </div>

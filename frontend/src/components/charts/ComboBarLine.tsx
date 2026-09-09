@@ -21,7 +21,7 @@ export function ComboBarLine({
   labels,
   bars,
   lines,
-  height = 320,
+  height = 290,
 }: {
   labels: string[]
   bars: ComboBarSpec

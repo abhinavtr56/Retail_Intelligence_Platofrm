@@ -103,16 +103,22 @@ export const useScenarioStore = create<ScenarioStore>()((set, get) => ({
   activeId: 'current-plan',
   nextIndex: 1,
 
-  seed: (scopeKey, scenarios) =>
+  seed: (scopeKey, scenarios) => {
+    // The studio offers exactly two plans: the measured Current Plan and the
+    // hypothetical Optimized Plan. Any further scenario the backend still
+    // models is dropped at this one boundary, so the rail, the comparison
+    // table and the exports read the same set instead of each filtering its own.
+    const offered = scenarios.filter((s) => s.id === 'current-plan' || s.id === 'optimized-plan')
     set({
       scopeKey,
       // A new scope discards every previous result and lever edit. The levers
       // were anchored on the old scope's observed values and the results were
       // computed over its rows; neither means anything here.
-      scenarios: scenarios.map(fresh),
-      activeId: scenarios[0]?.id ?? 'current-plan',
+      scenarios: offered.map(fresh),
+      activeId: offered[0]?.id ?? 'current-plan',
       nextIndex: 1,
-    }),
+    })
+  },
 
   select: (id) => set({ activeId: id }),
 

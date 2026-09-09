@@ -8,9 +8,9 @@ export function RegionVarianceBars({ data }: { data: RegionVariance[] }) {
     <table className="w-full border-collapse">
       <thead>
         <tr>
-          <th className="p-[6px_8px] text-left text-[10px] font-bold uppercase tracking-[0.06em] text-ink-muted">Region</th>
-          <th className="p-[6px_8px] text-left text-[10px] font-bold uppercase tracking-[0.06em] text-ink-muted">Variance</th>
-          <th className="p-[6px_8px] text-left text-[10px] font-bold uppercase tracking-[0.06em] text-ink-muted" />
+          <th className="p-[6px_8px] text-left text-2xs font-bold uppercase tracking-[0.06em] text-ink-muted">Region</th>
+          <th className="p-[6px_8px] text-left text-2xs font-bold uppercase tracking-[0.06em] text-ink-muted">Variance</th>
+          <th className="p-[6px_8px] text-left text-2xs font-bold uppercase tracking-[0.06em] text-ink-muted" />
         </tr>
       </thead>
       <tbody>
@@ -19,9 +19,9 @@ export function RegionVarianceBars({ data }: { data: RegionVariance[] }) {
           const pct = (Math.abs(d.variance) / maxAbs) * 50
           return (
             <tr key={d.region} className="border-b border-border-subtle last:border-b-0">
-              <td className="p-2 text-xs [font-variant-numeric:tabular-nums]">{d.region}</td>
+              <td className="p-2 text-sm [font-variant-numeric:tabular-nums]">{d.region}</td>
               <td
-                className={`p-2 text-xs font-bold [font-variant-numeric:tabular-nums] ${isNeg ? 'text-status-danger' : 'text-status-success'}`}
+                className={`p-2 text-sm font-bold [font-variant-numeric:tabular-nums] ${isNeg ? 'text-status-danger' : 'text-status-success'}`}
               >
                 {isNeg ? '' : '+'}
                 {d.variance.toFixed(1)}%

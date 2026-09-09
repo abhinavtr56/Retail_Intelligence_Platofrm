@@ -80,7 +80,7 @@ export function LeverPanel({
         <button
           onClick={onReset}
           disabled={!dirty}
-          className="mb-3 inline-flex items-center gap-1 text-[13px] font-semibold text-brand-violet disabled:cursor-not-allowed disabled:text-ink-muted"
+          className="mb-3 inline-flex items-center gap-1 text-base font-semibold text-brand-violet disabled:cursor-not-allowed disabled:text-ink-muted"
         >
           ↺ Reset to this scenario’s starting levers
         </button>
@@ -112,7 +112,7 @@ export function LeverPanel({
         )}
       </Button>
 
-      <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-border-subtle bg-surface-muted p-[8px_12px] text-xs [&_svg]:mt-px [&_svg]:h-[13px] [&_svg]:w-[13px] [&_svg]:shrink-0 [&_svg]:text-ink-muted">
+      <div className="mt-2.5 flex items-start gap-1.5 rounded-lg border border-border-subtle bg-surface-muted p-[8px_12px] text-sm [&_svg]:mt-px [&_svg]:h-[13px] [&_svg]:w-[13px] [&_svg]:shrink-0 [&_svg]:text-ink-muted">
         <Icon name="info" />
         <span className="text-ink-secondary">{note}</span>
       </div>
@@ -147,10 +147,10 @@ function DiscountControl({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label className="flex items-center gap-1 text-xs font-semibold text-ink-secondary">
+        <label className="flex items-center gap-1 text-sm font-semibold text-ink-secondary">
           Discount Depth
           <InfoPopover label="About the discount treatments" title="Approved treatments" width={264}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
               A scenario may use only these five approved promotion treatments. Depths between them are
               not offered: no approved rule defines an uplift for them, and inventing one would be a
               coefficient rather than a rule.
@@ -161,10 +161,10 @@ function DiscountControl({
 
       {readOnly ? (
         <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-2.5">
-          <div className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+          <div className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
             {definition?.display_value ?? '—'}
           </div>
-          <div className="mt-1 text-[11px] leading-[1.45] text-ink-muted">
+          <div className="mt-1 text-xs leading-[1.45] text-ink-muted">
             {definition?.basis ??
               'Measured for this scope. A blend across the promotions in scope, so it need not be one of the approved treatment depths.'}
           </div>
@@ -236,20 +236,20 @@ function DurationControl({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label htmlFor="lever-duration" className="text-xs font-semibold text-ink-secondary">
+        <label htmlFor="lever-duration" className="text-sm font-semibold text-ink-secondary">
           Promotion Duration
         </label>
-        <span className="rounded-[4px] bg-surface-muted px-1.5 py-[2px] text-[9.5px] font-bold uppercase tracking-[0.04em] text-ink-muted">
+        <span className="rounded-[4px] bg-surface-muted px-1.5 py-[2px] text-2xs font-bold uppercase tracking-[0.04em] text-ink-muted">
           Response not modelled
         </span>
       </div>
 
       {readOnly ? (
         <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-2.5">
-          <div className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+          <div className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
             {definition?.available ? definition.display_value : '—'}
           </div>
-          <div className="mt-1 text-[11px] leading-[1.45] text-ink-muted">
+          <div className="mt-1 text-xs leading-[1.45] text-ink-muted">
             {definition?.available
               ? `${definition.basis}. No approved rule maps duration to uplift, so changing it would not change a result.`
               : definition?.unavailable_reason ?? 'Not available for this scope.'}
@@ -313,10 +313,10 @@ function SpendField({
     return (
       <div>
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <label className="flex items-center gap-1 text-xs font-semibold text-ink-secondary">
+          <label className="flex items-center gap-1 text-sm font-semibold text-ink-secondary">
             Current Trade Spend
             <InfoPopover label="About current trade spend" title="Measured, not proposed" width={264}>
-              <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+              <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
                 {definition?.basis ??
                   'The validated Trade Spend KPI for this scope, from the same engine the Command Center reads.'}
               </div>
@@ -324,10 +324,10 @@ function SpendField({
           </label>
         </div>
         <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-2.5">
-          <div className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+          <div className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
             {measured ?? '—'}
           </div>
-          <div className="mt-1 text-[11px] leading-[1.45] text-ink-muted">
+          <div className="mt-1 text-xs leading-[1.45] text-ink-muted">
             {measured
               ? 'Measured for this scope by the validated KPI engine.'
               : definition?.unavailable_reason ?? 'Not available for this scope.'}
@@ -340,10 +340,10 @@ function SpendField({
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <label className="flex items-center gap-1 text-xs font-semibold text-ink-secondary">
+        <label className="flex items-center gap-1 text-sm font-semibold text-ink-secondary">
           Derived Trade Spend
           <InfoPopover label="About derived trade spend" title="Derived, not entered" width={264}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
               {simulation?.levers.spend_amount.note ??
                 'Trade spend is an output of the scenario economics, not an input, so there is nothing to type here.'}
             </div>
@@ -353,13 +353,13 @@ function SpendField({
       <div className="rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-2.5">
         {low?.available && high?.available ? (
           <>
-            <div className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+            <div className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
               {low.display_value} – {high.display_value}
             </div>
-            <div className="mt-1 text-[11px] text-ink-muted">Across the approved uplift range.</div>
+            <div className="mt-1 text-xs text-ink-muted">Across the approved uplift range.</div>
           </>
         ) : (
-          <div className="text-[11px] leading-[1.45] text-ink-muted">
+          <div className="text-xs leading-[1.45] text-ink-muted">
             Calculated from the scenario economics when this scenario is run.
           </div>
         )}
@@ -368,10 +368,10 @@ function SpendField({
             on the Current Plan's own lever definition. */}
         {measured && (
           <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-border-subtle pt-2">
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <span className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Current
             </span>
-            <span className="text-[12px] font-bold text-ink-secondary [font-variant-numeric:tabular-nums]">
+            <span className="text-sm font-bold text-ink-secondary [font-variant-numeric:tabular-nums]">
               {measured}
             </span>
           </div>
@@ -477,7 +477,7 @@ function SteppedSlider<T>({
               disabled={inert}
               aria-pressed={active}
               onClick={() => onSelect(stop, i)}
-              className={`rounded-[5px] py-[3px] text-[11px] font-bold transition-colors [font-variant-numeric:tabular-nums] disabled:cursor-not-allowed ${
+              className={`rounded-[5px] py-[3px] text-xs font-bold transition-colors [font-variant-numeric:tabular-nums] disabled:cursor-not-allowed ${
                 active ? 'bg-brand-violet-50 text-brand-violet' : 'text-ink-muted hover:text-ink-secondary'
               }`}
             >
@@ -497,14 +497,14 @@ function SelectedValue({ value, note }: { value: string; note: string }) {
   return (
     <div className="mt-2 rounded-[var(--r-md)] border border-border-subtle bg-surface-muted p-2.5">
       <div className="flex items-baseline gap-1.5">
-        <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+        <span className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
           Selected
         </span>
-        <span className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+        <span className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
           {value}
         </span>
       </div>
-      <div className="mt-1 text-[10.5px] leading-[1.45] text-ink-muted">{note}</div>
+      <div className="mt-1 text-xs leading-[1.45] text-ink-muted">{note}</div>
     </div>
   )
 }

@@ -29,13 +29,13 @@ export function NodeDetailPopover({
           <Icon name={node.icon as IconName} />
         </div>
         <div>
-          <div className="text-[13px] font-extrabold">{node.label}</div>
-          <div className="text-[11px] text-ink-muted">{node.metric}</div>
+          <div className="text-base font-extrabold">{node.label}</div>
+          <div className="text-xs text-ink-muted">{node.metric}</div>
         </div>
       </div>
 
-      <div className="text-[13px] font-bold leading-[1.4] text-ink-primary">{detail.headline}</div>
-      <p className="mt-2 text-[12.5px] leading-[1.55] text-ink-secondary">{detail.body}</p>
+      <div className="text-base font-bold leading-[1.4] text-ink-primary">{detail.headline}</div>
+      <p className="mt-2 text-base leading-[1.55] text-ink-secondary">{detail.body}</p>
 
       {detail.viz && detail.viz.type === 'bars' && (
         <div className="mt-3 rounded-[10px] p-3" style={{ background: st.bg }}>
@@ -43,7 +43,7 @@ export function NodeDetailPopover({
             const max = Math.max(...detail.viz.items.map((it) => it.value)) * 1.15 || 1
             return detail.viz.items.map((it, i) => (
               <div key={it.label} className="mb-2 grid grid-cols-[64px_1fr_40px] items-center gap-2 last:mb-0">
-                <span className="whitespace-nowrap text-[11px] font-semibold text-ink-secondary">{it.label}</span>
+                <span className="whitespace-nowrap text-xs font-semibold text-ink-secondary">{it.label}</span>
                 <span className="h-[9px] overflow-hidden rounded-full bg-black/[0.06]">
                   <span
                     className="block h-full rounded-full [animation:npGrow_700ms_var(--ease-out)_forwards]"
@@ -55,19 +55,19 @@ export function NodeDetailPopover({
                     }}
                   />
                 </span>
-                <span className="text-right text-[11.5px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
+                <span className="text-right text-sm font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
                   {it.value}
                 </span>
               </div>
             ))
           })()}
-          <div className="mt-0.5 text-right text-[10px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+          <div className="mt-0.5 text-right text-2xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
             {detail.viz.unit}
           </div>
         </div>
       )}
 
-      <div className="mt-2.5 flex items-start gap-1.5 rounded-md bg-surface-muted p-[8px_10px] text-[11px] leading-[1.45] text-ink-muted">
+      <div className="mt-2.5 flex items-start gap-1.5 rounded-md bg-surface-muted p-[8px_10px] text-xs leading-[1.45] text-ink-muted">
         <Icon name="info" className="h-3.5 w-3.5 shrink-0" />
         <span>{detail.evidence}</span>
       </div>
@@ -75,7 +75,7 @@ export function NodeDetailPopover({
       <Link
         to="/intelligence"
         onClick={onClose}
-        className="mt-3 flex h-[30px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] bg-brand-violet-50 text-xs font-semibold text-brand-violet hover:bg-brand-violet-100"
+        className="mt-3 flex h-[30px] w-full items-center justify-center gap-2 rounded-[var(--r-md)] bg-brand-violet-50 text-sm font-semibold text-brand-violet hover:bg-brand-violet-100"
       >
         View in Intelligence <Icon name="arrowRight" className="h-3.5 w-3.5" />
       </Link>

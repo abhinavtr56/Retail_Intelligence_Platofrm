@@ -121,7 +121,7 @@ export function Sidebar({
             <img src="/image.png" alt="TransOrg IQ" className="h-10 w-10 shrink-0 object-contain" />
           </Link>
           <Reveal expanded={labelled} className="min-w-0 flex-1">
-            <span className="block truncate text-[12.5px] font-semibold uppercase tracking-[0.1em] text-sidebar-brand-sub">
+            <span className="block truncate text-base font-semibold uppercase tracking-[0.1em] text-sidebar-brand-sub">
               TPO Intelligence
             </span>
           </Reveal>
@@ -168,15 +168,15 @@ export function Sidebar({
                 className="flex cursor-pointer items-center gap-2.5 overflow-hidden rounded-[var(--r-md)] p-1.5 transition-colors duration-150 hover:bg-white/[0.05]"
                 title={user ? `${user.name} — signed in` : 'Not signed in'}
               >
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-[11px] font-bold text-white">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white">
                   {user?.initials}
                 </div>
                 <Reveal expanded={labelled} className="flex min-w-0 flex-1 items-center gap-2">
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-[13px] font-semibold text-sidebar-brand">
+                    <span className="truncate text-base font-semibold text-sidebar-brand">
                       {user?.name}
                     </span>
-                    <span className="truncate text-[11px] text-sidebar-brand-sub">
+                    <span className="truncate text-xs text-sidebar-brand-sub">
                       Signed in locally
                     </span>
                   </span>
@@ -259,7 +259,7 @@ function NavRow({
           'relative flex h-10 shrink-0 items-center gap-3 overflow-hidden rounded-[var(--r-md)]',
           // A fixed 20px icon cell inside 10px padding puts the glyph at the same
           // x in both states: the row grows to the right, the icon never moves.
-          'px-2.5 text-sm font-medium no-underline',
+          'px-2.5 text-base font-medium no-underline',
           'transition-colors duration-150',
           'focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--brand-violet)]',
           active
@@ -283,7 +283,7 @@ function NavRow({
         <Reveal expanded={expanded} className="flex min-w-0 flex-1 items-center gap-2">
           <span className="truncate">{item.label}</span>
           {item.badge && (
-            <span className="ml-auto shrink-0 rounded-[var(--r-pill)] bg-brand-violet px-1.5 py-px text-[10px] font-bold leading-4 text-white">
+            <span className="ml-auto shrink-0 rounded-[var(--r-pill)] bg-brand-violet px-1.5 py-px text-2xs font-bold leading-4 text-white">
               {item.badge}
             </span>
           )}
@@ -298,7 +298,7 @@ function NavRow({
         createPortal(
           <span
             role="tooltip"
-            className="fade-in pointer-events-none fixed z-[9999] -translate-y-1/2 whitespace-nowrap rounded-[var(--r-sm)] bg-sidebar-bg px-2.5 py-1.5 text-[12px] font-semibold text-sidebar-brand shadow-[var(--shadow-lg)] ring-1 ring-white/10"
+            className="fade-in pointer-events-none fixed z-[9999] -translate-y-1/2 whitespace-nowrap rounded-[var(--r-sm)] bg-sidebar-bg px-2.5 py-1.5 text-sm font-semibold text-sidebar-brand shadow-[var(--shadow-lg)] ring-1 ring-white/10"
             style={{ top: tip.top, left: tip.left }}
           >
             {item.label}

@@ -40,7 +40,7 @@ export function CannibalizationEvidence({
   if (kpi.available) {
     if (kpi.comparable_events == null) return null
     return (
-      <div className="mt-0.5 text-[10.5px] leading-[1.4] text-ink-muted">
+      <div className="mt-0.5 text-xs leading-[1.4] text-ink-muted">
         {events(kpi.comparable_events)}
       </div>
     )
@@ -51,7 +51,7 @@ export function CannibalizationEvidence({
   const own = kpi.measured_at
   if (own) {
     return (
-      <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+      <div className="mt-1 max-w-[280px] text-xs leading-[1.45] text-ink-muted">
         <span className="font-bold text-ink-secondary">{own.display_value}</span> across{' '}
         {own.scope_label} · {events(own.comparable_events)}
       </div>
@@ -60,7 +60,7 @@ export function CannibalizationEvidence({
   if (!measured) return null
   if (measured.available) {
     return (
-      <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+      <div className="mt-1 max-w-[280px] text-xs leading-[1.45] text-ink-muted">
         Measured for this selection:{' '}
         <span className="font-bold text-ink-secondary">{measured.display_value}</span>
         {measured.comparable_events != null && ` · ${events(measured.comparable_events)}`}
@@ -70,7 +70,7 @@ export function CannibalizationEvidence({
   const wider = measured.measured_at
   if (!wider) return null
   return (
-    <div className="mt-1 max-w-[280px] text-[10.5px] leading-[1.45] text-ink-muted">
+    <div className="mt-1 max-w-[280px] text-xs leading-[1.45] text-ink-muted">
       Measured across {wider.scope_label}:{' '}
       <span className="font-bold text-ink-secondary">{wider.display_value}</span> ·{' '}
       {events(wider.comparable_events)}
@@ -120,7 +120,7 @@ export function KpiTable({ kpis, targetRoiPct }: { kpis: Record<SimulationKpiKey
                 <div className="flex items-center gap-1.5">
                   <span>{kpi.label}</span>
                   <InfoPopover label={`About ${kpi.label}`} title={kpi.label}>
-                    <div className="text-[12.5px] leading-[1.55] text-ink-secondary">
+                    <div className="text-base leading-[1.55] text-ink-secondary">
                       <div className="font-semibold text-ink-primary">Formula</div>
                       <div className="mt-0.5">{kpi.formula}</div>
                       {key === 'roi_percent' && (
@@ -132,19 +132,19 @@ export function KpiTable({ kpis, targetRoiPct }: { kpis: Record<SimulationKpiKey
               </Td>
               <Td className="text-right">
                 {kpi.available ? (
-                  <span className="text-[15px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+                  <span className="text-md font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
                     {kpi.display_value}
                   </span>
                 ) : (
                   <span
-                    className="cursor-help text-sm text-ink-muted"
+                    className="cursor-help text-base text-ink-muted"
                     title={kpi.unavailable_reason ?? undefined}
                   >
                     —
                   </span>
                 )}
                 {!kpi.available && kpi.unavailable_reason && !hasCannibalizationFallback(kpi) && (
-                  <div className="mt-0.5 max-w-[320px] text-[11px] leading-[1.45] text-ink-muted">
+                  <div className="mt-0.5 max-w-[320px] text-xs leading-[1.45] text-ink-muted">
                     {kpi.unavailable_reason}
                   </div>
                 )}
@@ -174,15 +174,15 @@ export function ScopeSummary({ scope }: { scope: SimulationRunResponse['scope'] 
       <Row label="Promoted rows" value={scope.promoted_row_count.toLocaleString()} />
       <Row label="Weeks with promotions" value={String(scope.promoted_weeks)} />
       <div className="border-t border-border-subtle pt-2.5">
-        <div className="text-[11px] font-semibold text-ink-muted">Filters applied</div>
+        <div className="text-xs font-semibold text-ink-muted">Filters applied</div>
         {applied.length === 0 ? (
-          <div className="mt-1 text-[12px] text-ink-secondary">None — the full dataset for this period.</div>
+          <div className="mt-1 text-sm text-ink-secondary">None — the full dataset for this period.</div>
         ) : (
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {applied.map(([key, value]) => (
               <span
                 key={key}
-                className="rounded-[var(--r-pill)] bg-surface-muted px-2 py-1 text-[11px] font-medium text-ink-secondary"
+                className="rounded-[var(--r-pill)] bg-surface-muted px-2 py-1 text-xs font-medium text-ink-secondary"
               >
                 {key}: {Array.isArray(value) ? value.join(', ') : String(value)}
               </span>
@@ -197,8 +197,8 @@ export function ScopeSummary({ scope }: { scope: SimulationRunResponse['scope'] 
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="text-[11px] font-semibold text-ink-muted">{label}</span>
-      <span className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">{value}</span>
+      <span className="text-xs font-semibold text-ink-muted">{label}</span>
+      <span className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">{value}</span>
     </div>
   )
 }
@@ -207,13 +207,13 @@ function Row({ label, value }: { label: string; value: string }) {
  *  screen full of zeroes. */
 export function NoDataPanel() {
   return (
-    <div className="grid min-h-[220px] place-items-center px-6 py-10 text-center">
+    <div className="grid min-h-[160px] place-items-center px-6 py-7 text-center">
       <div>
         <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
           <Icon name="info" />
         </div>
-        <div className="text-sm font-bold text-ink-primary">No rows in this scope</div>
-        <div className="mt-1 text-[12.5px] text-ink-secondary">
+        <div className="text-base font-bold text-ink-primary">No rows in this scope</div>
+        <div className="mt-1 text-base text-ink-secondary">
           The current filter selection matches no sales rows, so there is nothing to measure. Widen the
           selection in the Command Center.
         </div>

@@ -19,7 +19,7 @@ function WaterfallLegend() {
   return (
     <div className="mb-2 flex flex-wrap gap-4">
       {WF_LEGEND.map((l) => (
-        <span key={l.label} className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+        <span key={l.label} className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-secondary">
           <span className="h-3 w-3 rounded-sm" style={{ background: l.color }} />
           {l.label}
         </span>
@@ -30,7 +30,7 @@ function WaterfallLegend() {
 
 function AiCallout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-3 flex items-start gap-2 rounded-[var(--r-md)] border border-[rgba(124,92,255,0.2)] bg-[linear-gradient(135deg,rgba(124,92,255,0.06),rgba(79,124,255,0.04))] p-[10px_14px] text-[12.5px] leading-[1.5] text-ink-secondary [&_svg]:mt-0.5 [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:shrink-0 [&_svg]:text-brand-violet">
+    <div className="mt-3 flex items-start gap-2 rounded-[var(--r-md)] border border-[rgba(124,92,255,0.2)] bg-[linear-gradient(135deg,rgba(124,92,255,0.06),rgba(79,124,255,0.04))] p-[10px_14px] text-base leading-[1.5] text-ink-secondary [&_svg]:mt-0.5 [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:shrink-0 [&_svg]:text-brand-violet">
       {children}
     </div>
   )
@@ -125,7 +125,7 @@ export function OverviewTab({ D, onGoTab }: { D: IntelligencePageData; onGoTab: 
           <CardHeader
             title={
               <span className="flex items-center gap-1.5">
-                Impact by Region <span className="text-xs text-ink-muted">(vs Plan)</span> <Icon name="info" className="h-3.5 w-3.5 text-ink-muted" />
+                Impact by Region <span className="text-sm text-ink-muted">(vs Plan)</span> <Icon name="info" className="h-3.5 w-3.5 text-ink-muted" />
               </span>
             }
             actions={
@@ -173,10 +173,10 @@ export function DriversTab({ D }: { D: IntelligencePageData }) {
         <div className="flex flex-col gap-3.5">
           {D.drivers.map((d, i) => (
             <div key={d.driver} className="grid grid-cols-[28px_1fr_130px] items-center gap-3.5 border-b border-dashed border-border-subtle py-3.5 last:border-b-0">
-              <div className="grid h-7 w-7 place-items-center rounded-full bg-brand-violet-50 text-sm font-extrabold text-brand-violet">{i + 1}</div>
+              <div className="grid h-7 w-7 place-items-center rounded-full bg-brand-violet-50 text-base font-extrabold text-brand-violet">{i + 1}</div>
               <div>
-                <div className="text-sm font-bold text-ink-primary">{d.driver}</div>
-                <div className="mt-px text-xs text-ink-muted">{d.note}</div>
+                <div className="text-base font-bold text-ink-primary">{d.driver}</div>
+                <div className="mt-px text-sm text-ink-muted">{d.note}</div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-[3px] bg-surface-muted">
                   <div
                     className={`h-full rounded-[3px] transition-[width] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${
@@ -187,7 +187,7 @@ export function DriversTab({ D }: { D: IntelligencePageData }) {
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1 text-right">
-                <span className="text-base font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">{d.weight}%</span>
+                <span className="text-md font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">{d.weight}%</span>
                 <Pill tone={d.direction === 'Negative' ? 'danger' : 'success'}>{d.direction}</Pill>
               </div>
             </div>
@@ -388,7 +388,7 @@ export function InsightsTab({ D }: { D: IntelligencePageData }) {
 
   return (
     <Card className="fade-in">
-      <CardHeader title={`All Insights (${D.insightsAll.length})`} actions={<span className="text-sm text-ink-muted">Ranked by impact</span>} />
+      <CardHeader title={`All Insights (${D.insightsAll.length})`} actions={<span className="text-base text-ink-muted">Ranked by impact</span>} />
       <div className="px-4.5 py-1.5">
         <KeyInsightsList items={items} />
       </div>

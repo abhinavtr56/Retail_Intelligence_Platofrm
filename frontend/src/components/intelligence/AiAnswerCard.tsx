@@ -34,14 +34,14 @@ export function AiAnswerCard({
     <Card className="fade-in mb-5">
       <div className="flex items-start justify-between gap-3 border-b border-border-subtle p-[16px_20px]">
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-bold">Investigation Synthesis</h3>
-          <div className="mt-0.5 text-xs text-ink-muted">{question}</div>
+          <h3 className="text-md font-bold">Investigation Synthesis</h3>
+          <div className="mt-0.5 text-sm text-ink-muted">{question}</div>
         </div>
         {/* B9 removed the "{confidence}% confidence" badge that stood here.
             It printed an authored 82-87%; nothing in this project computes a
             confidence figure. The synthesis line beside it describes how the
             answer was assembled, which is a property of the run. */}
-        <div className="flex flex-wrap items-center gap-3.5 text-xs text-ink-muted">
+        <div className="flex flex-wrap items-center gap-3.5 text-sm text-ink-muted">
           <span className="inline-flex items-center gap-1.5 text-ink-secondary">
             <span className="inline-block h-[7px] w-[7px] animate-[aiPulseDot_1.8s_ease-in-out_infinite] rounded-full bg-status-success shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />
             {answer.summary}
@@ -49,7 +49,7 @@ export function AiAnswerCard({
         </div>
       </div>
 
-      <div className="min-h-[60px] p-5 text-[14.5px] leading-[1.65] text-ink-primary">
+      <div className="min-h-[60px] p-5 text-base leading-[1.65] text-ink-primary">
         {paragraphs.map((runs, pi) => (
           <p key={pi} className="mb-2.5 last:mb-0">
             {runs.map((r, ri) => (r.tone ? <strong key={ri} className={toneClass(r.tone)}>{r.text}</strong> : <span key={ri}>{r.text}</span>))}
@@ -64,14 +64,14 @@ export function AiAnswerCard({
         {specialists.map((name) => (
           <span
             key={name}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-card py-[3px] px-2.5 text-[11px] font-semibold text-ink-secondary shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-card py-[3px] px-2.5 text-xs font-semibold text-ink-secondary shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
           >
             <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-status-success" />
             {name}
           </span>
         ))}
         <span className="flex-1" />
-        <Link to="/investigations" className="text-xs font-semibold text-ink-primary hover:underline">
+        <Link to="/investigations" className="text-sm font-semibold text-ink-primary hover:underline">
           View full investigation →
         </Link>
       </div>

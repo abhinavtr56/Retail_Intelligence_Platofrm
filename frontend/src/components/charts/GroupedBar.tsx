@@ -6,7 +6,7 @@ export function GroupedBar({
   labels,
   target,
   actual,
-  height = 240,
+  height = 215,
 }: {
   labels: string[]
   target: number[]

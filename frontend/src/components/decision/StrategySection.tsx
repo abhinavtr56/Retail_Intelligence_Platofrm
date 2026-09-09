@@ -22,16 +22,16 @@ export function StrategySection({ strategy }: { strategy: DecisionStrategy }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Strategy</h3>
+        <h3 className="text-md font-bold">Strategy</h3>
         {strategy.treatment && (
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-xs text-ink-muted">
             Approved treatment · <span className="font-semibold text-ink-secondary">{strategy.treatment}</span>
           </span>
         )}
       </div>
       <CardBody>
         {!strategy.available ? (
-          <div className="text-[12.5px] leading-[1.6] text-ink-muted">
+          <div className="text-base leading-[1.6] text-ink-muted">
             This scenario records no strategy levers.
           </div>
         ) : (
@@ -59,7 +59,7 @@ export function StrategySection({ strategy }: { strategy: DecisionStrategy }) {
                 </tbody>
               </table>
             </div>
-            <div className="mt-3 border-t border-border-subtle pt-2.5 text-[11px] leading-[1.5] text-ink-muted">
+            <div className="mt-3 border-t border-border-subtle pt-2.5 text-xs leading-[1.5] text-ink-muted">
               {strategy.note}
               {!strategy.baseline_available && strategy.baseline_unavailable_reason && (
                 <div className="mt-1">{strategy.baseline_unavailable_reason}</div>
@@ -77,26 +77,26 @@ function LeverRow({ lever }: { lever: DecisionStrategyLever }) {
     <tr className="border-b border-border-subtle last:border-b-0">
       <td className="py-2.5 pr-3 align-top">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-[12.5px] font-semibold text-ink-primary">{lever.label}</span>
+          <span className="text-base font-semibold text-ink-primary">{lever.label}</span>
           {/* Carried verbatim from the engine, and the two cases are different
               facts: a DERIVED lever is an output the engine computes rather
               than an input anyone sets, and a NOT MODELLED one is an input the
               engine records without any KPI responding to it. Either way it did
               not move a number in the impact above, and the badge says so. */}
           {lever.derived ? (
-            <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+            <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
               Derived
             </span>
           ) : (
             !lever.modelled && (
-              <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+              <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
                 Not modelled
               </span>
             )
           )}
         </div>
         {lever.note && (
-          <div className="mt-0.5 max-w-[420px] text-[11px] leading-[1.5] text-ink-muted">
+          <div className="mt-0.5 max-w-[420px] text-xs leading-[1.5] text-ink-muted">
             {lever.note}
           </div>
         )}
@@ -154,7 +154,7 @@ function Cell({
       {available && display ? (
         <span className="inline-flex items-baseline gap-1">
           <span
-            className={`text-[13px] [font-variant-numeric:tabular-nums] ${
+            className={`text-base [font-variant-numeric:tabular-nums] ${
               strong ? 'font-extrabold text-ink-primary' : 'font-bold text-ink-secondary'
             }`}
           >
@@ -162,7 +162,7 @@ function Cell({
           </span>
           {detail && (
             <InfoPopover label={`How ${label} was derived`} title={label} width={300}>
-              <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{detail}</div>
+              <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{detail}</div>
             </InfoPopover>
           )}
         </span>
@@ -170,17 +170,17 @@ function Cell({
         // WORDS, NOT PUNCTUATION. An em dash in a data cell reads as a rendering
         // failure; "Not available" reads as an answer, and the ⓘ carries the
         // engine's own reason for anyone who wants it.
-        <span className="inline-flex items-baseline gap-1 text-[12px] text-ink-muted">
+        <span className="inline-flex items-baseline gap-1 text-sm text-ink-muted">
           Not available
           {reason && (
             <InfoPopover label={`Why ${label} is unavailable`} title={label} width={300}>
-              <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{reason}</div>
+              <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{reason}</div>
             </InfoPopover>
           )}
         </span>
       )}
       {available && note && (
-        <div className="mt-0.5 text-[10.5px] text-ink-muted">{note}</div>
+        <div className="mt-0.5 text-xs text-ink-muted">{note}</div>
       )}
     </td>
   )
@@ -189,7 +189,7 @@ function Cell({
 function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
   return (
     <th
-      className={`pb-2 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted ${
+      className={`pb-2 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted ${
         align === 'right' ? 'pl-3 text-right' : 'pr-3'
       }`}
     >

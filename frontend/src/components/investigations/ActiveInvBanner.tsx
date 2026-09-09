@@ -42,17 +42,17 @@ export function ActiveInvBanner({
     <div
       className={`fade-in mb-4 grid grid-cols-[auto_1fr_auto_auto] items-center gap-3.5 rounded-[var(--r-lg)] border border-l-[3px] border-border-subtle bg-surface-card p-[10px_16px] shadow-[var(--shadow-sm)] ${TONE_BORDER[typeMeta.tone]}`}
     >
-      <span className={`inline-flex h-[18px] items-center rounded-[var(--r-pill)] px-2 text-[9px] font-semibold tracking-[0.04em] ${TONE_PILL[typeMeta.tone]}`}>
+      <span className={`inline-flex h-[18px] items-center rounded-[var(--r-pill)] px-2 text-2xs font-semibold tracking-[0.04em] ${TONE_PILL[typeMeta.tone]}`}>
         {typeMeta.badge}
       </span>
-      <span className="truncate whitespace-nowrap text-[13px] font-bold text-ink-primary">{question}</span>
-      <Link to="/investigations" className="text-[13px] font-semibold text-brand-violet whitespace-nowrap">
+      <span className="truncate whitespace-nowrap text-base font-bold text-ink-primary">{question}</span>
+      <Link to="/investigations" className="text-base font-semibold text-brand-violet whitespace-nowrap">
         ← Back to Investigation
       </Link>
       {proceedTo && proceedLabel ? (
         <Link
           to={proceedTo}
-          className="inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] bg-brand-violet px-3 text-xs font-semibold text-white shadow-[var(--shadow-violet)] hover:bg-brand-violet-600"
+          className="inline-flex h-[30px] items-center gap-2 whitespace-nowrap rounded-[var(--r-md)] bg-brand-violet px-3 text-sm font-semibold text-white shadow-[var(--shadow-violet)] hover:bg-brand-violet-600"
         >
           {proceedIcon && <Icon name={proceedIcon} className="h-3.5 w-3.5" />} {proceedLabel}
         </Link>

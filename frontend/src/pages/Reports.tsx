@@ -144,8 +144,8 @@ export function Reports() {
     <AppShell activeKey="reports" crumbs={[{ label: 'Reports' }]}>
       <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-[26px] font-extrabold tracking-[-0.02em]">Reports</h1>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <h1 className="text-2xl font-extrabold tracking-[-0.02em]">Reports</h1>
+          <p className="mt-1.5 text-base text-ink-muted">
             Generated business reports and analysis
           </p>
         </div>
@@ -204,7 +204,7 @@ export function Reports() {
         </div>
       </div>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <CardHeader
           title="Report Center"
           subtitle={
@@ -227,7 +227,7 @@ export function Reports() {
             <Spinner />
           </div>
         ) : library.isError ? (
-          <div className="px-5 py-8 text-center text-[13px] text-status-danger">
+          <div className="px-5 py-6 text-center text-base text-status-danger">
             Could not load the Report Center. {library.error.message}
           </div>
         ) : reports.length === 0 ? (
@@ -263,7 +263,7 @@ export function Reports() {
       </Card>
 
       {library.data && (
-        <div className="mt-3 text-[11px] leading-[1.5] text-ink-muted">
+        <div className="mt-3 text-xs leading-[1.5] text-ink-muted">
           Every row is a report that was generated from a module and stored with its
           artifacts. {library.data.owner_note}
         </div>
@@ -276,15 +276,15 @@ export function Reports() {
 
 function EmptyState({ filtered }: { filtered: boolean }) {
   return (
-    <div className="grid min-h-[220px] place-items-center px-6 py-10 text-center">
+    <div className="grid min-h-[160px] place-items-center px-6 py-7 text-center">
       <div className="max-w-[520px]">
         <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
           <Icon name="file" />
         </div>
-        <div className="text-sm font-bold text-ink-primary">
+        <div className="text-base font-bold text-ink-primary">
           {filtered ? 'No reports match these filters' : 'No reports generated yet'}
         </div>
-        <div className="mt-1 text-[12.5px] leading-[1.55] text-ink-secondary">
+        <div className="mt-1 text-base leading-[1.55] text-ink-secondary">
           {filtered
             ? 'Clear the module, format or search filter to see the whole Report Center.'
             : 'Generate a report from Command Center, Simulation Studio or Decision Center. It will be stored here, and you can download it as Excel or PDF.'}
@@ -314,21 +314,21 @@ function ReportRow({
         <span className="block truncate" title={report.name}>
           {report.name}
         </span>
-        <span className="block truncate text-[11px] font-normal text-ink-muted">
+        <span className="block truncate text-xs font-normal text-ink-muted">
           {report.title}
         </span>
       </Td>
       <Td className="whitespace-nowrap">
-        <span className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-[11px] font-bold text-brand-violet">
+        <span className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-xs font-bold text-brand-violet">
           {report.module_label}
         </span>
       </Td>
       <Td className="max-w-[240px]">
-        <span className="block truncate text-[12px]" title={report.scope_label}>
+        <span className="block truncate text-sm" title={report.scope_label}>
           {report.scope_label || '—'}
         </span>
       </Td>
-      <Td className="whitespace-nowrap text-[12px] tabular-nums">
+      <Td className="whitespace-nowrap text-sm tabular-nums">
         {report.preview?.generated_display || formatStamp(report.created_at)}
       </Td>
       <Td className="whitespace-nowrap">
@@ -434,7 +434,7 @@ function StatusPill({ report }: { report: ReportRecord }) {
     report.status === 'ready' ? 'Ready' : report.status === 'failed' ? 'Failed' : 'Generating'
   return (
     <span
-      className={`inline-flex items-center rounded-[var(--r-pill)] px-2 py-0.5 text-[11px] font-bold ${tone}`}
+      className={`inline-flex items-center rounded-[var(--r-pill)] px-2 py-0.5 text-xs font-bold ${tone}`}
       title={report.error ?? undefined}
     >
       {label}
@@ -462,10 +462,10 @@ function ReportPreviewModal({
       <div className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-brand-violet">
+            <div className="text-xs font-semibold uppercase tracking-[0.1em] text-brand-violet">
               TPO Intelligence · Report Center
             </div>
-            <div className="truncate text-[17px] font-extrabold text-ink-primary" title={report.name}>
+            <div className="truncate text-lg font-extrabold text-ink-primary" title={report.name}>
               {report.name}
             </div>
           </div>
@@ -490,20 +490,20 @@ function ReportPreviewModal({
         </div>
 
         {preview?.headline && (
-          <div className="rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[12.5px] font-semibold text-ink-primary">
+          <div className="rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-base font-semibold text-ink-primary">
             {preview.headline}
           </div>
         )}
 
         {preview?.empty_reason && (
-          <div className="rounded-[var(--r-md)] bg-status-warning-bg p-[10px_12px] text-[12px] text-ink-secondary">
+          <div className="rounded-[var(--r-md)] bg-status-warning-bg p-[10px_12px] text-sm text-ink-secondary">
             {preview.empty_reason}
           </div>
         )}
 
         {preview?.kpis?.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Key KPIs
             </div>
             <Table>
@@ -544,12 +544,12 @@ function ReportPreviewModal({
 
         {preview?.narrative?.length > 0 && (
           <div>
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Recommendation
             </div>
             <ul className="flex flex-col gap-1.5">
               {preview.narrative.map((line, i) => (
-                <li key={i} className="text-[12.5px] leading-[1.55] text-ink-secondary">
+                <li key={i} className="text-base leading-[1.55] text-ink-secondary">
                   {line}
                 </li>
               ))}
@@ -557,7 +557,7 @@ function ReportPreviewModal({
           </div>
         )}
 
-        <div className="border-t border-border-subtle pt-3 text-[11px] leading-[1.5] text-ink-muted">
+        <div className="border-t border-border-subtle pt-3 text-xs leading-[1.5] text-ink-muted">
           This preview is the summary stored when the report was generated. Download the
           Excel or PDF for the full report.
         </div>

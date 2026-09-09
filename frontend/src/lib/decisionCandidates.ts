@@ -42,7 +42,6 @@ const DIRECTION: Record<string, MetricDirection> = {
   margin_pct: 'higher',
   pei: 'higher',
   trade_spend: 'lower',
-  cannibalization: 'lower',
 }
 
 const LABEL: Record<string, string> = {
@@ -54,7 +53,6 @@ const LABEL: Record<string, string> = {
   margin_pct: 'Margin',
   pei: 'PEI',
   trade_spend: 'Trade Spend',
-  cannibalization: 'Cannibalization',
 }
 
 /** The simulation's KPI keys, mapped onto the shared vocabulary. The two
@@ -67,7 +65,6 @@ const SIM_KEYS: [SimulationKpiKey, string][] = [
   ['margin_percent', 'margin_pct'],
   ['incremental_units', 'incremental_units'],
   ['pei', 'pei'],
-  ['cannibalization', 'cannibalization'],
 ]
 
 function metric(
@@ -342,8 +339,8 @@ export interface CandidateRanking {
 
 export const RANKING_RULE =
   'Every metric that all compared scenarios report is ranked best to worst — higher for ' +
-  'incremental sales, revenue, units, ROI, margin and PEI, lower for trade spend and ' +
-  'cannibalization — and each scenario earns one point per scenario it beats. Bands are ' +
+  'incremental sales, revenue, units, ROI, margin and PEI, lower for trade spend — and each ' +
+  'scenario earns one point per scenario it beats. Bands are ' +
   'ranked at their LOW end, the same end Target Rescue decides on. Risk is not ranked: the ' +
   'risk engine computes no score, so there is no risk number to compare — the assessment is ' +
   'in Simulation Studio. Points are summed unweighted: no metric outranks another, and no figure is ' +

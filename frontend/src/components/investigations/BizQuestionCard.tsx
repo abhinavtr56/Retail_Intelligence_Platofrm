@@ -52,11 +52,11 @@ export function BizQuestionCard({
 function MetaItem({ icon, label, value }: { icon: Parameters<typeof Icon>[0]['name']; label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ink-muted [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:text-brand-violet">
+      <span className="inline-flex items-center gap-1 text-sm font-semibold text-ink-muted [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:text-brand-violet">
         <Icon name={icon} />
         {label}
       </span>
-      <span className="text-[15px] font-bold text-ink-primary">{value}</span>
+      <span className="text-md font-bold text-ink-primary">{value}</span>
     </div>
   )
 }

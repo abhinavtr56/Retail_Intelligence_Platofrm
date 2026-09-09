@@ -30,7 +30,7 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
   return (
     <header className="sticky top-0 z-10 flex h-[var(--topbar-h)] items-center gap-2 border-b border-border-subtle bg-surface-page pl-4 pr-4 sm:gap-4 sm:pl-8 sm:pr-7">
       {onMenuClick && <IconButton icon="menu" title="Menu" onClick={onMenuClick} className="-ml-1.5 md:hidden" />}
-      <div className="flex min-w-0 items-center gap-2 text-sm text-ink-muted">
+      <div className="flex min-w-0 items-center gap-2 text-base text-ink-muted">
         {crumbs.map((c, i) => {
           const isLast = i === crumbs.length - 1
           return (
@@ -77,7 +77,7 @@ export function Topbar({ crumbs = [], onMenuClick }: { crumbs?: Crumb[]; onMenuC
           onSelect={onAccountSelect}
           trigger={
             <div
-              className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-xs font-bold text-white"
+              className="ml-1 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-[#6B47FF] to-[#8C6EFF] text-sm font-bold text-white"
               title={user ? `${user.name} — signed in` : 'Not signed in'}
             >
               {user?.initials}

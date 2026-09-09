@@ -24,7 +24,7 @@ export interface PillProps {
 export function Pill({ tone = 'neutral', dot, pulse, children, className = '' }: PillProps) {
   return (
     <span
-      className={`inline-flex h-[22px] items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 text-[11px] font-semibold tracking-[0.01em] ${tones[tone]} ${className}`}
+      className={`inline-flex h-[22px] items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 text-xs font-semibold tracking-[0.01em] ${tones[tone]} ${className}`}
     >
       {dot && (
         <span

@@ -117,7 +117,7 @@ export function RiskAlertsPanel({
               aria-selected={on}
               disabled={counts[s] === 0}
               onClick={() => setSeverity(s)}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--r-md)] px-2.5 py-1 text-[11.5px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-[var(--r-md)] px-2.5 py-1 text-sm font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet disabled:cursor-not-allowed disabled:opacity-40 ${
                 on
                   ? 'bg-brand-violet text-white'
                   : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
@@ -131,7 +131,7 @@ export function RiskAlertsPanel({
       </div>
 
       {rows.length === 0 ? (
-        <div className="grid min-h-[120px] place-items-center px-4 text-center text-xs text-ink-muted">
+        <div className="grid min-h-[120px] place-items-center px-4 text-center text-sm text-ink-muted">
           No {active.toLowerCase()} alerts in this selection.
         </div>
       ) : (
@@ -149,7 +149,7 @@ export function RiskAlertsPanel({
               <button
                 type="button"
                 onClick={() => setListing(active)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-[var(--r-sm)] px-1.5 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet [&_svg]:h-3 [&_svg]:w-3"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-[var(--r-sm)] px-1.5 py-1 text-sm font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet [&_svg]:h-3 [&_svg]:w-3"
               >
                 View all {counts[active].toLocaleString()} {active.toLowerCase()} alerts
                 <Icon name="arrowRight" />
@@ -199,11 +199,14 @@ function AlertRow({
       </div>
 
       <div className="min-w-0">
-        <div className="truncate text-[13px] font-bold text-ink-primary">{promotionOf(a)}</div>
-        <div className="mt-0.5 truncate text-[11.5px] text-ink-muted">
+        <div className="truncate text-base font-bold text-ink-primary">{promotionOf(a)}</div>
+        <div
+          className="mt-0.5 truncate text-sm text-ink-muted"
+          title={`${a.product} · ${a.channel} · ${a.week}`}
+        >
           {a.product} · {a.channel} · {a.week}
         </div>
-        <div className="mt-1 flex items-center gap-2.5 text-[11px] tabular-nums">
+        <div className="mt-1 flex items-center gap-2.5 text-xs tabular-nums">
           <span className={roi < 0 ? 'font-bold text-status-danger' : 'font-bold text-ink-primary'}>
             ROI {roi.toFixed(1)}%
           </span>
@@ -213,7 +216,7 @@ function AlertRow({
 
       <div className="flex shrink-0 flex-col items-end gap-1">
         <Pill tone={a.tone}>{a.severity}</Pill>
-        <span className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
+        <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
           Ask why
           <Icon name="arrowRight" />
         </span>
@@ -250,8 +253,8 @@ function SeverityListModal({
         <>
           <div className="flex items-center justify-between border-b border-border-subtle p-[16px_20px]">
             <div>
-              <h3 className="text-[15px] font-bold">{severity} risk alerts</h3>
-              <div className="mt-0.5 text-xs text-ink-muted">
+              <h3 className="text-md font-bold">{severity} risk alerts</h3>
+              <div className="mt-0.5 text-sm text-ink-muted">
                 {/* The cap is named, not hidden: a band of several hundred
                     events would otherwise read as though it held only these. */}
                 {shown.length < total

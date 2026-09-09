@@ -202,11 +202,11 @@ export function CommandCenter() {
           <div className="cc-ambient" aria-hidden="true" />
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h1 className="text-[30px] font-extrabold leading-[1.1] tracking-[-0.025em]">TPO Command Center</h1>
-              <p className="mt-1.5 text-sm text-ink-muted">Loading the latest promotion performance…</p>
+              <h1 className="text-2xl font-extrabold leading-[1.1] tracking-[-0.025em]">TPO Command Center</h1>
+              <p className="mt-1.5 text-base text-ink-muted">Loading the latest promotion performance…</p>
             </div>
           </div>
-          <div className="mt-[18px]">
+          <div className="mt-[14px]">
             <TpoKpiGrid>
               {KPI_ORDER.map((key, i) => (
                 <KpiSkeleton key={key} delayMs={i * 50} />
@@ -304,10 +304,10 @@ export function CommandCenter() {
       <div className="fade-in relative z-20 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-[30px] font-extrabold tracking-[-0.025em] leading-[1.1]">TPO Command Center</h1>
+            <h1 className="text-2xl font-extrabold tracking-[-0.025em] leading-[1.1]">TPO Command Center</h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             Real-time overview of promotions, performance and risks · {calendarYear(meta.period)}
           </p>
         </div>
@@ -328,7 +328,7 @@ export function CommandCenter() {
       </div>
 
       {isEmpty ? (
-        <Card className="mt-[18px]">
+        <Card className="mt-[14px]">
           <CcEmptyState
             hint="Try removing a filter, or clear them all to return to the full scope."
             onClear={reset}
@@ -337,7 +337,7 @@ export function CommandCenter() {
       ) : (
       <>
       <Stale when={refreshing}>
-      <div className="mt-[18px]">
+      <div className="mt-[14px]">
         <TpoKpiGrid>
           {KPI_ORDER.map((key, i) => {
             const card: KpiCard | undefined = kpis.data.kpis[key]
@@ -452,7 +452,7 @@ export function CommandCenter() {
             actions={
               <div className="flex items-center gap-2">
                 {counts && (
-                  <span className="text-[11px] font-semibold text-ink-muted">
+                  <span className="text-xs font-semibold text-ink-muted">
                     {counts.target_achieved} of {counts.total_events} at target
                   </span>
                 )}
@@ -570,7 +570,7 @@ export function CommandCenter() {
                           e.stopPropagation()
                           handOffPromotion(p)
                         }}
-                        className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-[11.5px] font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
+                        className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-sm font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
                       >
                         Ask why
                         <Icon name="arrowRight" />
@@ -617,7 +617,7 @@ export function CommandCenter() {
 
 function LegendItem({ swatch, label }: { swatch: React.ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-secondary">
       {swatch}
       {label}
     </span>
@@ -627,5 +627,5 @@ function LegendItem({ swatch, label }: { swatch: React.ReactNode; label: string 
 /** Shown when a filter combination genuinely has no data. Saying so is the
  *  point — the alternative is a chart of zeros that reads as a real result. */
 function EmptyState({ message }: { message: string }) {
-  return <div className="grid min-h-[120px] place-items-center px-4 text-center text-xs text-ink-muted">{message}</div>
+  return <div className="grid min-h-[120px] place-items-center px-4 text-center text-sm text-ink-muted">{message}</div>
 }

@@ -37,8 +37,8 @@ export function AdvisorCard() {
           <Icon name="sparkles" />
         </div>
         <div>
-          <h3 className="text-[14.5px]">Not sure which module to use?</h3>
-          <p className="mt-0.5 text-[11.5px] text-ink-muted">
+          <h3 className="text-base">Not sure which module to use?</h3>
+          <p className="mt-0.5 text-sm text-ink-muted">
             {apiKey ? "Tell the advisor what data you have and what you're trying to do." : 'Describe your data and goal — the advisor suggests which capability fits.'}
           </p>
         </div>
@@ -74,11 +74,11 @@ function AdvisorKeySetup({ onReady }: { onReady: (key: string) => void }) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      {error && <div className="rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-[12.5px] text-[#B91C1C]">{error}</div>}
+      {error && <div className="rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-base text-[#B91C1C]">{error}</div>}
       <Field label="OpenAI API key">
         <Input type="password" value={key} onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} placeholder="sk-..." />
       </Field>
-      <div className="flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
+      <div className="flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
         <Icon name="info" />
         <span>Routed through the app's own backend, same as the other connectors. Kept in this browser tab only — sent to the backend, then straight to OpenAI.</span>
       </div>
@@ -130,7 +130,7 @@ function AdvisorChat({ apiKey, onReset }: { apiKey: string; onReset: () => void 
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : ''}`}>
             <div
-              className={`max-w-[82%] rounded-[14px] px-[13px] py-[9px] text-[12.5px] leading-[1.55] [white-space:pre-wrap] ${
+              className={`max-w-[82%] rounded-[14px] px-[13px] py-[9px] text-base leading-[1.55] [white-space:pre-wrap] ${
                 m.role === 'user'
                   ? 'rounded-br-[4px] bg-brand-violet text-white'
                   : `rounded-bl-[4px] bg-surface-muted text-ink-primary ${m.loading ? 'italic text-ink-muted' : ''}`
@@ -153,7 +153,7 @@ function AdvisorChat({ apiKey, onReset }: { apiKey: string; onReset: () => void 
           }}
           rows={1}
           placeholder="e.g. I have 2 years of weekly sell-out by SKU and store, and I want to know how much stock to hold next quarter…"
-          className="min-h-10 max-h-[100px] flex-1 resize-none rounded-[var(--r-md)] border border-border-default bg-surface-card px-3 py-2 text-[13px] text-ink-primary outline-none focus:border-brand-violet focus:shadow-[0_0_0_3px_rgba(124,92,255,0.12)]"
+          className="min-h-10 max-h-[100px] flex-1 resize-none rounded-[var(--r-md)] border border-border-default bg-surface-card px-3 py-2 text-base text-ink-primary outline-none focus:border-brand-violet focus:shadow-[0_0_0_3px_rgba(124,92,255,0.12)]"
         />
         <button
           onClick={send}
@@ -163,7 +163,7 @@ function AdvisorChat({ apiKey, onReset }: { apiKey: string; onReset: () => void 
           <Icon name="arrowRight" />
         </button>
       </div>
-      <button onClick={onReset} className="flex items-center gap-1 self-start text-[11px] text-ink-muted hover:text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
+      <button onClick={onReset} className="flex items-center gap-1 self-start text-xs text-ink-muted hover:text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
         <Icon name="x" /> Forget API key &amp; reset
       </button>
     </>

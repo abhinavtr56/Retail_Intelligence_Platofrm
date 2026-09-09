@@ -309,7 +309,7 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
                 <button
                   type="button"
                   onClick={() => setControl('targetUnits', scope.data?.reference_target?.units ?? null)}
-                  className="mt-1.5 cursor-pointer text-left text-[11px] leading-[1.45] text-brand-violet hover:underline"
+                  className="mt-1.5 cursor-pointer text-left text-xs leading-[1.45] text-brand-violet hover:underline"
                 >
                   Use {scope.data.reference_target.year} actual:{' '}
                   {scope.data.reference_target.units_display} units
@@ -318,7 +318,7 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
                   </span>
                 </button>
               ) : (
-                <div className="mt-1.5 text-[11px] leading-[1.45] text-ink-muted">
+                <div className="mt-1.5 text-xs leading-[1.45] text-ink-muted">
                   {scope.data?.reference_target?.unavailable_reason ?? 'Enter the monthly unit target.'}
                 </div>
               )}
@@ -363,10 +363,10 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
               />
             ) : (
               <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+                <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
                   Max Additional Trade Spend
                 </div>
-                <div className="mt-2 text-[11.5px] leading-[1.5] text-ink-muted">
+                <div className="mt-2 text-sm leading-[1.5] text-ink-muted">
                   {budget?.unavailable_reason ??
                     'Unavailable until this scope has a measured historical trade spend. No ceiling is invented for it.'}
                 </div>
@@ -379,7 +379,7 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
                 assembled here, so the screen and the API can never describe the
                 same scope two different ways. Every level is named even when
                 unconstrained — "All products" rather than silence. */}
-            <div className="max-w-[560px] text-[11.5px] leading-[1.45] text-ink-muted">
+            <div className="max-w-[560px] text-sm leading-[1.45] text-ink-muted">
               {scope.isPending ? (
                 'Measuring the selected scope…'
               ) : scope.data ? (
@@ -417,7 +417,7 @@ export function TargetRescue({ options }: { options: FiltersResponse | undefined
       {evaluate.isPending && (
         <Card className="fade-in">
           <CardBody>
-            <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 text-sm text-ink-muted">
+            <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 text-base text-ink-muted">
               <Spinner />
               <span>Evaluating target…</span>
             </div>
@@ -462,8 +462,8 @@ function Result({
               <Icon name="alertTriangle" />
             </div>
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-ink-primary">No data for this month</div>
-              <div className="mt-1 text-[12.5px] leading-[1.5] text-ink-secondary">{result.message}</div>
+              <div className="text-base font-bold text-ink-primary">No data for this month</div>
+              <div className="mt-1 text-base leading-[1.5] text-ink-secondary">{result.message}</div>
             </div>
           </div>
         </CardBody>
@@ -604,13 +604,13 @@ function Result({
           <CardBody>
             <ul className="flex flex-col gap-2">
               {result.evidence.map((line, i) => (
-                <li key={i} className="flex gap-2.5 text-[12.5px] leading-[1.55] text-ink-secondary">
+                <li key={i} className="flex gap-2.5 text-base leading-[1.55] text-ink-secondary">
                   <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-brand-violet" />
                   <span>{line}</span>
                 </li>
               ))}
             </ul>
-            <div className="mt-4 border-t border-border-subtle pt-3 text-[11px] leading-[1.5] text-ink-muted">
+            <div className="mt-4 border-t border-border-subtle pt-3 text-xs leading-[1.5] text-ink-muted">
               {result.provenance.decision_rule} {result.provenance.cannibalization}
             </div>
           </CardBody>
@@ -719,7 +719,7 @@ function RecommendationCard({
             </div>
           </>
         ) : (
-          <div className="text-[15px] font-extrabold text-ink-primary">
+          <div className="text-md font-extrabold text-ink-primary">
             {chosen?.kind === 'maintain'
               ? 'Maintain current treatment'
               : status?.final
@@ -728,10 +728,10 @@ function RecommendationCard({
           </div>
         )}
 
-        <div className="mt-3 text-[12.5px] leading-[1.55] text-ink-secondary">{rec?.reason}</div>
+        <div className="mt-3 text-base leading-[1.55] text-ink-secondary">{rec?.reason}</div>
 
         {chosen?.level_note && (
-          <div className="mt-2 text-[11.5px] leading-[1.5] text-ink-muted">{chosen.level_note}</div>
+          <div className="mt-2 text-sm leading-[1.5] text-ink-muted">{chosen.level_note}</div>
         )}
         {current?.no_stronger_reason && (
           <Callout icon="alertTriangle">{current.no_stronger_reason}</Callout>
@@ -750,12 +750,12 @@ function RecommendationCard({
             <Button variant="secondary" onClick={onReview} disabled={reviewPending}>
               {reviewPending ? <>Running…</> : <><Icon name="play" /> Review Scenario</>}
             </Button>
-            <span className="text-[11px] leading-[1.5] text-ink-muted">
+            <span className="text-xs leading-[1.5] text-ink-muted">
               {reviewed
                 ? `Reviewed: ${reviewed.treatment} at ${reviewed.discount}% executed over this scope by the existing simulation engine. Nothing was created or activated.`
                 : 'Executes the recommended treatment over this scope with the existing simulation engine, for review. It creates no promotion and changes no plan.'}
             </span>
-            {reviewError && <span className="text-[11px] text-status-danger">{reviewError}</span>}
+            {reviewError && <span className="text-xs text-status-danger">{reviewError}</span>}
           </div>
         )}
       </CardBody>
@@ -812,7 +812,7 @@ function ComparisonCard({ result }: { result: TargetRescueResponse }) {
           </tbody>
         </Table>
       </div>
-      <div className="border-t border-border-subtle px-5 py-3 text-[11px] leading-[1.5] text-ink-muted">
+      <div className="border-t border-border-subtle px-5 py-3 text-xs leading-[1.5] text-ink-muted">
         {result.provenance.decision_rule}
       </div>
     </Card>
@@ -835,12 +835,12 @@ function LadderRow({ row, recommended }: { row: Intervention; recommended: boole
           // NOT "0%" — the maintain rung is the remaining weeks as recorded, and
           // it ran at whatever depth the data holds. Saying so is different from
           // saying it ran at nothing.
-          <span className="text-[11.5px] text-ink-muted">
+          <span className="text-sm text-ink-muted">
             Current{row.measured_depth_pct != null ? ` · measured ${row.measured_depth_display}` : ''}
           </span>
         ) : (
           <span
-            className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-[11px] font-bold tabular-nums text-brand-violet"
+            className="inline-flex items-center rounded-[var(--r-pill)] bg-brand-violet-50 px-2 py-0.5 text-xs font-bold tabular-nums text-brand-violet"
             title={`${row.treatment} · approved uplift ${(row.uplift.low * 100).toFixed(0)}–${(row.uplift.high * 100).toFixed(0)}%`}
           >
             {row.mechanic ? `${row.mechanic} · ${row.discount_display}` : row.discount_display}
@@ -864,13 +864,13 @@ function LadderRow({ row, recommended }: { row: Intervention; recommended: boole
       <Td className="whitespace-nowrap text-right tabular-nums">{row.margin_display}</Td>
       <Td className="whitespace-nowrap">
         {row.by_week.length === 0 ? (
-          <span className="text-[11px] text-ink-muted">No remaining week</span>
+          <span className="text-xs text-ink-muted">No remaining week</span>
         ) : (
           <span className="flex flex-wrap gap-1">
             {row.by_week.map((week) => (
               <span
                 key={week.week_key}
-                className="inline-flex items-center rounded-[var(--r-sm)] bg-surface-muted px-1.5 py-0.5 text-[10.5px] font-semibold text-ink-secondary"
+                className="inline-flex items-center rounded-[var(--r-sm)] bg-surface-muted px-1.5 py-0.5 text-xs font-semibold text-ink-secondary"
                 title={
                   `${week.week_key} · ${week.units.display} units` +
                   (week.promotion_ids.length
@@ -902,7 +902,7 @@ function LadderRow({ row, recommended }: { row: Intervention; recommended: boole
 function CadenceBadge({ cadence }: { cadence: CadenceBlock }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.04em] ${CADENCE_TONE}`}
+      className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-xs font-extrabold uppercase tracking-[0.04em] ${CADENCE_TONE}`}
       title={`${cadence.checkpoint_rule} ${cadence.basis}`}
     >
       <Icon name="calendar" className="h-3 w-3" />
@@ -964,11 +964,11 @@ function CheckpointPicker({
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+        <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
           Checkpoint
         </div>
         {resolved && (
-          <span className="text-[10.5px] tabular-nums text-ink-muted">
+          <span className="text-xs tabular-nums text-ink-muted">
             week {resolved.checkpoint_week} of {resolved.weeks_total}
           </span>
         )}
@@ -987,7 +987,7 @@ function CheckpointPicker({
           </Button>
         }
       />
-      <div className="mt-1.5 text-[11px] leading-[1.45] text-ink-muted">
+      <div className="mt-1.5 text-xs leading-[1.45] text-ink-muted">
         {resolved
           ? `${resolved.note} Auto: ${resolved.auto_rule.toLowerCase()}.`
           : (cadence?.checkpoint_rule ?? 'Select a month to list its business weeks.')}
@@ -1014,7 +1014,7 @@ function Picker({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
       <Dropdown
         selected={value}
         options={options.map((o) => ({ label: o }))}
@@ -1026,7 +1026,7 @@ function Picker({
           </Button>
         }
       />
-      {hint && <div className="mt-1.5 text-[11px] leading-[1.45] text-ink-muted">{hint}</div>}
+      {hint && <div className="mt-1.5 text-xs leading-[1.45] text-ink-muted">{hint}</div>}
     </div>
   )
 }
@@ -1034,11 +1034,11 @@ function Picker({
 function Stat({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div className="rounded-[var(--r-lg)] border border-border-subtle bg-surface-muted p-[12px_14px]">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
-      <div className="mt-1.5 truncate text-[15px] font-extrabold leading-[1.2] tabular-nums text-ink-primary" title={value}>
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="mt-1.5 truncate text-md font-extrabold leading-[1.2] tabular-nums text-ink-primary" title={value}>
         {value}
       </div>
-      <div className="mt-0.5 truncate text-[10.5px] text-ink-muted" title={unit}>
+      <div className="mt-0.5 truncate text-xs text-ink-muted" title={unit}>
         {unit}
       </div>
     </div>
@@ -1048,11 +1048,11 @@ function Stat({ label, value, unit }: { label: string; value: string; unit: stri
 function Mini({ label, value, unit }: { label: string; value: string; unit: string }) {
   return (
     <div>
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
-      <div className="mt-1 truncate text-[14px] font-extrabold tabular-nums text-ink-primary" title={value}>
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="mt-1 truncate text-base font-extrabold tabular-nums text-ink-primary" title={value}>
         {value}
       </div>
-      {unit && <div className="text-[10.5px] text-ink-muted">{unit}</div>}
+      {unit && <div className="text-xs text-ink-muted">{unit}</div>}
     </div>
   )
 }
@@ -1064,7 +1064,7 @@ function Line({ label, value, note }: { label: string; value: string; note: stri
         <span className="text-ink-muted">{label}</span>
         <span className="font-bold tabular-nums text-ink-primary">{value}</span>
       </div>
-      {note && <div className="mt-0.5 text-[11px] leading-[1.45] text-ink-muted">{note}</div>}
+      {note && <div className="mt-0.5 text-xs leading-[1.45] text-ink-muted">{note}</div>}
     </div>
   )
 }
@@ -1081,7 +1081,7 @@ function StatusBadge({ status }: { status: TargetRescueResponse['target_status']
         : 'bg-status-danger-bg text-status-danger'
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.03em] ${tone}`}
+      className={`inline-flex items-center gap-1.5 rounded-[var(--r-pill)] px-2.5 py-1 text-xs font-extrabold uppercase tracking-[0.03em] ${tone}`}
       title={status.thresholds.basis}
     >
       {status.label}
@@ -1107,7 +1107,7 @@ function Callout({ icon, children }: { icon: 'info' | 'alertTriangle'; children:
   return (
     <div className="mt-3 flex gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px]">
       <Icon name={icon} className="mt-[1px] h-3.5 w-3.5 shrink-0 text-ink-muted" />
-      <div className="text-[11.5px] leading-[1.5] text-ink-muted">{children}</div>
+      <div className="text-sm leading-[1.5] text-ink-muted">{children}</div>
     </div>
   )
 }
@@ -1121,8 +1121,8 @@ function Problem({ title, detail }: { title: string; detail: string }) {
             <Icon name="warning" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-bold text-ink-primary">{title}</div>
-            <div className="mt-1 break-words text-[12.5px] text-ink-secondary">{detail}</div>
+            <div className="text-base font-bold text-ink-primary">{title}</div>
+            <div className="mt-1 break-words text-base text-ink-secondary">{detail}</div>
           </div>
         </div>
       </CardBody>

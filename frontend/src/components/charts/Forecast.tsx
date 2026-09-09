@@ -16,7 +16,7 @@ export function Forecast({
   current,
   optimized,
   band,
-  height = 280,
+  height = 250,
 }: {
   weeks: string[]
   baseline: number[]

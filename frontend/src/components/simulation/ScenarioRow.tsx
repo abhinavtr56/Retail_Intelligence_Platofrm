@@ -16,12 +16,10 @@ export function ScenarioRow({
   scenarios,
   activeId,
   onSelect,
-  onAdd,
 }: {
   scenarios: ScenarioState[]
   activeId: string
   onSelect: (id: string) => void
-  onAdd: () => void
 }) {
   return (
     <div className="fade-in grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3">
@@ -39,22 +37,15 @@ export function ScenarioRow({
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="truncate text-[13px] font-bold text-ink-primary">{scenario.name}</div>
-                <div className="truncate text-[11px] text-ink-muted">{scenario.sub_label}</div>
+                <div className="truncate text-base font-bold text-ink-primary">{scenario.name}</div>
+                <div className="truncate text-xs text-ink-muted">{scenario.sub_label}</div>
               </div>
               <StatusPill scenario={scenario} />
             </div>
-            <div className="text-[11px] leading-[1.45] text-ink-muted">{summary(scenario)}</div>
+            <div className="text-xs leading-[1.45] text-ink-muted">{summary(scenario)}</div>
           </button>
         )
       })}
-
-      <button
-        onClick={onAdd}
-        className="inline-flex items-center justify-center gap-1.5 rounded-[var(--r-lg)] border-[1.5px] border-dashed border-border-strong bg-transparent p-[14px_16px] text-[12.5px] font-semibold text-ink-muted transition-colors hover:border-brand-violet hover:text-brand-violet [&_svg]:h-3.5 [&_svg]:w-3.5"
-      >
-        <Icon name="plus" /> Add Scenario
-      </button>
     </div>
   )
 }
@@ -106,7 +97,7 @@ function Pill({ tone, children }: { tone: 'success' | 'muted' | 'danger'; childr
   }[tone]
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] [&_svg]:h-2.5 [&_svg]:w-2.5 ${styles}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] [&_svg]:h-2.5 [&_svg]:w-2.5 ${styles}`}
     >
       {children}
     </span>

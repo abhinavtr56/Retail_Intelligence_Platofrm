@@ -43,7 +43,7 @@ function InfoDot({ info, unit }: { info: KpiInfo; unit?: string }) {
   return (
     <InfoPopover label={`About ${info.name}`} title={info.name}>
       <InfoBlock label="Formula">{info.formula}</InfoBlock>
-      {unitLabel && <div className="mt-1.5 text-[10.5px] text-ink-muted">{unitLabel}</div>}
+      {unitLabel && <div className="mt-1.5 text-xs text-ink-muted">{unitLabel}</div>}
     </InfoPopover>
   )
 }
@@ -116,13 +116,13 @@ export function TpoKpiTile({
         <Icon name={icon} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1 pr-5 text-xs font-medium leading-tight text-ink-muted transition-colors duration-[220ms] group-hover/kpi:text-brand-violet">
+        <div className="flex items-center gap-1 pr-4 text-sm font-medium leading-tight text-ink-muted transition-colors duration-[220ms] group-hover/kpi:text-brand-violet">
           <span className="truncate">{label}</span>
         </div>
-        <div className="mt-2.5 text-[21px] font-bold leading-[1.15] tracking-[-0.015em] text-ink-primary opacity-90 transition-opacity duration-[220ms] group-hover/kpi:opacity-100 [font-variant-numeric:tabular-nums]">
+        <div className="mt-2.5 text-xl font-bold leading-[1.15] tracking-[-0.015em] text-ink-primary opacity-90 transition-opacity duration-[220ms] group-hover/kpi:opacity-100 [font-variant-numeric:tabular-nums]">
           {value}
         </div>
-        <div className="mt-2.5 inline-flex items-center gap-1 text-[11.5px] text-ink-muted [&_svg]:h-3 [&_svg]:w-3">
+        <div className="mt-2.5 inline-flex items-center gap-1 text-sm text-ink-muted [&_svg]:h-3 [&_svg]:w-3">
           {trend && <Icon name={trend === 'up' ? 'arrowUp' : 'arrowDown'} className={tone} />}
           <span>
             <strong className={`font-bold ${tone}`}>{delta}</strong> {deltaSub}

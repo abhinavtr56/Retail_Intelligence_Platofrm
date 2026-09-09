@@ -108,7 +108,7 @@ export function PromotionMixCard({
                   role="radio"
                   aria-checked={metric === m.key}
                   onClick={() => setMetric(m.key)}
-                  className={`cursor-pointer px-2 text-[11px] font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+                  className={`cursor-pointer px-2 text-xs font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
                     metric === m.key
                       ? 'bg-brand-violet text-white'
                       : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'

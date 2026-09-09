@@ -28,18 +28,18 @@ function EventRow({ event }: { event: UpcomingEvent }) {
         className="grid h-10 w-10 shrink-0 place-items-center rounded-[var(--r-sm)]"
         style={{ background: tone.tint }}
       >
-        <span className="text-[13px] font-extrabold leading-none tabular-nums" style={{ color: tone.solid }}>
+        <span className="text-base font-extrabold leading-none tabular-nums" style={{ color: tone.solid }}>
           {day}
         </span>
-        <span className="mt-0.5 text-[8.5px] font-bold leading-none tracking-wide" style={{ color: tone.solid }}>
+        <span className="mt-0.5 text-2xs font-bold leading-none tracking-wide" style={{ color: tone.solid }}>
           {month}
         </span>
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] font-bold text-ink-primary" title={event.name}>
+        <p className="truncate text-sm font-bold text-ink-primary" title={event.name}>
           {event.name}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px]">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           {/* Labelled as well as coloured — the status is never colour-only. */}
           <span
             className="rounded-full px-1.5 py-px font-bold uppercase tracking-wide"
@@ -111,7 +111,7 @@ export function UpcomingEventsPanel({
             <button
               type="button"
               onClick={onToggleExpanded}
-              className="shrink-0 cursor-pointer border-t border-border-subtle px-5 py-2.5 text-[11.5px] font-semibold text-brand-violet transition-colors hover:bg-surface-hover"
+              className="shrink-0 cursor-pointer border-t border-border-subtle px-5 py-2.5 text-sm font-semibold text-brand-violet transition-colors hover:bg-surface-hover"
             >
               {expanded ? 'Show less' : `View more events (${total})`}
             </button>

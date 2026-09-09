@@ -118,7 +118,7 @@ export function AzureModal({
         <div className="mt-3.5">
           {view === 'list' && containers && (
             <>
-              <div className="mb-2 text-xs text-ink-muted">
+              <div className="mb-2 text-sm text-ink-muted">
                 {containers.length} container{containers.length === 1 ? '' : 's'} found — click one to preview its files
               </div>
               <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
@@ -126,14 +126,14 @@ export function AzureModal({
                   <button
                     key={c.name}
                     onClick={() => openContainer(c.name)}
-                    className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-[12.5px] font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
+                    className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
                   >
                     <Icon name="folder" className="h-4 w-4 text-ink-muted" />
                     <span className="flex-1">{c.name}</span>
                     <Icon name="chevronRight" className="h-4 w-4 text-ink-muted" />
                   </button>
                 ))}
-                {!containers.length && <div className="text-xs text-ink-muted">No containers visible to this SAS token.</div>}
+                {!containers.length && <div className="text-sm text-ink-muted">No containers visible to this SAS token.</div>}
               </div>
             </>
           )}
@@ -141,20 +141,20 @@ export function AzureModal({
           {view && typeof view === 'object' && (
             <>
               <Breadcrumb label="All containers" onClick={() => setView('list')} />
-              <div className="mb-2 text-xs text-ink-muted">
+              <div className="mb-2 text-sm text-ink-muted">
                 {view.container} · {loadingBlobs ? 'loading…' : `${view.blobs.length} file${view.blobs.length === 1 ? '' : 's'}`}
               </div>
               <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
                 {view.blobs.slice(0, 50).map((b) => (
-                  <div key={b.name} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-[12.5px] font-medium">
+                  <div key={b.name} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-base font-medium">
                     <Icon name="file" className="h-4 w-4 shrink-0 text-ink-muted" />
                     <span className="min-w-0 flex-1 truncate">{b.name}</span>
                     <span className="shrink-0 text-ink-muted">{fmtSize(b.size)}</span>
                   </div>
                 ))}
-                {!view.blobs.length && <div className="text-xs text-ink-muted">This container is empty.</div>}
+                {!view.blobs.length && <div className="text-sm text-ink-muted">This container is empty.</div>}
               </div>
-              {view.blobs.length > 50 && <div className="mt-1.5 text-xs text-ink-muted">+ {view.blobs.length - 50} more not shown</div>}
+              {view.blobs.length > 50 && <div className="mt-1.5 text-sm text-ink-muted">+ {view.blobs.length - 50} more not shown</div>}
             </>
           )}
         </div>

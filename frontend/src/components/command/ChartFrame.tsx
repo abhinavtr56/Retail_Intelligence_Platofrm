@@ -25,7 +25,7 @@ export function ChartFrame({
   isEmpty,
   emptyMessage,
   footnote,
-  height = 240,
+  height = 210,
   children,
 }: {
   title: ReactNode
@@ -70,7 +70,7 @@ export function ChartFrame({
             {title}
             {hint && (
               <InfoPopover label={`About ${typeof title === 'string' ? title : 'this chart'}`} title="What this shows">
-                <p className="mt-1.5 text-[11px] leading-snug text-ink-secondary">{hint}</p>
+                <p className="mt-1.5 text-xs leading-snug text-ink-secondary">{hint}</p>
               </InfoPopover>
             )}
           </span>
@@ -95,7 +95,7 @@ export function ChartFrame({
           </Stale>
         )}
         {!error && !isLoading && !isEmpty && footnote && (
-          <p className="mt-2 text-[11px] text-ink-muted">{footnote}</p>
+          <p className="mt-2 text-xs text-ink-muted">{footnote}</p>
         )}
       </CardBody>
     </Card>
@@ -105,7 +105,7 @@ export function ChartFrame({
 /** Top-N selector. 5 / 10 / 15 per the approved plan. */
 export function TopNSelect({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
-    <div className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
+    <div className="inline-flex items-center gap-1 text-xs text-ink-muted">
       <span>Top</span>
       <div className="inline-flex overflow-hidden rounded-[var(--r-sm)] border border-border-subtle">
         {[5, 10, 15].map((n) => (

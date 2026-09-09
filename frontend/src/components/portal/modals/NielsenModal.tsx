@@ -137,9 +137,9 @@ export function NielsenModal({
             {records ? (
               records.length ? (
                 <>
-                  <div className="mb-1.5 text-xs text-ink-muted">{records.length} record{records.length === 1 ? '' : 's'} returned</div>
+                  <div className="mb-1.5 text-sm text-ink-muted">{records.length} record{records.length === 1 ? '' : 's'} returned</div>
                   <div className="max-h-[220px] overflow-auto rounded-[var(--r-md)] border border-border-subtle">
-                    <table className="w-full border-collapse text-[11.5px]">
+                    <table className="w-full border-collapse text-sm">
                       <thead>
                         <tr>
                           {keys.map((k) => (
@@ -164,13 +164,13 @@ export function NielsenModal({
                   </div>
                 </>
               ) : (
-                <div className="text-xs text-ink-muted">No records returned.</div>
+                <div className="text-sm text-ink-muted">No records returned.</div>
               )
             ) : (
               <>
-                <div className="mb-1.5 text-xs text-ink-muted">Response received — not a record list, showing raw JSON:</div>
+                <div className="mb-1.5 text-sm text-ink-muted">Response received — not a record list, showing raw JSON:</div>
                 <div className="rounded-[var(--r-md)] border border-border-subtle p-2.5">
-                  <pre className="whitespace-pre-wrap break-all text-[11px]">{JSON.stringify(raw, null, 2).slice(0, 2000)}</pre>
+                  <pre className="whitespace-pre-wrap break-all text-xs">{JSON.stringify(raw, null, 2).slice(0, 2000)}</pre>
                 </div>
               </>
             )}

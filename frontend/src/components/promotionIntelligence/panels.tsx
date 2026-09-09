@@ -42,7 +42,7 @@ const STATUS_LABEL = {
 export function DimensionTable({ title, rows, nameHeader }: { title: string; rows: DimensionRow[]; nameHeader: string }) {
   return (
     <Card className="fade-in">
-      <CardHeader title={title} actions={<span className="text-xs text-ink-muted">{rows.length} shown</span>} />
+      <CardHeader title={title} actions={<span className="text-sm text-ink-muted">{rows.length} shown</span>} />
       <div className="overflow-x-auto">
         <Table>
           <thead>
@@ -90,7 +90,7 @@ export function TrendVsTarget({ trend, height = 230 }: { trend: TrendFacts; heig
   const innerH = Math.max(1, height - padT - padB)
 
   const vals = [...trend.actual, ...trend.target].filter((v): v is number => v != null)
-  if (!vals.length) return <div className="grid h-[180px] place-items-center text-sm text-ink-muted">No trend data.</div>
+  if (!vals.length) return <div className="grid h-[180px] place-items-center text-base text-ink-muted">No trend data.</div>
   const maxV = Math.max(...vals) * 1.12
   const n = Math.max(1, trend.labels.length - 1)
   const x = (i: number) => padL + (i / n) * innerW
@@ -132,7 +132,7 @@ export function TrendVsTarget({ trend, height = 230 }: { trend: TrendFacts; heig
           </text>
         ))}
       </svg>
-      <div className="mt-1.5 flex flex-wrap items-center gap-4 px-1 text-[11px] text-ink-muted">
+      <div className="mt-1.5 flex flex-wrap items-center gap-4 px-1 text-xs text-ink-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 bg-brand-violet" /> Actual incremental sales
         </span>
@@ -181,11 +181,11 @@ export function DriversPanel({ drivers }: { drivers: AnalysisDriver[] }) {
       {drivers.map((d) => (
         <div key={d.driver}>
           <div className="mb-1 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <span className="flex items-center gap-2 text-base font-semibold">
               {d.is_primary && <Pill tone="violet">Primary</Pill>}
               {d.driver}
             </span>
-            <span className="shrink-0 text-[12.5px] font-extrabold [font-variant-numeric:tabular-nums]">{d.weight_pct}%</span>
+            <span className="shrink-0 text-base font-extrabold [font-variant-numeric:tabular-nums]">{d.weight_pct}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-[3px] bg-surface-muted">
             <div
@@ -196,7 +196,7 @@ export function DriversPanel({ drivers }: { drivers: AnalysisDriver[] }) {
               }}
             />
           </div>
-          <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-muted">{d.note}</div>
+          <div className="mt-1 text-sm leading-[1.5] text-ink-muted">{d.note}</div>
         </div>
       ))}
     </div>
@@ -274,7 +274,7 @@ export function RecommendationsPanel({
           />
           <ul className="flex flex-col gap-2 p-[14px_18px]">
             {doNotDo.map((d, i) => (
-              <li key={i} className="flex items-start gap-2 text-[12.5px] leading-[1.55] text-ink-secondary">
+              <li key={i} className="flex items-start gap-2 text-base leading-[1.55] text-ink-secondary">
                 <Icon name="x" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-danger" />
                 <span>{d}</span>
               </li>
@@ -284,7 +284,7 @@ export function RecommendationsPanel({
       )}
 
       {combined && (
-        <div className="rounded-[var(--r-md)] bg-surface-muted p-[12px_16px] text-[12.5px] leading-[1.55] text-ink-secondary">
+        <div className="rounded-[var(--r-md)] bg-surface-muted p-[12px_16px] text-base leading-[1.55] text-ink-secondary">
           <span className="font-bold text-ink-primary">Combined effect: </span>
           {combined}
         </div>

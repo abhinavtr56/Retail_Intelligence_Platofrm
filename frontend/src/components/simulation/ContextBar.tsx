@@ -35,10 +35,10 @@ export function ContextBar({
   return (
     <div className="rounded-[var(--r-lg)] border border-border-default bg-surface-card p-[16px_18px]">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
+        <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.06em] text-brand-violet [&_svg]:h-3 [&_svg]:w-3">
           <Icon name="target" /> What are we simulating?
         </div>
-        <div className="text-[11.5px] text-ink-muted">
+        <div className="text-sm text-ink-muted">
           {context.row_count.toLocaleString()} rows · {context.promoted_row_count.toLocaleString()} promoted
         </div>
       </div>
@@ -72,9 +72,9 @@ export function ContextBar({
 function Item({ label, summary, constrained }: { label: string; summary: string; constrained: boolean }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">{label}</div>
       <div
-        className={`mt-0.5 text-[13px] ${
+        className={`mt-0.5 text-base ${
           // An "All channels" is a real answer, but a weaker one than a
           // selection — muted so the eye finds what is actually constrained.
           constrained ? 'font-bold text-ink-primary' : 'text-ink-muted'
@@ -114,32 +114,32 @@ function InvestigationBlock({
   return (
     <div className="mt-3 border-t border-border-subtle pt-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+        <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
           {asked ? 'Investigation question' : 'Investigation'}
         </div>
         {origin && originLabel && (
-          <div className="text-[10.5px] text-ink-muted">
+          <div className="text-xs text-ink-muted">
             From {origin === 'risk_alert' ? 'risk alert' : 'underperforming promotions'}: {originLabel}
           </div>
         )}
       </div>
 
       {asked ? (
-        <div className="mt-1 text-[13px] font-semibold leading-[1.45] text-ink-primary">{question.value}</div>
+        <div className="mt-1 text-base font-semibold leading-[1.45] text-ink-primary">{question.value}</div>
       ) : (
-        <div className="mt-1 flex items-start gap-1.5 text-[12px] leading-[1.45] text-ink-muted">
+        <div className="mt-1 flex items-start gap-1.5 text-sm leading-[1.45] text-ink-muted">
           <span>
             {question.source === 'seed_example'
               ? 'No investigation question yet — the studio is showing an example, not something you asked.'
               : 'No investigation question recorded.'}
           </span>
           <InfoPopover label="Why there is no question" title="Investigation question" width={280}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{question.reason}</div>
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{question.reason}</div>
           </InfoPopover>
         </div>
       )}
 
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
         <Meta label="Type" field={investigation.investigation_type} />
         <Meta label="Investigation ID" field={investigation.investigation_id} />
         <Meta label="KPI" field={investigation.focus.kpi} />
@@ -162,7 +162,7 @@ function Meta({ label, field }: { label: string; field: ContextField<string> }) 
         <>
           <span>Not specified by investigation</span>
           <InfoPopover label={`Why ${label} is unavailable`} title={label} width={272}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{field.reason}</div>
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{field.reason}</div>
           </InfoPopover>
         </>
       )}

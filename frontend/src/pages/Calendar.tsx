@@ -67,7 +67,7 @@ export function Calendar() {
       <div className="fade-in mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1>Monthly Promotion Calendar</h1>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             View monthly promotional activities, events and promoted products across channels
           </p>
         </div>
@@ -125,7 +125,7 @@ export function Calendar() {
                       setYear(y)
                       setSelected(null)
                     }}
-                    className={`cursor-pointer px-3 text-[12px] font-bold tabular-nums transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
+                    className={`cursor-pointer px-3 text-sm font-bold tabular-nums transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
                       y === year
                         ? 'bg-brand-violet text-white'
                         : 'text-ink-secondary hover:bg-brand-violet/[0.08] hover:text-brand-violet'
@@ -140,7 +140,7 @@ export function Calendar() {
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border-subtle px-5 py-2.5">
             {LEGEND.map((entry) => (
-              <span key={entry.kind} className="inline-flex items-center gap-1.5 text-[11px] text-ink-secondary">
+              <span key={entry.kind} className="inline-flex items-center gap-1.5 text-xs text-ink-secondary">
                 <LegendSwatch kind={entry.kind} />
                 {entry.label}
               </span>
@@ -149,11 +149,11 @@ export function Calendar() {
 
           <CardBody className="!p-2">
             {matrix.isLoading && !matrix.data ? (
-              <div className="grid min-h-[320px] place-items-center text-sm text-ink-muted">
+              <div className="grid min-h-[320px] place-items-center text-base text-ink-muted">
                 Loading promotion plan…
               </div>
             ) : matrix.error ? (
-              <div className="grid min-h-[320px] place-items-center gap-2 text-center text-sm text-ink-muted">
+              <div className="grid min-h-[320px] place-items-center gap-2 text-center text-base text-ink-muted">
                 <span>Could not load the promotion calendar.</span>
                 <Button variant="secondary" onClick={() => void matrix.refetch()}>
                   <Icon name="refresh" /> Retry
@@ -174,7 +174,7 @@ export function Calendar() {
             ) : null}
           </CardBody>
 
-          <div className="flex items-start gap-2 border-t border-border-subtle px-5 py-3 text-[11.5px] text-ink-muted">
+          <div className="flex items-start gap-2 border-t border-border-subtle px-5 py-3 text-sm text-ink-muted">
             <span className="mt-px text-status-info [&_svg]:h-3.5 [&_svg]:w-3.5">
               <Icon name="info" />
             </span>

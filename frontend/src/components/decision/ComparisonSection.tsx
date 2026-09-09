@@ -25,7 +25,7 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
       <>
         <Header />
         <CardBody>
-          <div className="text-[12.5px] leading-[1.6] text-ink-muted">{comparison.reason}</div>
+          <div className="text-base leading-[1.6] text-ink-muted">{comparison.reason}</div>
         </CardBody>
       </>
     )
@@ -33,13 +33,16 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
 
   const shown = comparison.scenarios.filter((s) => s.status !== 'excluded')
   const excluded = comparison.scenarios.filter((s) => s.status === 'excluded')
+  // NOT SHOWN IN DECISION CENTER. /api/simulation/compare still returns the
+  // metric and Simulation Studio still reports it; this page drops the row.
+  const metrics = comparison.metrics.filter((m) => m.key !== 'cannibalization')
 
   return (
     <>
       <Header rangeLabel={comparison.range_label} />
       <CardBody>
-        {shown.length === 0 || comparison.metrics.length === 0 ? (
-          <div className="text-[12.5px] leading-[1.6] text-ink-muted">
+        {shown.length === 0 || metrics.length === 0 ? (
+          <div className="text-base leading-[1.6] text-ink-muted">
             No scenario in this comparison has a result to show.
           </div>
         ) : (
@@ -47,10 +50,10 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-border-subtle">
-                  <th className="pb-2 pr-3 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+                  <th className="pb-2 pr-3 text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
                     Metric
                   </th>
-                  <th className="pb-2 pl-3 text-right text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+                  <th className="pb-2 pl-3 text-right text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
                     Current
                     <span className="ml-1 font-normal normal-case tracking-normal">measured</span>
                   </th>
@@ -60,7 +63,7 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
                 </tr>
               </thead>
               <tbody>
-                {comparison.metrics.map((metric) => (
+                {metrics.map((metric) => (
                   <MetricRow key={metric.key} metric={metric} shown={shown} />
                 ))}
               </tbody>
@@ -70,12 +73,12 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
 
         {excluded.length > 0 && (
           <div className="mt-3 border-t border-border-subtle pt-2.5">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+            <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
               Not compared
             </div>
             <ul className="mt-1.5 flex flex-col gap-1">
               {excluded.map((scenario) => (
-                <li key={scenario.scenario_id} className="text-[11.5px] leading-[1.5] text-ink-muted">
+                <li key={scenario.scenario_id} className="text-sm leading-[1.5] text-ink-muted">
                   <span className="font-semibold text-ink-secondary">{scenario.name}</span> —{' '}
                   {scenario.exclusion_reason}
                 </li>
@@ -84,7 +87,7 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
           </div>
         )}
 
-        <div className="mt-3 border-t border-border-subtle pt-2.5 text-[11px] leading-[1.5] text-ink-muted">
+        <div className="mt-3 border-t border-border-subtle pt-2.5 text-xs leading-[1.5] text-ink-muted">
           {comparison.measured_note}
           {comparison.recommendation_reason && (
             <div className="mt-1">{comparison.recommendation_reason}</div>
@@ -98,8 +101,8 @@ export function ComparisonSection({ comparison }: { comparison: DecisionComparis
 function Header({ rangeLabel }: { rangeLabel?: string | null }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-      <h3 className="text-[15px] font-bold">Scenario Comparison</h3>
-      {rangeLabel && <span className="text-[11px] text-ink-muted">{rangeLabel} · low – high</span>}
+      <h3 className="text-md font-bold">Scenario Comparison</h3>
+      {rangeLabel && <span className="text-xs text-ink-muted">{rangeLabel} · low – high</span>}
     </div>
   )
 }
@@ -107,17 +110,17 @@ function Header({ rangeLabel }: { rangeLabel?: string | null }) {
 function ScenarioHead({ scenario }: { scenario: DecisionComparisonScenario }) {
   return (
     <th className="pb-2 pl-3 text-right align-bottom">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {scenario.name}
       </div>
       <div className="mt-0.5 flex flex-wrap justify-end gap-1">
         {scenario.is_selected && (
-          <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-brand-violet">
+          <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] text-brand-violet">
             Selected
           </span>
         )}
         {scenario.is_recommended && (
-          <span className="rounded-[4px] bg-status-success-bg px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-success">
+          <span className="rounded-[4px] bg-status-success-bg px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] text-status-success">
             Recommended
           </span>
         )}
@@ -125,7 +128,7 @@ function ScenarioHead({ scenario }: { scenario: DecisionComparisonScenario }) {
       {/* A measured baseline carries no approved treatment — its depth is a
           revenue-weighted blend of whatever actually traded — so the column
           says what it is rather than showing an empty sub-label. */}
-      <div className="mt-0.5 text-[10px] font-normal normal-case tracking-normal text-ink-muted">
+      <div className="mt-0.5 text-2xs font-normal normal-case tracking-normal text-ink-muted">
         {scenario.discount_pct !== null
           ? `${scenario.discount_pct}% · ${scenario.treatment}`
           : scenario.is_baseline
@@ -146,7 +149,7 @@ function MetricRow({
   const byId = new Map(metric.scenarios.map((s) => [s.scenario_id, s]))
   return (
     <tr className="border-b border-border-subtle last:border-b-0">
-      <td className="py-2.5 pr-3 align-top text-[12.5px] text-ink-secondary">{metric.label}</td>
+      <td className="py-2.5 pr-3 align-top text-base text-ink-secondary">{metric.label}</td>
       <td className="py-2.5 pl-3 text-right align-top">
         <Side side={metric.baseline} label={`${metric.label} — measured`} />
       </td>
@@ -157,7 +160,7 @@ function MetricRow({
             {cell ? (
               <Band low={cell.low} high={cell.high} label={metric.label} selected={scenario.is_selected} />
             ) : (
-              <span className="text-[12px] text-ink-muted">Not compared</span>
+              <span className="text-sm text-ink-muted">Not compared</span>
             )}
           </td>
         )
@@ -170,11 +173,11 @@ function MetricRow({
 function Side({ side, label }: { side: MetricSide | null; label: string }) {
   if (!side || !side.available) {
     return (
-      <span className="inline-flex items-baseline gap-1 text-[12px] text-ink-muted">
+      <span className="inline-flex items-baseline gap-1 text-sm text-ink-muted">
         Not available
         {side?.unavailable_reason && (
           <InfoPopover label={`Why ${label} is unavailable`} title={label} width={288}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
               {side.unavailable_reason}
             </div>
           </InfoPopover>
@@ -183,7 +186,7 @@ function Side({ side, label }: { side: MetricSide | null; label: string }) {
     )
   }
   return (
-    <span className="text-[13px] font-bold text-ink-secondary [font-variant-numeric:tabular-nums]">
+    <span className="text-base font-bold text-ink-secondary [font-variant-numeric:tabular-nums]">
       {side.display_value}
     </span>
   )
@@ -204,11 +207,11 @@ function Band({
 }) {
   if (!low.available || !high.available) {
     return (
-      <span className="inline-flex items-baseline gap-1 text-[12px] text-ink-muted">
+      <span className="inline-flex items-baseline gap-1 text-sm text-ink-muted">
         Not available
         {(low.unavailable_reason ?? high.unavailable_reason) && (
           <InfoPopover label={`Why ${label} is unavailable`} title={label} width={288}>
-            <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+            <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
               {low.unavailable_reason ?? high.unavailable_reason}
             </div>
           </InfoPopover>
@@ -218,7 +221,7 @@ function Band({
   }
   return (
     <span
-      className={`text-[13px] [font-variant-numeric:tabular-nums] ${
+      className={`text-base [font-variant-numeric:tabular-nums] ${
         selected ? 'font-extrabold text-ink-primary' : 'font-bold text-ink-secondary'
       }`}
     >

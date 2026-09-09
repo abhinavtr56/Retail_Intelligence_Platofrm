@@ -79,7 +79,7 @@ export function PromotionMatrix({
         <div className={`${grid} border-b border-border-subtle`}>
           {/* Sticky so the channel stays readable while the months scroll —
               without it a horizontally scrolled row is unattributable. */}
-          <div className="sticky left-0 z-20 bg-surface-card px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-ink-muted">
+          <div className="sticky left-0 z-20 bg-surface-card px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-ink-muted">
             Channel
           </div>
           {data.months.map((m) => (
@@ -87,7 +87,7 @@ export function PromotionMatrix({
               key={m.month}
               /* The month being viewed is marked here as well as on the cell,
                  so the column stays identifiable while the eye is in the panel. */
-              className={`px-1 py-2.5 text-center text-[11.5px] font-bold transition-colors ${
+              className={`px-1 py-2.5 text-center text-sm font-bold transition-colors ${
                 selected?.month === m.month
                   ? 'rounded-t-[var(--r-sm)] bg-brand-violet/[0.08] text-brand-violet'
                   : 'text-ink-secondary'
@@ -106,15 +106,15 @@ export function PromotionMatrix({
                 <Icon name={CHANNEL_ICON[channel.channel_id] ?? 'grid'} />
               </span>
               <span className="min-w-0">
-                <span className="block text-[12px] font-bold text-ink-primary">{channel.channel_id}</span>
-                <span className="block truncate text-[10.5px] text-ink-muted" title={channel.name}>
+                <span className="block text-sm font-bold text-ink-primary">{channel.channel_id}</span>
+                <span className="block truncate text-xs text-ink-muted" title={channel.name}>
                   {channel.name}
                 </span>
                 {/* Cadence is deliberately loud: a weekly channel's monthly
                     cell is a SUMMARY of several promotions, a monthly
                     channel's is the plan itself. */}
                 <span
-                  className={`mt-0.5 inline-block rounded-full px-1.5 py-px text-[9.5px] font-bold uppercase tracking-wide ${
+                  className={`mt-0.5 inline-block rounded-full px-1.5 py-px text-2xs font-bold uppercase tracking-wide ${
                     channel.cadence === 'WEEKLY'
                       ? 'bg-status-info/10 text-status-info'
                       : 'bg-ink-primary/[0.06] text-ink-muted'
@@ -174,19 +174,19 @@ function MatrixCell({
           promotion master's own Promotion_Description, and shortening it here
           would mean inventing a name the data does not carry. */}
       <span
-        className="line-clamp-2 text-[10.5px] font-bold leading-[1.15]"
+        className="line-clamp-2 text-2xs font-bold leading-[1.15] [overflow-wrap:anywhere]"
         style={{ color: STATUS[cell.kind].solid }}
       >
         {cellLabel(cell.label)}
       </span>
       {/* The id is the secondary line: smaller and quieter than the name it
           belongs to, so the eye reads name -> id -> count in that order. */}
-      <span className="line-clamp-2 text-[9px] font-semibold leading-[1.15] text-ink-muted">
+      <span className="line-clamp-2 text-2xs font-semibold leading-[1.15] text-ink-muted">
         {ids || '—'}
       </span>
       {/* The count alone; concurrent regular activity is in the tooltip and
           spelled out in the detail panel, where there is room for it. */}
-      <span className="truncate text-[9.5px] font-semibold leading-tight text-ink-secondary">
+      <span className="truncate text-2xs font-semibold leading-tight text-ink-secondary">
         {cell.product_count} products
       </span>
     </button>

@@ -22,8 +22,8 @@ export function ModuleGrid() {
             >
               <Icon name={m.icon} />
             </div>
-            <h3 className="text-[15px] leading-[1.3]">{m.title}</h3>
-            <p className="flex-1 text-[12.5px] leading-[1.55] text-ink-muted">{m.desc}</p>
+            <h3 className="text-md leading-[1.3]">{m.title}</h3>
+            <p className="flex-1 text-base leading-[1.55] text-ink-muted">{m.desc}</p>
             <div className="mt-0.5 flex items-center justify-between">
               {m.live ? (
                 <Pill tone="success" dot pulse>

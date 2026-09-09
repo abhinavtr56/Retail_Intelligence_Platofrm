@@ -12,8 +12,8 @@ export function ConnectModalHeader({ logo, title, subtitle, onClose }: { logo: R
       <div className="flex items-center gap-2.5">
         <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[9px]">{logo}</div>
         <div>
-          <h3 className="text-[15px] font-bold">{title}</h3>
-          <div className="mt-0.5 text-xs text-ink-muted">{subtitle}</div>
+          <h3 className="text-md font-bold">{title}</h3>
+          <div className="mt-0.5 text-sm text-ink-muted">{subtitle}</div>
         </div>
       </div>
       <IconButton icon="x" onClick={onClose} />
@@ -23,12 +23,12 @@ export function ConnectModalHeader({ logo, title, subtitle, onClose }: { logo: R
 
 export function ErrorBox({ message }: { message: string }) {
   if (!message) return null
-  return <div className="mb-3 rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-[12.5px] text-[#B91C1C]">{message}</div>
+  return <div className="mb-3 rounded-[var(--r-sm)] bg-status-danger-bg p-[8px_12px] text-base text-[#B91C1C]">{message}</div>
 }
 
 export function InfoNote({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-[11.5px] leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
+    <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
       <Icon name="info" />
       <span>{children}</span>
     </div>
@@ -51,14 +51,14 @@ export function ModalFooter({ onClose, showDone, onDone }: { onClose: () => void
 }
 
 export function ResultList({ items, onSelect }: { items: { key: string; icon: IconName; label: string; sub?: string }[]; onSelect: (key: string) => void }) {
-  if (!items.length) return <div className="text-xs text-ink-muted">Nothing visible to this account.</div>
+  if (!items.length) return <div className="text-sm text-ink-muted">Nothing visible to this account.</div>
   return (
     <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto">
       {items.map((it) => (
         <button
           key={it.key}
           onClick={() => onSelect(it.key)}
-          className="flex w-full items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-[12.5px] font-semibold text-ink-primary hover:bg-brand-violet-50 hover:text-brand-violet [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0 [&_svg]:text-ink-muted"
+          className="flex w-full items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold text-ink-primary hover:bg-brand-violet-50 hover:text-brand-violet [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0 [&_svg]:text-ink-muted"
         >
           <Icon name={it.icon} />
           <span className="min-w-0 flex-1 truncate">{it.label}</span>
@@ -71,17 +71,17 @@ export function ResultList({ items, onSelect }: { items: { key: string; icon: Ic
 
 export function Breadcrumb({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-brand-violet">
+    <button onClick={onClick} className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-brand-violet">
       <Icon name="chevronLeft" className="h-3.5 w-3.5" /> {label}
     </button>
   )
 }
 
 export function ProxyTable({ columns, rows }: { columns: string[]; rows: (string | number | null)[][] }) {
-  if (!columns.length) return <div className="text-xs text-ink-muted">No columns returned.</div>
+  if (!columns.length) return <div className="text-sm text-ink-muted">No columns returned.</div>
   return (
     <div className="max-h-[220px] overflow-auto rounded-[var(--r-md)] border border-border-subtle">
-      <table className="w-full border-collapse text-[11.5px]">
+      <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
             {columns.map((c) => (

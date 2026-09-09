@@ -116,7 +116,7 @@ function withoutCannibalization(insights: KeyInsight[]): KeyInsight[] {
 
 function SectionLoading({ loading }: { loading: boolean }) {
   return (
-    <div className="grid min-h-[220px] place-items-center gap-3 text-center text-sm text-ink-muted">
+    <div className="grid min-h-[220px] place-items-center gap-3 text-center text-base text-ink-muted">
       {loading ? (
         <>
           <Spinner className="h-5 w-5" />
@@ -133,18 +133,18 @@ function SectionLoading({ loading }: { loading: boolean }) {
 function NoInvestigation() {
   return (
     <Card className="fade-in mt-6">
-      <div className="grid place-items-center gap-3 p-10 text-center">
+      <div className="grid place-items-center gap-3 p-7 text-center">
         <div className="grid h-12 w-12 place-items-center rounded-xl bg-brand-violet-50 text-brand-violet">
           <Icon name="sparkles" className="h-6 w-6" />
         </div>
         <h2 className="text-lg font-extrabold">Start with an investigation</h2>
-        <p className="max-w-[460px] text-[13px] leading-[1.6] text-ink-muted">
+        <p className="max-w-[460px] text-base leading-[1.6] text-ink-muted">
           Promotion Intelligence goes deeper on a root cause an investigation has already found — the mechanism behind it,
           where it bites hardest, and what it's worth. It needs an investigation to build on.
         </p>
         <Link
           to="/investigations"
-          className="mt-1 inline-flex items-center gap-2 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-[13px] font-semibold text-white"
+          className="mt-1 inline-flex items-center gap-2 rounded-[var(--r-md)] bg-brand-violet px-4 py-2 text-base font-semibold text-white"
         >
           <Icon name="search" className="h-4 w-4" /> Run an investigation
         </Link>
@@ -180,9 +180,9 @@ function InvestigationHeader({
             <Pill tone="neutral">{describeScope(ctx.scope)}</Pill>
             {ctx.confidence != null && <Pill tone="success">{ctx.confidence}% confidence</Pill>}
           </div>
-          <div className="text-[14px] font-bold leading-[1.4]">{ctx.question}</div>
+          <div className="text-base font-bold leading-[1.4]">{ctx.question}</div>
           {ctx.root_cause && (
-            <div className="mt-1.5 text-[12.5px] leading-[1.55] text-ink-secondary">
+            <div className="mt-1.5 text-base leading-[1.55] text-ink-secondary">
               <span className="font-semibold text-ink-primary">Root cause found: </span>
               {ctx.root_cause}
             </div>
@@ -204,7 +204,7 @@ function InvestigationHeader({
               }
             />
           )}
-          <Link to="/investigations" className="whitespace-nowrap text-[12.5px] font-semibold text-brand-violet">
+          <Link to="/investigations" className="whitespace-nowrap text-base font-semibold text-brand-violet">
             ← Back to investigation
           </Link>
         </div>
@@ -214,7 +214,7 @@ function InvestigationHeader({
           {ctx.findings.map((f) => (
             <span
               key={f.key}
-              className="inline-flex items-center gap-1.5 rounded-[var(--r-pill)] bg-surface-muted px-2.5 py-1 text-[11.5px] text-ink-secondary"
+              className="inline-flex items-center gap-1.5 rounded-[var(--r-pill)] bg-surface-muted px-2.5 py-1 text-sm text-ink-secondary"
               title={f.headline}
             >
               <span
@@ -334,7 +334,7 @@ export function Intelligence() {
   if (ctxLoading) {
     return (
       <AppShell activeKey="intelligence" crumbs={crumbs}>
-        <div className="grid min-h-[60vh] place-items-center gap-3 text-sm text-ink-muted">
+        <div className="grid min-h-[60vh] place-items-center gap-3 text-base text-ink-muted">
           <Spinner className="h-5 w-5" />
           Loading…
         </div>
@@ -360,12 +360,12 @@ export function Intelligence() {
       <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">
+            <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em]">
               Promotion Intelligence <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
             </h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             The mechanism behind the investigation's finding ·{' '}
             <strong className="text-ink-secondary">{describeScope(investigation.scope)}</strong>
           </p>
@@ -425,20 +425,20 @@ export function Intelligence() {
             },
           ].map((c) => (
             <div key={c.label} className="rounded-[var(--r-lg)] border border-border-subtle bg-surface-card p-[12px_15px]">
-              <div className="text-[11px] font-semibold text-ink-muted">{c.label}</div>
+              <div className="text-xs font-semibold text-ink-muted">{c.label}</div>
               <div
                 className={`mt-1 text-xl font-extrabold [font-variant-numeric:tabular-nums] ${c.danger ? 'text-status-danger' : ''}`}
               >
                 {c.value}
               </div>
-              <div className="mt-0.5 text-[10.5px] leading-[1.4] text-ink-muted">{c.sub}</div>
+              <div className="mt-0.5 text-xs leading-[1.4] text-ink-muted">{c.sub}</div>
             </div>
           ))}
         </div>
       )}
 
       {run?.status === 'error' && (
-        <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_14px] text-[12.5px] text-[#B91C1C]">
+        <div className="mt-3.5 rounded-[var(--r-md)] bg-status-danger-bg p-[10px_14px] text-base text-[#B91C1C]">
           Analysis failed — {run.error}
         </div>
       )}
@@ -448,8 +448,8 @@ export function Intelligence() {
           <div className="flex items-center gap-3 p-[14px_18px]">
             <Spinner className="h-4 w-4 text-brand-violet" />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold">Going deeper on the investigation's finding</div>
-              <div className="mt-0.5 flex flex-wrap gap-3 text-[11.5px] text-ink-muted">
+              <div className="text-base font-semibold">Going deeper on the investigation's finding</div>
+              <div className="mt-0.5 flex flex-wrap gap-3 text-sm text-ink-muted">
                 {(run?.specialists ?? []).map((s) => (
                   <span key={s.key} className="inline-flex items-center gap-1.5">
                     <span
@@ -498,8 +498,8 @@ export function Intelligence() {
               <Card className="fade-in">
                 <div className="flex flex-wrap items-center justify-between gap-3 p-[18px_20px]">
                   <div className="min-w-0">
-                    <div className="text-[14px] font-bold">Go deeper on this finding</div>
-                    <div className="mt-0.5 max-w-[560px] text-[12.5px] leading-[1.55] text-ink-muted">
+                    <div className="text-base font-bold">Go deeper on this finding</div>
+                    <div className="mt-0.5 max-w-[560px] text-base leading-[1.55] text-ink-muted">
                       The investigation found the cause. This layer explains the mechanism behind it, where it bites hardest,
                       and what it's worth — then recommends what to change.
                     </div>
@@ -525,7 +525,7 @@ export function Intelligence() {
                 />
                 <div className="p-5 pt-3">
                   <SaturationChart curve={facts.saturation} />
-                  <p className="mt-3 text-[12.5px] leading-[1.6] text-ink-secondary">
+                  <p className="mt-3 text-base leading-[1.6] text-ink-secondary">
                     Each point is a real mechanic at its effective discount depth; dot size is share of trade spend.{' '}
                     {facts.saturation.saturation_depth_pct !== null ? (
                       <>
@@ -568,12 +568,12 @@ export function Intelligence() {
                     <DriversPanel drivers={analysis.drivers} />
                     {analysis.uncertainties.length > 0 && (
                       <div className="mt-4 rounded-[var(--r-md)] bg-surface-muted p-[12px_14px]">
-                        <div className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+                        <div className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
                           What this analysis cannot determine
                         </div>
                         <ul className="mt-1.5 flex flex-col gap-1">
                           {analysis.uncertainties.map((u, i) => (
-                            <li key={i} className="text-[12px] leading-[1.5] text-ink-secondary">
+                            <li key={i} className="text-sm leading-[1.5] text-ink-secondary">
                               · {u}
                             </li>
                           ))}
@@ -582,7 +582,7 @@ export function Intelligence() {
                     )}
                   </>
                 ) : (
-                  <div className="py-6 text-center text-[13px] text-ink-muted">
+                  <div className="py-6 text-center text-base text-ink-muted">
                     Run "Go deeper" to break the root cause into weighted components.
                   </div>
                 )}
@@ -626,8 +626,8 @@ export function Intelligence() {
               <Card className="fade-in">
                 <div className="flex flex-wrap items-center justify-between gap-3 p-[18px_20px]">
                   <div>
-                    <div className="text-[14px] font-bold">Recommendations need the deeper analysis</div>
-                    <div className="mt-0.5 text-[12.5px] text-ink-muted">
+                    <div className="text-base font-bold">Recommendations need the deeper analysis</div>
+                    <div className="mt-0.5 text-base text-ink-muted">
                       The Advisor turns the diagnosis into actions Simulation can model.
                     </div>
                   </div>

@@ -332,12 +332,12 @@ export function Decision() {
       <div className="fade-in flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="flex items-center gap-2 text-[26px] font-extrabold tracking-[-0.02em]">
+            <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-[-0.02em]">
               Decision Center <Icon name="sparkles" className="h-5 w-5 text-brand-violet" />
             </h1>
             <LiveStatus label={live.label} />
           </div>
-          <p className="mt-1.5 max-w-[640px] text-sm text-ink-muted">
+          <p className="mt-1.5 max-w-[640px] text-base text-ink-muted">
             Compare promotion strategies and select the best business decision. Every figure is the
             one its own module computed — this page ranks and records, it never recalculates.
           </p>
@@ -357,7 +357,15 @@ export function Decision() {
                   : undefined
                 : viewingStored
                   ? 'This decision is already stored. Carry a scenario from Simulation Studio to save a new version.'
-                  : 'Carry a scenario here first'
+                  : candidates.length > 0
+                    ? // SCENARIOS ARE HERE; THE SELECTED ONE JUST HAS NO RECORD TO SAVE.
+                      // "Carry a scenario here first" was still being shown in this
+                      // state, which reads as a broken button to anyone who can see
+                      // the scenarios they already carried sitting on the board. The
+                      // same condition renders NoRecordForCandidate below, so the two
+                      // now give the same reason.
+                      'This scenario has no decision record. Select a scenario added from Simulation Studio — measured, Optimizer and Target Rescue plans produce none.'
+                    : 'Carry a scenario here first'
             }
           >
             {saveDecision.isPending ? <Spinner /> : <Icon name="checkCircle" />}
@@ -382,13 +390,13 @@ export function Decision() {
       {saveDecision.isError && (
         <Card className="fade-in mt-4 border-[1.5px] border-[rgba(239,68,68,0.35)]">
           <CardBody>
-            <div className="text-[13px] font-bold text-ink-primary">
+            <div className="text-base font-bold text-ink-primary">
               Could not save the decision
             </div>
-            <div className="mt-1 break-words text-[12.5px] text-ink-secondary">
+            <div className="mt-1 break-words text-base text-ink-secondary">
               {saveDecision.error.message}
             </div>
-            <div className="mt-0.5 text-[11px] text-ink-muted">
+            <div className="mt-0.5 text-xs text-ink-muted">
               The record below is unchanged, and nothing was written.
             </div>
           </CardBody>
@@ -462,7 +470,7 @@ export function Decision() {
           used to render only when nothing else was on screen, which meant the
           moment you recorded a decision the list of recorded decisions
           disappeared. */}
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <DecisionHistory
           currentDecisionId={envelope?.decision_id ?? null}
           onOpen={openStoredDecision}
@@ -531,8 +539,8 @@ function BriefingPreview({
     <Modal open={open} onClose={onClose} maxWidthClassName="max-w-[1040px]">
       <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[15px] font-bold text-ink-primary">Decision briefing</div>
-          <div className="mt-0.5 text-[11.5px] leading-[1.5] text-ink-muted">
+          <div className="text-md font-bold text-ink-primary">Decision briefing</div>
+          <div className="mt-0.5 text-sm leading-[1.5] text-ink-muted">
             The rendered briefing, exactly as it would leave this application. Nothing has been
             stored and nothing has been written to your computer.
           </div>
@@ -552,7 +560,7 @@ function BriefingPreview({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-5 pt-4">
-        <div className="max-w-[520px] text-[11.5px] leading-[1.5] text-ink-muted">
+        <div className="max-w-[520px] text-sm leading-[1.5] text-ink-muted">
           {error ? (
             <span className="text-status-danger">
               Could not prepare the download — {error}. The briefing above is unchanged.
@@ -607,41 +615,37 @@ function RecordView({
         <ContextSection record={record} stored={stored} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <RecommendedPlanSection record={record} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <StrategySection strategy={record.strategy} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <ImpactSection record={record} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <ComparisonSection comparison={record.comparison} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <GovernanceSection record={record} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
-        <ReadinessSection record={record} />
-      </Card>
-
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <EvidenceSection record={record} stored={stored} />
       </Card>
 
       {/* AFTER the evidence, so a reader meets the computed record first and the
           explanation of it second — never the other way round. */}
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <AiDecisionBrief brief={aiBrief} onGenerate={onGenerateAi} />
       </Card>
 
-      <Card className="fade-in mt-[18px]">
+      <Card className="fade-in mt-[14px]">
         <ActionsSection
           briefing={briefing}
           canSave={canSave}
@@ -657,7 +661,7 @@ function RecordView({
           put two identical history cards on the page the moment a record was
           shown, each with its own "Clear history". */}
 
-      <div className="mt-[18px] text-[11.5px] leading-[1.5] text-ink-muted">
+      <div className="mt-[14px] text-sm leading-[1.5] text-ink-muted">
         {stored
           ? 'This decision is stored on the server and remains retrievable by its id after a reload.'
           : record.meta.persistence_note}
@@ -683,16 +687,16 @@ function ContextSection({
     <>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
         <div className="min-w-0">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+          <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
             Decision under review
           </div>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[17px] font-extrabold text-ink-primary">{scenario.name}</span>
-            <span className="text-[12.5px] text-ink-secondary">
+            <span className="text-lg font-extrabold text-ink-primary">{scenario.name}</span>
+            <span className="text-base text-ink-secondary">
               {scenario.treatment} · {scenario.discount_pct}% discount
             </span>
             {scenario.uplift && (
-              <span className="text-[11.5px] text-ink-muted">
+              <span className="text-sm text-ink-muted">
                 {scenario.range_label} {(scenario.uplift.low * 100).toFixed(0)}–
                 {(scenario.uplift.high * 100).toFixed(0)}%
               </span>
@@ -700,11 +704,11 @@ function ContextSection({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ink-muted">
+          <span className="rounded-[4px] bg-surface-muted px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-ink-muted">
             {stored ? `${record.status} · saved` : `${record.status} · not saved`}
           </span>
           {stored?.stale && (
-            <span className="rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-warning">
+            <span className="rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-status-warning">
               Stale
             </span>
           )}
@@ -748,15 +752,15 @@ function ContextSection({
         </div>
 
         <div className="mt-3 border-t border-border-subtle pt-3">
-          <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+          <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
             {investigation.question ? 'Investigation question' : 'Investigation'}
           </div>
           {investigation.question ? (
-            <div className="mt-1 text-[13px] font-semibold leading-[1.45] text-ink-primary">
+            <div className="mt-1 text-base font-semibold leading-[1.45] text-ink-primary">
               {investigation.question}
             </div>
           ) : (
-            <div className="mt-1 flex items-start gap-1.5 text-[12px] leading-[1.45] text-ink-muted">
+            <div className="mt-1 flex items-start gap-1.5 text-sm leading-[1.45] text-ink-muted">
               <span>
                 {investigation.question_source === 'seed_example'
                   ? 'No investigation question — the studio was showing an example, not something you asked.'
@@ -764,7 +768,7 @@ function ContextSection({
               </span>
               {investigation.question_unavailable_reason && (
                 <InfoPopover label="Why there is no question" title="Investigation question" width={280}>
-                  <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+                  <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
                     {investigation.question_unavailable_reason}
                   </div>
                 </InfoPopover>
@@ -789,9 +793,9 @@ function RecommendedPlanSection({ record }: { record: DecisionRecord }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Recommended Plan</h3>
+        <h3 className="text-md font-bold">Recommended Plan</h3>
         <span
-          className={`rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${
+          className={`rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] ${
             recommendation.is_this_scenario
               ? 'bg-status-success-bg text-status-success'
               : 'bg-status-warning-bg text-status-warning'
@@ -846,7 +850,7 @@ function RecommendedPlanSection({ record }: { record: DecisionRecord }) {
                 {recommendation.primary_endpoint} end
               </span>
             </div>
-            <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+            <div className="mt-2 text-xs leading-[1.5] text-ink-muted">
               {recommendation.note}
             </div>
           </div>
@@ -927,7 +931,7 @@ function ExcludedRowsNote({ scope }: { scope: DecisionRecord['scope'] }) {
         name="warning"
         className={`mt-px h-4 w-4 shrink-0 ${all ? 'text-status-warning' : 'text-ink-muted'}`}
       />
-      <div className="min-w-0 text-[11.5px] leading-[1.55] text-ink-secondary">
+      <div className="min-w-0 text-sm leading-[1.55] text-ink-secondary">
         <span className="font-bold text-ink-primary">
           {excluded.toLocaleString()} of {(scope.promoted_row_count ?? 0).toLocaleString()} promoted
           rows {all ? 'were all excluded' : 'were excluded'} from this scenario.
@@ -948,13 +952,13 @@ function ExcludedRowsNote({ scope }: { scope: DecisionRecord['scope'] }) {
 function ImpactRow({ metric }: { metric: DecisionImpactMetric }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle py-2.5 last:border-b-0">
-      <span className="text-[12.5px] text-ink-secondary">{metric.label ?? metric.metric}</span>
+      <span className="text-base text-ink-secondary">{metric.label ?? metric.metric}</span>
       {metric.available ? (
-        <span className="text-[13px] font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
+        <span className="text-base font-bold text-ink-primary [font-variant-numeric:tabular-nums]">
           {metric.display_low} – {metric.display_high}
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[12px] text-ink-muted">
+        <span className="inline-flex items-center gap-1 text-sm text-ink-muted">
           Not available
           {metric.unavailable_reason && (
             <InfoPopover
@@ -962,7 +966,7 @@ function ImpactRow({ metric }: { metric: DecisionImpactMetric }) {
               title={metric.label ?? metric.metric}
               width={272}
             >
-              <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">
+              <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">
                 {metric.unavailable_reason}
               </div>
             </InfoPopover>
@@ -977,11 +981,11 @@ function ImpactRow({ metric }: { metric: DecisionImpactMetric }) {
 function WeeklyNote({ record }: { record: DecisionRecord }) {
   if (!record.weekly.available) {
     return (
-      <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">{record.weekly.reason}</div>
+      <div className="mt-2 text-xs leading-[1.5] text-ink-muted">{record.weekly.reason}</div>
     )
   }
   return (
-    <div className="mt-2 flex items-start gap-1.5 text-[11px] leading-[1.5] text-ink-muted">
+    <div className="mt-2 flex items-start gap-1.5 text-xs leading-[1.5] text-ink-muted">
       <Icon name="activity" className="mt-px h-3 w-3 shrink-0" />
       <span>
         Weekly impact was carried with this scenario: {record.weekly.week_count} business weeks.{' '}
@@ -1008,44 +1012,51 @@ function GovernanceSection({ record }: { record: DecisionRecord }) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
         <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-bold">Risk &amp; Governance</h3>
+          <h3 className="text-md font-bold">Risk &amp; Governance</h3>
           <span
-            className={`rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${tone}`}
+            className={`rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] ${tone}`}
           >
             {governance.overall_status}
           </span>
         </div>
-        <span className="text-[11px] text-ink-muted">policy v{governance.policy_version}</span>
       </div>
       <CardBody>
-        <div className="max-w-[720px] text-[12.5px] leading-[1.6] text-ink-secondary">
+        <div className="max-w-[720px] text-base leading-[1.6] text-ink-secondary">
           {governance.summary}
         </div>
 
         <Group label="Findings">
-          {governance.findings.map((finding) => (
-            <FindingRow key={finding.id} finding={finding} />
-          ))}
+          {governance.findings
+            // NOT SHOWN IN DECISION CENTER, by its stable id rather than its
+            // wording. The check still runs, the record still carries it and
+            // Simulation Studio's Risk & Governance panel still reports it.
+            .filter((finding) => finding.id !== 'cannibalization')
+            .map((finding) => (
+              <FindingRow key={finding.id} finding={finding} />
+            ))}
         </Group>
 
         <Group label="Governance considerations">
-          <div className="text-[11px] leading-[1.5] text-ink-muted">
+          <div className="text-xs leading-[1.5] text-ink-muted">
             These boundaries are not defined anywhere in the project, so nothing above is judged
             against them.
           </div>
           <ul className="mt-1.5 flex flex-col gap-1">
-            {governance.governance_gaps.map((gap) => (
-              <li key={gap.key} className="text-[11.5px] leading-[1.5] text-ink-muted">
-                <span className="font-semibold text-ink-secondary">{gap.label}</span> — {gap.statement}
-              </li>
-            ))}
+            {governance.governance_gaps
+              .filter((gap) => gap.key !== 'cannibalization_limit')
+              .map((gap) => (
+                <li key={gap.key} className="text-sm leading-[1.5] text-ink-muted">
+                  <span className="font-semibold text-ink-secondary">{gap.label}</span> —{' '}
+                  {gap.statement}
+                </li>
+              ))}
           </ul>
         </Group>
 
         <Group label="Method limitations">
           <ul className="flex flex-col gap-1.5">
             {governance.limitations.map((limitation) => (
-              <li key={limitation.id} className="text-[11.5px] leading-[1.5] text-ink-muted">
+              <li key={limitation.id} className="text-sm leading-[1.5] text-ink-muted">
                 <span className="font-semibold text-ink-secondary">{limitation.title}</span> —{' '}
                 {limitation.statement}
               </li>
@@ -1065,111 +1076,20 @@ function FindingRow({ finding }: { finding: RiskFinding }) {
     unknown: 'bg-surface-muted text-ink-muted',
   }[finding.severity]
   return (
-    <div className="text-[11.5px] leading-[1.5]">
+    <div className="text-sm leading-[1.5]">
       <div className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold text-ink-primary">{finding.title}</span>
         <span
-          className={`rounded-[4px] px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${tone}`}
+          className={`rounded-[4px] px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] ${tone}`}
         >
           {finding.severity}
         </span>
-        <span className="text-[10px] uppercase tracking-[0.04em] text-ink-muted">
+        <span className="text-2xs uppercase tracking-[0.04em] text-ink-muted">
           {finding.category.replace('_', ' ')}
         </span>
       </div>
       <div className="mt-0.5 text-ink-muted">{finding.reason}</div>
     </div>
-  )
-}
-
-/** DECISION READINESS — ready or not, and exactly what blocks it.
- *
- *  NOT READY is the honest answer in every record this project can produce, and
- *  the first blocker says why: no approval criteria are defined. The approval
- *  workflow is stated as unconfigured rather than animated as if it ran. */
-function ReadinessSection({ record }: { record: DecisionRecord }) {
-  const { readiness } = record
-  const states: [string, boolean][] = [
-    ['Recommended', readiness.states.recommended],
-    ['Governed', readiness.states.governed],
-    ['Ready to review', readiness.states.ready_to_review],
-    ['Approved', readiness.states.approved],
-  ]
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-5 py-4">
-        <h3 className="text-[15px] font-bold">Decision Readiness</h3>
-        <span className="rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-warning">
-          Not ready
-        </span>
-      </div>
-      <CardBody>
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
-          {states.map(([label, on]) => (
-            <span key={label} className="inline-flex items-center gap-1.5 text-[12px]">
-              <span
-                className={`grid h-4 w-4 place-items-center rounded-full [&_svg]:h-2.5 [&_svg]:w-2.5 ${
-                  on ? 'bg-status-success-bg text-status-success' : 'bg-surface-muted text-ink-muted'
-                }`}
-              >
-                <Icon name={on ? 'check' : 'x'} />
-              </span>
-              <span className={on ? 'text-ink-primary' : 'text-ink-muted'}>{label}</span>
-            </span>
-          ))}
-        </div>
-        <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">{readiness.states_note}</div>
-
-        <Group label="Blockers">
-          <ul className="flex flex-col gap-1.5">
-            {readiness.blockers.map((blocker) => (
-              <li key={blocker.id} className="text-[11.5px] leading-[1.5] text-ink-secondary">
-                <span className="font-semibold text-ink-primary">{blocker.title}</span> —{' '}
-                {blocker.detail}
-              </li>
-            ))}
-          </ul>
-        </Group>
-
-        {readiness.unverified.length > 0 && (
-          <Group label="Unverified before execution">
-            <ul className="flex flex-col gap-1">
-              {readiness.unverified.map((item) => (
-                <li key={item.id} className="text-[11.5px] leading-[1.5] text-ink-muted">
-                  <span className="font-semibold text-ink-secondary">{item.title}</span> —{' '}
-                  {item.detail}
-                  {item.action && <span className="text-ink-secondary"> {item.action}</span>}
-                </li>
-              ))}
-            </ul>
-          </Group>
-        )}
-
-        {/* APPROVAL AND EXECUTION, STATED AS UNCONFIGURED. The old version
-            animated five workflow steps and announced that the finance team had
-            been notified. Nothing was notified, nothing was submitted and no
-            promotion was ever executed from this page. */}
-        <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3 border-t border-border-subtle pt-3">
-          <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
-              Approval
-            </div>
-            <div className="mt-0.5 text-[13px] font-bold text-ink-muted">Not configured</div>
-          </div>
-          <div>
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
-              Execution
-            </div>
-            <div className="mt-0.5 text-[13px] font-bold text-ink-muted">Not configured</div>
-          </div>
-          <div className="max-w-[560px] text-[11px] leading-[1.5] text-ink-muted">
-            No approval workflow and no write-back exist in this application. Nothing is submitted,
-            no reviewer is notified, and no promotion is written into the calendar or the source
-            data from this page.
-          </div>
-        </div>
-      </CardBody>
-    </>
   )
 }
 
@@ -1219,7 +1139,7 @@ function ActionsSection({
                 did; the controls themselves live in the header, the same place
                 every other page in the application puts them. A second button
                 with the same label is a thing a user has to think about. */}
-            <div className="mt-2 text-[11.5px] leading-[1.5] text-ink-muted">
+            <div className="mt-2 text-sm leading-[1.5] text-ink-muted">
               {saving
                 ? 'Saving…'
                 : stored
@@ -1229,7 +1149,7 @@ function ActionsSection({
                     : 'Already stored — carry a scenario from Simulation Studio to save a new version.'}
             </div>
             {stored && (
-              <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+              <div className="mt-2 text-xs leading-[1.5] text-ink-muted">
                 {stored.owner_note}
               </div>
             )}
@@ -1237,8 +1157,8 @@ function ActionsSection({
 
           {/* --- briefing */}
           <div>
-            <div className="text-[13px] font-bold text-ink-primary">Generate Briefing</div>
-            <div className="mt-1 max-w-[420px] text-[12px] leading-[1.6] text-ink-secondary">
+            <div className="text-base font-bold text-ink-primary">Generate Briefing</div>
+            <div className="mt-1 max-w-[420px] text-sm leading-[1.6] text-ink-secondary">
               Renders this record as <strong>briefing.html</strong>, a self-contained page that
               opens on screen here, and <strong>briefing.json</strong>, the record itself. Both
               carry exactly what is on this page, and both state that this decision is a draft and
@@ -1249,7 +1169,7 @@ function ActionsSection({
                 control here writes a file. */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {briefing.isPending ? (
-                <span className="inline-flex items-center gap-2 text-[12px] text-ink-secondary">
+                <span className="inline-flex items-center gap-2 text-sm text-ink-secondary">
                   <Spinner /> Generating…
                 </span>
               ) : briefing.isSuccess && briefing.data ? (
@@ -1257,13 +1177,13 @@ function ActionsSection({
                   <Icon name="file" /> <span>View briefing</span>
                 </Button>
               ) : (
-                <span className="text-[11.5px] text-ink-muted">
+                <span className="text-sm text-ink-muted">
                   Use Generate Briefing at the top of the page.
                 </span>
               )}
             </div>
             {briefing.isSuccess && briefing.data && (
-              <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+              <div className="mt-2 text-xs leading-[1.5] text-ink-muted">
                 Briefing ready — {briefing.data.filenames.html} and{' '}
                 {briefing.data.filenames.json}. Nothing was stored, nobody was notified and
                 nothing was written to your computer; the briefing's Download control puts this
@@ -1271,12 +1191,12 @@ function ActionsSection({
               </div>
             )}
             {briefing.isError && (
-              <div className="mt-2 text-[11.5px] leading-[1.5] text-status-danger">
+              <div className="mt-2 text-sm leading-[1.5] text-status-danger">
                 Could not generate the briefing — {briefing.error.message}. The record above is
                 unchanged.
               </div>
             )}
-            <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+            <div className="mt-2 text-xs leading-[1.5] text-ink-muted">
               The briefing names no author and no approver: this application has no authentication,
               so it cannot establish who produced or reviewed it.
             </div>
@@ -1302,20 +1222,20 @@ function StoredBanner({ stored, label }: { stored: StoredDecision; label: string
     >
       <CardBody>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <div className="text-[13px] font-bold text-ink-primary">
+          <div className="text-base font-bold text-ink-primary">
             {label} · <span className="font-mono">{stored.decision_id}</span> · version{' '}
             {stored.version}
             {stored.stale && (
-              <span className="ml-2 rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-status-warning">
+              <span className="ml-2 rounded-[4px] bg-status-warning-bg px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] text-status-warning">
                 Stale
               </span>
             )}
           </div>
-          <div className="text-[11px] text-ink-muted">
+          <div className="text-xs text-ink-muted">
             Saved {stored.saved_at} · draft, not approved
           </div>
         </div>
-        <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-muted">
+        <div className="mt-1 text-sm leading-[1.5] text-ink-muted">
           {stored.stale ? stored.stale_reason : stored.owner_note}
         </div>
       </CardBody>
@@ -1326,7 +1246,7 @@ function StoredBanner({ stored, label }: { stored: StoredDecision; label: string
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-4 border-t border-border-subtle pt-3">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {label}
       </div>
       <div className="mt-1.5 flex flex-col gap-2">{children}</div>
@@ -1349,23 +1269,23 @@ function Field({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+      <div className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
         {label}
       </div>
       {value ? (
         <div
-          className={`mt-0.5 break-words text-[13px] font-bold text-ink-primary ${
-            mono ? 'font-mono text-[11.5px] font-semibold' : ''
+          className={`mt-0.5 break-words text-base font-bold text-ink-primary ${
+            mono ? 'font-mono text-sm font-semibold' : ''
           }`}
         >
           {value}
         </div>
       ) : (
-        <div className="mt-0.5 inline-flex items-center gap-1 text-[13px] text-ink-muted">
+        <div className="mt-0.5 inline-flex items-center gap-1 text-base text-ink-muted">
           {fallback}
           {reason && (
             <InfoPopover label={`Why ${label} is unavailable`} title={label} width={272}>
-              <div className="mt-1 text-[11.5px] leading-[1.5] text-ink-secondary">{reason}</div>
+              <div className="mt-1 text-sm leading-[1.5] text-ink-secondary">{reason}</div>
             </InfoPopover>
           )}
         </div>
@@ -1377,7 +1297,7 @@ function Field({
 function Loading({ label }: { label: string }) {
   return (
     <div className="mt-4 grid min-h-[40vh] place-items-center">
-      <div className="flex flex-col items-center gap-3 text-sm text-ink-muted">
+      <div className="flex flex-col items-center gap-3 text-base text-ink-muted">
         <Spinner />
         <span>{label}</span>
       </div>
@@ -1400,15 +1320,15 @@ function Loading({ label }: { label: string }) {
  *  empty page or a record assembled from figures they never reported. */
 function NoRecordForCandidate() {
   return (
-    <Card className="fade-in mt-[18px]">
-      <div className="px-6 py-10 text-center">
+    <Card className="fade-in mt-[14px]">
+      <div className="px-6 py-7 text-center">
         <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
           <Icon name="checkCircle" />
         </div>
-        <div className="text-sm font-bold text-ink-primary">
+        <div className="text-base font-bold text-ink-primary">
           This scenario has no decision record
         </div>
-        <div className="mx-auto mt-1.5 max-w-[500px] text-[12.5px] leading-[1.55] text-ink-secondary">
+        <div className="mx-auto mt-1.5 max-w-[500px] text-base leading-[1.55] text-ink-secondary">
           A governed record is assembled from a simulated scenario's context, recommendation and
           risk assessment. Optimizer, Target Rescue and measured plans compare above but produce
           none of those, so there is nothing to assemble. Select a scenario added from Simulation
@@ -1452,20 +1372,20 @@ function ErrorState({
             <Icon name="warning" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-bold text-ink-primary">
+            <div className="text-base font-bold text-ink-primary">
               Unable to build the decision record
             </div>
             {inconsistent ? (
-              <div className="mt-1 max-w-[680px] text-[12.5px] leading-[1.55] text-ink-secondary">
+              <div className="mt-1 max-w-[680px] text-base leading-[1.55] text-ink-secondary">
                 Scenario data is inconsistent. Please return to Simulation Studio and reopen the
                 selected scenario.
               </div>
             ) : (
-              <div className="mt-1 max-w-[680px] text-[12.5px] leading-[1.55] text-ink-secondary">
+              <div className="mt-1 max-w-[680px] text-base leading-[1.55] text-ink-secondary">
                 The record could not be assembled from the results carried here.
               </div>
             )}
-            <div className="mt-1.5 break-words text-[11.5px] leading-[1.5] text-ink-muted">
+            <div className="mt-1.5 break-words text-sm leading-[1.5] text-ink-muted">
               {error.message}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">

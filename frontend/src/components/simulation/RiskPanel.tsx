@@ -35,11 +35,11 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-[15px] font-bold">Risk &amp; Governance</h3>
+            <h3 className="text-md font-bold">Risk &amp; Governance</h3>
             <StatusPill status={risk.overall_status} />
           </div>
-          <div className="mt-0.5 text-[11.5px] text-ink-muted">
-            Assessed independently of the recommendation · policy v{risk.policy.version}
+          <div className="mt-0.5 text-sm text-ink-muted">
+            Assessed independently of the recommendation
           </div>
         </div>
         <PolicyPopover risk={risk} />
@@ -48,12 +48,12 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
       <div className="px-5 py-4">
         <CheckMix risk={risk} />
 
-        <div className="max-w-[680px] text-[12.5px] leading-[1.6] text-ink-secondary">
+        <div className="max-w-[680px] text-base leading-[1.6] text-ink-secondary">
           {risk.summary}
         </div>
 
         {risk.recommendation_context.recommended_scenario_id && (
-          <div className="mt-2 text-[11.5px] leading-[1.5] text-ink-muted">
+          <div className="mt-2 text-sm leading-[1.5] text-ink-muted">
             {risk.recommendation_context.is_recommended ? (
               <>
                 This scenario is <span className="font-semibold text-ink-secondary">recommended
@@ -82,13 +82,13 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
         {clear.length > 0 && <FindingGroup label="Evidence" findings={clear} />}
 
         <Section label="Governance considerations" count={risk.governance_gaps.length}>
-          <div className="text-[11px] leading-[1.5] text-ink-muted">
+          <div className="text-xs leading-[1.5] text-ink-muted">
             These boundaries are not defined anywhere in the project, so nothing above is
             judged against them.
           </div>
           <ul className="mt-1.5 flex flex-col gap-1">
             {risk.governance_gaps.map((gap) => (
-              <li key={gap.key} className="text-[11.5px] leading-[1.5] text-ink-muted">
+              <li key={gap.key} className="text-sm leading-[1.5] text-ink-muted">
                 <span className="font-semibold text-ink-secondary">{gap.label}</span> — {gap.statement}
               </li>
             ))}
@@ -98,7 +98,7 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
         <Section label="Method limitations" count={risk.limitations.length}>
           <ul className="flex flex-col gap-1.5">
             {risk.limitations.map((limitation) => (
-              <li key={limitation.id} className="text-[11.5px] leading-[1.5] text-ink-muted">
+              <li key={limitation.id} className="text-sm leading-[1.5] text-ink-muted">
                 <span className="font-semibold text-ink-secondary">{limitation.title}</span> —{' '}
                 {limitation.statement}
                 <div className="text-ink-muted">{limitation.implication}</div>
@@ -111,7 +111,7 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
           <Section label="What to validate before execution" count={actions.length} defaultOpen>
             <ul className="flex flex-col gap-1">
               {actions.map((finding) => (
-                <li key={finding.id} className="text-[11.5px] leading-[1.5] text-ink-secondary">
+                <li key={finding.id} className="text-sm leading-[1.5] text-ink-secondary">
                   • {finding.recommended_action}
                 </li>
               ))}
@@ -136,21 +136,21 @@ function FindingGroup({
     <Section label={label} count={findings.length} defaultOpen={defaultOpen}>
       <div className="flex flex-col gap-2.5">
         {findings.map((finding) => (
-          <div key={finding.id} className="text-[11.5px] leading-[1.5]">
+          <div key={finding.id} className="text-sm leading-[1.5]">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span className="font-semibold text-ink-primary">{finding.title}</span>
               <SeverityTag severity={finding.severity} />
-              <span className="text-[10px] uppercase tracking-[0.04em] text-ink-muted">
+              <span className="text-2xs uppercase tracking-[0.04em] text-ink-muted">
                 {finding.category.replace('_', ' ')}
               </span>
               <InfoPopover label={`Evidence for ${finding.title}`} title={finding.title} width={320}>
-                <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+                <div className="mt-1 space-y-1.5 text-sm leading-[1.5] text-ink-secondary">
                   <div>{finding.reason}</div>
                   <div>
                     <span className="font-semibold text-ink-primary">Impact:</span> {finding.impact}
                   </div>
                   <div className="text-ink-muted">Source: {finding.source}</div>
-                  <pre className="mt-1 max-h-[160px] overflow-auto rounded-[var(--r-sm)] bg-ink-primary/[0.04] p-1.5 text-[10px] leading-[1.4] text-ink-secondary">
+                  <pre className="mt-1 max-h-[160px] overflow-auto rounded-[var(--r-sm)] bg-ink-primary/[0.04] p-1.5 text-2xs leading-[1.4] text-ink-secondary">
                     {JSON.stringify(finding.evidence, null, 1)}
                   </pre>
                 </div>
@@ -178,7 +178,7 @@ function SeverityTag({ severity }: { severity: Severity }) {
   }[severity]
   return (
     <span
-      className={`rounded-[4px] px-1.5 py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${tone}`}
+      className={`rounded-[4px] px-1.5 py-[1px] text-2xs font-extrabold uppercase tracking-[0.04em] ${tone}`}
     >
       {severity}
     </span>
@@ -248,14 +248,14 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
   return (
     <div className="mb-4 rounded-[var(--r-md)] border border-border-subtle p-[14px_16px]">
       <div className="mb-3 flex items-center gap-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+        <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
           Governance check mix
         </span>
         <InfoPopover label="About the governance check mix" title="Governance check mix" width={330}>
           <InfoBlock label="Formula">Clear ÷ (Clear + Needs attention) × 100</InfoBlock>
           <InfoBlock label="Weighting">
-            Every check counts once. Decision policy v{risk.policy.version} defines no severity
-            weights, so none are applied.
+            Every check counts once. The decision policy defines no severity weights, so none
+            are applied.
           </InfoBlock>
           <InfoBlock label="Excluded">
             Checks that could not be assessed. "Unknown" means no approved rule defines what
@@ -266,7 +266,7 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
             {risk.policy.narrow_headroom_pp} percentage points of break-even headroom —{' '}
             {risk.policy.narrow_headroom_source}
           </InfoBlock>
-          <div className="mt-1.5 text-[10.5px] leading-[1.4] text-ink-muted">
+          <div className="mt-1.5 text-xs leading-[1.4] text-ink-muted">
             A count of this assessment's own checks — not a risk score. The engine computes none:
             no score, no weighting, no probability and no confidence (app/tpo/risk.py).
           </div>
@@ -285,10 +285,10 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
             centerLabel={score === null ? 'not assessable' : 'checks clear'}
           />
           <div className="mt-3 flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-ink-muted">Risk level</span>
+            <span className="text-xs font-semibold text-ink-muted">Risk level</span>
             <StatusPill status={risk.overall_status} />
           </div>
-          <div className="mt-2 text-[11px] leading-[1.5] text-ink-muted">
+          <div className="mt-2 text-xs leading-[1.5] text-ink-muted">
             {score === null
               ? `No approved rule could judge any of the ${label(total)} in this assessment, so no figure is shown.`
               : `${label(counts.clear)} of ${label(assessed)} that could be judged came back clear${
@@ -298,11 +298,11 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
         </div>
 
         <div className="min-w-0">
-          <div className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.06em] text-ink-muted">
+          <div className="mb-1.5 text-xs font-bold uppercase tracking-[0.06em] text-ink-muted">
             By component
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[11.5px]">
+            <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b border-border-subtle text-ink-muted">
                   <th className="py-1 pr-3 text-left font-semibold">Component</th>
@@ -329,7 +329,7 @@ function CheckMix({ risk }: { risk: RiskAssessment }) {
               </tbody>
             </table>
           </div>
-          <div className="mt-2 text-[10.5px] leading-[1.45] text-ink-muted">
+          <div className="mt-2 text-xs leading-[1.45] text-ink-muted">
             No weight column: the decision policy assigns none, so every check counts once and a
             weighted total cannot be shown without inventing the weights.
           </div>
@@ -348,7 +348,7 @@ function StatusPill({ status }: { status: RiskAssessment['overall_status'] }) {
   }[status]
   return (
     <span
-      className={`inline-flex items-center rounded-[4px] px-2 py-[3px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] ${tone}`}
+      className={`inline-flex items-center rounded-[4px] px-2 py-[3px] text-2xs font-extrabold uppercase tracking-[0.04em] ${tone}`}
     >
       {label}
     </span>
@@ -382,7 +382,7 @@ function Section({
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-1.5 text-left text-[10.5px] font-semibold uppercase tracking-[0.04em] text-ink-muted hover:text-ink-secondary"
+        className="flex w-full items-center gap-1.5 text-left text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted hover:text-ink-secondary"
       >
         <Icon
           name="chevronDown"
@@ -390,7 +390,7 @@ function Section({
         />
         {label}
         {count != null && (
-          <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-[9.5px] font-extrabold tabular-nums text-ink-muted">
+          <span className="rounded-[4px] bg-surface-muted px-1.5 py-[1px] text-2xs font-extrabold tabular-nums text-ink-muted">
             {count}
           </span>
         )}
@@ -402,11 +402,11 @@ function Section({
 
 function PolicyPopover({ risk }: { risk: RiskAssessment }) {
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-ink-muted">
+    <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
       <Icon name="shield" className="h-3 w-3" />
       How this is assessed
       <InfoPopover label="The risk policy" title="Risk &amp; governance policy" width={330}>
-        <div className="mt-1 space-y-1.5 text-[11.5px] leading-[1.5] text-ink-secondary">
+        <div className="mt-1 space-y-1.5 text-sm leading-[1.5] text-ink-secondary">
           <div>{risk.policy.principle}</div>
           <div>
             <span className="font-semibold text-ink-primary">Overall status:</span>{' '}
@@ -427,12 +427,12 @@ function PolicyPopover({ risk }: { risk: RiskAssessment }) {
  *  is fabricated. */
 export function RiskEmptyState() {
   return (
-    <div className="px-5 py-8 text-center">
+    <div className="px-5 py-6 text-center">
       <div className="mx-auto mb-3 grid h-10 w-10 place-items-center rounded-full bg-surface-muted text-ink-muted [&_svg]:h-5 [&_svg]:w-5">
         <Icon name="shield" />
       </div>
-      <div className="text-sm font-bold text-ink-primary">Risk &amp; Governance</div>
-      <div className="mt-1.5 text-[12.5px] text-ink-secondary">
+      <div className="text-base font-bold text-ink-primary">Risk &amp; Governance</div>
+      <div className="mt-1.5 text-base text-ink-secondary">
         Run a scenario to assess risk and governance.
       </div>
     </div>

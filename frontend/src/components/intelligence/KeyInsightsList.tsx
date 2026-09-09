@@ -38,8 +38,8 @@ export function KeyInsightsList({ items }: { items: NormalizedInsight[] }) {
             <Icon name={k.icon} />
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-bold leading-[1.35] text-ink-primary">{k.title}</div>
-            <div className="mt-0.5 text-[11.5px] text-ink-muted">{k.desc}</div>
+            <div className="text-base font-bold leading-[1.35] text-ink-primary">{k.title}</div>
+            <div className="mt-0.5 text-sm text-ink-muted">{k.desc}</div>
           </div>
           <div className="flex items-center gap-1.5">
             <Pill tone={k.tone}>{k.impact}</Pill>

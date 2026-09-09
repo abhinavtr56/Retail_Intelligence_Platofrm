@@ -114,8 +114,8 @@ export function Home() {
         <Link to="/home" className="flex min-w-0 items-center gap-3">
           <img src="/image.png" alt="TransOrg" className="h-[34px] w-[34px] shrink-0" />
           <div className="min-w-0">
-            <h1 className="truncate text-[15px] leading-[1.25] sm:text-[17px]">Agentic CPG &amp; Retail Intelligence Platform</h1>
-            <p className="mt-px hidden truncate text-xs text-ink-muted sm:block">Enterprise decision intelligence for FMCG/CPG</p>
+            <h1 className="truncate text-md leading-[1.25] sm:text-lg">Agentic CPG &amp; Retail Intelligence Platform</h1>
+            <p className="mt-px hidden truncate text-sm text-ink-muted sm:block">Enterprise decision intelligence for FMCG/CPG</p>
           </div>
         </Link>
         <div className="flex-1" />
@@ -132,7 +132,7 @@ export function Home() {
             }}
             trigger={
               <div
-                className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-[linear-gradient(135deg,#6B47FF,#8C6EFF)] text-xs font-bold text-white"
+                className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-[linear-gradient(135deg,#6B47FF,#8C6EFF)] text-sm font-bold text-white"
                 title={user.name}
               >
                 {user.initials}
@@ -146,7 +146,7 @@ export function Home() {
         <div className="fade-in-up mb-7 flex items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
             <h2 className="mb-2 text-xl sm:text-2xl">Good to see you, {user.name.toUpperCase()}.</h2>
-            <p className="max-w-none text-[13.5px] leading-[1.6] text-ink-secondary">
+            <p className="max-w-none text-base leading-[1.6] text-ink-secondary">
               Six intelligence modules span the retail value chain end to end. Trade Promotion Optimization is live — open it to
               observe, diagnose and simulate promotion performance. The rest are on the roadmap.
             </p>

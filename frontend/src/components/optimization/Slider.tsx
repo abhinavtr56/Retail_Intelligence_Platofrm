@@ -43,16 +43,16 @@ export function Slider({
   return (
     <div className="min-w-0">
       <div className="flex items-baseline justify-between gap-3">
-        <label className="text-[11px] font-semibold uppercase tracking-[0.04em] text-ink-muted">
+        <label className="text-xs font-semibold uppercase tracking-[0.04em] text-ink-muted">
           {label}
         </label>
-        <span className={`text-[13px] font-bold tabular-nums ${inert ? 'text-ink-muted' : 'text-ink-primary'}`}>
+        <span className={`text-base font-bold tabular-nums ${inert ? 'text-ink-muted' : 'text-ink-primary'}`}>
           {valueLabel}
         </span>
       </div>
 
       <div className="mt-2 flex items-center gap-2.5">
-        <span className="shrink-0 text-[10.5px] tabular-nums text-ink-muted">{minLabel}</span>
+        <span className="shrink-0 text-xs tabular-nums text-ink-muted">{minLabel}</span>
         <input
           type="range"
           min={min}
@@ -65,10 +65,10 @@ export function Slider({
           onChange={(e) => onChange(Number(e.target.value))}
           className="h-1.5 min-w-0 flex-1 cursor-pointer appearance-none rounded-full bg-border-default accent-brand-violet disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-violet focus-visible:ring-offset-2"
         />
-        <span className="shrink-0 text-[10.5px] tabular-nums text-ink-muted">{maxLabel}</span>
+        <span className="shrink-0 text-xs tabular-nums text-ink-muted">{maxLabel}</span>
       </div>
 
-      {hint && <div className="mt-1.5 text-[11px] leading-[1.45] text-ink-muted">{hint}</div>}
+      {hint && <div className="mt-1.5 text-xs leading-[1.45] text-ink-muted">{hint}</div>}
     </div>
   )
 }

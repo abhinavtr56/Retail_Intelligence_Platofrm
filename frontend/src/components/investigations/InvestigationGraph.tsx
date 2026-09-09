@@ -104,14 +104,14 @@ export function InvestigationGraph({
               >
                 <Icon name={n.icon as IconName} />
               </div>
-              <div className="text-[12px] font-bold leading-tight text-ink-primary">{n.label}</div>
+              <div className="text-sm font-bold leading-tight text-ink-primary">{n.label}</div>
               {n.metric && (
-                <div className="mt-[3px] text-[13px] font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
+                <div className="mt-[3px] text-base font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
                   {n.metric}
                 </div>
               )}
               {n.delta && (
-                <div className="mt-0.5 inline-flex items-center gap-0.5 text-[11.5px] font-bold" style={{ color: trendColor }}>
+                <div className="mt-0.5 inline-flex items-center gap-0.5 text-sm font-bold" style={{ color: trendColor }}>
                   <Icon name={n.trend === 'down' ? 'arrowDown' : 'arrowUp'} className="h-2.5 w-2.5" />
                   <span>{n.delta}</span>
                 </div>
@@ -130,13 +130,13 @@ export function InvestigationGraph({
             boxShadow: '0 16px 32px -8px rgba(124, 92, 255, 0.55)',
           }}
         >
-          <div className="text-[17px] font-extrabold tracking-[-0.01em]">{center.label}</div>
-          <div className="mt-0.5 text-[12.5px] opacity-[0.78]">{center.sub}</div>
+          <div className="text-lg font-extrabold tracking-[-0.01em]">{center.label}</div>
+          <div className="mt-0.5 text-base opacity-[0.78]">{center.sub}</div>
         </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-[18px] border-t border-border-subtle p-[12px_22px] text-[12.5px] text-ink-secondary">
+      <div className="flex flex-wrap gap-[18px] border-t border-border-subtle p-[12px_22px] text-base text-ink-secondary">
         {legend.map((l) => (
           <span key={l.label} className="inline-flex items-center gap-1.5">
             <span

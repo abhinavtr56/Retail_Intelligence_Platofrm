@@ -8,7 +8,7 @@ export function Table({ className = '', ...props }: HTMLAttributes<HTMLTableElem
 export function Th({ className = '', ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={`border-b border-border-subtle bg-surface-muted p-[12px_18px] text-left text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted ${className}`}
+      className={`border-b border-border-subtle bg-surface-muted p-[12px_18px] text-left text-xs font-bold uppercase tracking-[0.06em] text-ink-muted ${className}`}
       {...props}
     />
   )
@@ -21,7 +21,7 @@ export function Td({
 }: TdHTMLAttributes<HTMLTableCellElement> & { emphasis?: boolean }) {
   return (
     <td
-      className={`border-b border-border-subtle p-[12px_18px] text-[13px] group-last/row:border-b-0 ${
+      className={`border-b border-border-subtle p-[12px_18px] text-base group-last/row:border-b-0 ${
         emphasis ? 'font-semibold text-ink-primary' : ''
       } ${className}`}
       {...props}

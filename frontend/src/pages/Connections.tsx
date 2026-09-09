@@ -32,7 +32,7 @@ export function Connections() {
       <div className="fade-in mb-6 flex items-end justify-between gap-4">
         <div>
           <h1>Data Connections</h1>
-          <p className="mt-1.5 text-sm text-ink-muted">
+          <p className="mt-1.5 text-base text-ink-muted">
             {available.length} sources available to connect
           </p>
         </div>
@@ -57,16 +57,16 @@ export function Connections() {
                 <BrandLogo logo={c.logo} name={c.name} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[15px] font-bold text-ink-primary">{c.name}</div>
-                <div className="mt-0.5 text-xs text-ink-muted">{c.desc}</div>
+                <div className="text-md font-bold text-ink-primary">{c.name}</div>
+                <div className="mt-0.5 text-sm text-ink-muted">{c.desc}</div>
               </div>
-              <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold text-ink-disabled">
+              <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink-disabled">
                 <span className="h-1.5 w-1.5 rounded-full bg-current" /> Not connected
               </span>
             </div>
 
             <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-border-default pt-3.5">
-              <span className="text-[11.5px] text-ink-muted">
+              <span className="text-sm text-ink-muted">
                 {c.upload ? 'Upload files from your machine' : 'Sign in with your account credentials'}
               </span>
               <Button variant="violet-soft" size="sm" onClick={() => goConnect(c.name)}>
