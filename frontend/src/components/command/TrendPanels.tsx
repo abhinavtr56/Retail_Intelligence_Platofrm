@@ -39,12 +39,18 @@ function niceStep(raw: number): number {
 
 const DIVISIONS = 4
 
+/** Minimum horizontal pitch between x-axis ticks, in px. Ticks are spaced by
+ *  PIXELS rather than by a fixed count: at 52 weekly points the old `n / 13`
+ *  rule placed 13 ticks 48px apart while each one read "W01 2025" at ~45px
+ *  wide, leaving 3px between them — the axis read as one grey smear. */
+const TICK_PITCH = 48
+
 export function TrendPanels({
   data,
   rate,
   symbol,
   granularity = 'week',
-  height = 320,
+  height = 290,
 }: {
   data: TrendResponse
   /** From `meta.exchange_rate` — the single backend-defined rate. */
@@ -107,7 +113,22 @@ export function TrendPanels({
   if (run.length) runs.push(run)
 
   const cx = (i: number) => padL + step * i + step / 2
-  const labelEvery = Math.max(1, Math.ceil(n / (width < 560 ? 6 : 13)))
+  const labelEvery = Math.max(1, Math.ceil(TICK_PITCH / step))
+
+  // The year is identical on almost every tick, so it is printed only when it
+  // CHANGES. That is what shortens "W01 2025" to "W01" and lets the periods
+  // themselves be read; the first tick always carries it.
+  const xTicks = (() => {
+    const out: { i: number; text: string }[] = []
+    let lastYear: string | null = null
+    for (let i = 0; i < n; i += labelEvery) {
+      const full = calendarYear(labels[i])
+      const year = full.match(/\b(\d{4})\b/)?.[1] ?? null
+      out.push({ i, text: year && year === lastYear ? full.replace(/\s*\b\d{4}\b/, '').trim() : full })
+      lastYear = year
+    }
+    return out
+  })()
   const active = hover !== null && hover < n ? hover : null
   const path = (values: number[]) => values.map((v, i) => `${cx(i)},${yMoney(v)}`).join(' ')
 
@@ -149,7 +170,7 @@ export function TrendPanels({
           x={width - padR - 4}
           y={yRoi(targetRoi) - 4}
           textAnchor="end"
-          fontSize={9.5}
+          fontSize={10}
           fill="var(--text-muted)"
           fontWeight={700}
         >
@@ -188,13 +209,11 @@ export function TrendPanels({
           </>
         )}
 
-        {labels.map((l, i) =>
-          i % labelEvery === 0 ? (
-            <text key={i} x={cx(i)} y={height - 6} textAnchor="middle" fontSize={9.5} fill="var(--text-muted)">
-              {calendarYear(l)}
-            </text>
-          ) : null,
-        )}
+        {xTicks.map((t) => (
+          <text key={t.i} x={cx(t.i)} y={height - 6} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
+            {t.text}
+          </text>
+        ))}
 
         {/* Invisible hover columns across the full plot height */}
         {labels.map((_, i) => (
@@ -205,7 +224,7 @@ export function TrendPanels({
 
       {active !== null && (
         <div
-          className="pointer-events-none absolute top-2 z-20 w-56 rounded-[var(--r-md)] border border-border-default bg-surface-card p-2.5 text-[11px] shadow-[var(--shadow-lg)]"
+          className="pointer-events-none absolute top-2 z-20 w-56 rounded-[var(--r-md)] border border-border-default bg-surface-card p-2.5 text-xs shadow-[var(--shadow-lg)]"
           style={{ left: Math.min(Math.max(0, cx(active) - 112), Math.max(0, width - 224)) }}
         >
           <div className="font-bold text-ink-primary">

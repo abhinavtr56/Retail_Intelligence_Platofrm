@@ -436,8 +436,9 @@ export function CommandCenter() {
                   granularity={granularity}
                   /* Sized to the height the grid row actually gives this card
                      (its Risk Alerts sibling drives it). At the previous 320
-                     the plot stopped ~88px short of the card's own border. */
-                  height={408}
+                     the plot stopped ~88px short of the card's own border; 408
+                     left 30px once the card chrome tightened. */
+                  height={438}
                 />
               </Stale>
             ) : (
