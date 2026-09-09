@@ -41,10 +41,27 @@ export function NodeDetailPopover({
         <div className="mt-3 rounded-[10px] p-3" style={{ background: st.bg }}>
           {(() => {
             const max = Math.max(...detail.viz.items.map((it) => it.value)) * 1.15 || 1
+            // LABEL ABOVE THE BAR, NOT BESIDE IT. These labels are retailer,
+            // mechanic and channel names — up to "20% Discount (Seasonal) ROI
+            // (Whole Business)" at 44 characters. Beside the bar they had a
+            // fixed 64px and `whitespace-nowrap` with nothing to clip them, so
+            // anything longer than about eight characters ran straight under
+            // the bar. Stacked, the name gets the panel's full width and only
+            // the longest few need to truncate at all.
             return detail.viz.items.map((it, i) => (
-              <div key={it.label} className="mb-2 grid grid-cols-[64px_1fr_40px] items-center gap-2 last:mb-0">
-                <span className="whitespace-nowrap text-xs font-semibold text-ink-secondary">{it.label}</span>
-                <span className="h-[9px] overflow-hidden rounded-full bg-black/[0.06]">
+              <div key={it.label} className="mb-2.5 last:mb-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span
+                    className="min-w-0 truncate text-xs font-semibold text-ink-secondary"
+                    title={it.label}
+                  >
+                    {it.label}
+                  </span>
+                  <span className="shrink-0 text-sm font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
+                    {it.value}
+                  </span>
+                </div>
+                <span className="mt-1 block h-[9px] overflow-hidden rounded-full bg-black/[0.06]">
                   <span
                     className="block h-full rounded-full [animation:npGrow_700ms_var(--ease-out)_forwards]"
                     style={{
@@ -54,9 +71,6 @@ export function NodeDetailPopover({
                       animationDelay: `${120 + i * 120}ms`,
                     }}
                   />
-                </span>
-                <span className="text-right text-sm font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
-                  {it.value}
                 </span>
               </div>
             ))
