@@ -1305,7 +1305,6 @@ def _decision_sections(
             ("Objective", recommendation.get("objective")),
             ("Primary metric", recommendation.get("primary_metric")),
             ("Primary endpoint", recommendation.get("primary_endpoint")),
-            ("Policy version", recommendation.get("policy_version")),
             ("Reason", recommendation.get("reason")),
             ("Note", recommendation.get("note")),
         )
@@ -1318,7 +1317,6 @@ def _decision_sections(
             ("Overall status", governance.get("overall_status")),
             ("Rule", governance.get("overall_status_rule")),
             ("Summary", governance.get("summary")),
-            ("Policy version", governance.get("policy_version")),
         )
     )))
     if governance.get("findings"):
@@ -1385,8 +1383,6 @@ def _decision_sections(
             ("Assembled from", ", ".join(provenance.get("assembled_from") or [])),
             ("KPI engine", provenance.get("kpi_engine")),
             ("Response rule", provenance.get("response_rule")),
-            ("Recommendation policy", provenance.get("recommendation_policy_version")),
-            ("Risk policy", provenance.get("risk_policy_version")),
             ("Method", provenance.get("method")),
             ("Persistence", (record.get("meta") or {}).get("persistence_note")),
         )

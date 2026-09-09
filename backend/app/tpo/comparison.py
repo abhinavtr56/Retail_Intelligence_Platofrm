@@ -124,8 +124,8 @@ _NOT_SIMULATED = (
 _NO_OBJECTIVE = (
     "No recommendation is produced. This project defines no business objective "
     "for Simulation Studio -- nothing states whether a higher ROI, a larger "
-    "incremental, a smaller spend or a lower cannibalization should win, or how "
-    "they trade off. Choosing that is a business-policy decision."
+    "incremental or a smaller spend should win, or how they trade off. "
+    "Choosing that is a business-policy decision."
 )
 
 

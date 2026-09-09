@@ -458,8 +458,7 @@ def build_html(record: dict[str, Any], exported_at: str) -> str:
            + (_e(recommendation.get("recommended_scenario_id")) or "no scenario") + "."
   }</strong></p>
   <p>{_e(recommendation.get('reason'))}</p>
-  <p class="note">Policy v{_or_dash(recommendation.get('policy_version'))} &middot;
-    primary metric {_e(str(recommendation.get('primary_metric') or '').replace('_', ' '))}
+  <p class="note">Primary metric {_e(str(recommendation.get('primary_metric') or '').replace('_', ' '))}
     at the {_or_dash(recommendation.get('primary_endpoint'))} end.</p>
   <p class="note">{_e(recommendation.get('note'))}</p>
 </section>
@@ -500,8 +499,6 @@ def build_html(record: dict[str, Any], exported_at: str) -> str:
   <div class="kv">
     <div><span>KPI engine</span><strong>{_or_dash(provenance.get('kpi_engine'))}</strong></div>
     <div><span>Response rule</span><strong>{_or_dash(provenance.get('response_rule'))}</strong></div>
-    <div><span>Recommendation policy</span><strong>{_or_dash(provenance.get('recommendation_policy_version'))}</strong></div>
-    <div><span>Risk policy</span><strong>{_or_dash(provenance.get('risk_policy_version'))}</strong></div>
   </div>
   <p class="note">{_e((record.get('meta') or {}).get('persistence_note'))}</p>
 </section>
