@@ -31,10 +31,29 @@ export function Dropdown({
   const anchorRef = useRef<HTMLSpanElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  // THE MENU IS KEPT INSIDE THE VIEWPORT. Anchoring it at the trigger's own
+  // left/bottom is right only for a trigger with room below and to the right of
+  // it. The account avatar sits ~16px from the window edge, so a menu pinned to
+  // its left had ~73px of viewport to render into: the labels wrapped a word at
+  // a time and "Profile & settings" ran off the screen. The sidebar's account
+  // menu has the same problem downwards, opening a few px above the fold.
   useLayoutEffect(() => {
-    if (!open || !anchorRef.current) return
+    if (!open || !anchorRef.current || !menuRef.current) return
+    // Measurable in place because the menu is `width: max-content` (see the
+    // style below): it keeps its natural width even when it is currently
+    // rendered hard against an edge, so one pass is enough and nothing has to
+    // mutate the DOM behind React's back to measure.
+    const { offsetWidth: w, offsetHeight: h } = menuRef.current
+
     const rect = anchorRef.current.getBoundingClientRect()
-    setCoords({ left: rect.left, top: rect.bottom + 4, minWidth: Math.max(180, rect.width) })
+    const GAP = 8
+    const left = Math.max(GAP, Math.min(rect.left, window.innerWidth - w - GAP))
+    // Below the trigger when it fits, above it when it does not.
+    const below = rect.bottom + 4
+    const top =
+      below + h + GAP <= window.innerHeight ? below : Math.max(GAP, rect.top - h - 4)
+
+    setCoords({ left, top, minWidth: Math.max(180, rect.width) })
   }, [open])
 
   useEffect(() => {
@@ -63,7 +82,18 @@ export function Dropdown({
           <div
             ref={menuRef}
             className="fade-in-up fixed z-[9999] rounded-[var(--r-md)] border border-border-default bg-surface-card p-1 shadow-[var(--shadow-lg)]"
-            style={{ left: coords.left, top: coords.top, minWidth: coords.minWidth }}
+            style={{
+              left: coords.left,
+              top: coords.top,
+              minWidth: coords.minWidth,
+              // `max-content` so the menu sizes to its labels rather than to
+              // whatever gap is left between the trigger and the window edge —
+              // that gap is what wrapped "Profile & settings" a word at a time.
+              width: 'max-content',
+              // And a ceiling, so a long sign-in address wraps inside the menu
+              // instead of stretching it across the screen.
+              maxWidth: 'min(320px, calc(100vw - 16px))',
+            }}
           >
             {options.map((o) => {
               const val = o.value ?? o.label
