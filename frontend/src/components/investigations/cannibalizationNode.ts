@@ -13,7 +13,7 @@ export const NOT_AVAILABLE = '—'
  *  free-text `metric`/`delta`, which the model fills in. For most specialists
  *  that is fine — the figure is one of many groups in their table and only the
  *  model knows which one is worth showing. Cannibalization is different: it has
- *  ONE defined headline number, `neighbour_sales_change_pct`, computed by
+ *  ONE defined headline number, `neighbour_units_change_pct`, computed by
  *  `neighbour_sales_decline()` in agents/star_tools.py. Binding the node to the
  *  prose let three things through:
  *
@@ -32,7 +32,10 @@ export function bindCannibalizationNode(nodes: OrchNode[], findings: AgentFindin
   return nodes.map((n) => {
     if (n.key !== 'cannibalization') return n
     const finding = findings.find((f) => f.key === 'cannibalization')
-    const pct = finding?.analysis_data?.neighbour_analysis?.neighbour_sales_change_pct
+    // VOLUME, NOT MONEY. The tool reports both; units are the headline because
+    // the money equivalent sums every store in the channel, which reads as a
+    // huge number for what is a few hundred packs.
+    const pct = finding?.analysis_data?.neighbour_analysis?.neighbour_units_change_pct
     if (typeof pct !== 'number' || !Number.isFinite(pct)) {
       return { ...n, metric: NOT_AVAILABLE, delta: '', trend: '' as const }
     }

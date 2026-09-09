@@ -29,7 +29,11 @@ export interface AgentFinding {
   /** Raw tool output the specialist analysed. Only the fields the UI binds to
    *  are declared; the payload's shape is the specialist's, not this type's. */
   analysis_data?: {
-    neighbour_analysis?: { neighbour_sales_change_pct?: number | null }
+    neighbour_analysis?: {
+      /** Volume change: the lens's headline. Revenue travels beside it. */
+      neighbour_units_change_pct?: number | null
+      neighbour_sales_change_pct?: number | null
+    }
   }
 }
 

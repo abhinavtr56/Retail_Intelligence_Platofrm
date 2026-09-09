@@ -295,6 +295,7 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
 
     per_form: list[dict[str, Any]] = []
     total_expected = total_actual = 0.0
+    total_expected_units = total_actual_units = 0.0
 
     for form in brand_forms:
         in_form = [r for r in rows if r.brand_form == form]
@@ -317,6 +318,7 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
 
         detail: list[dict[str, Any]] = []
         form_expected = form_actual = 0.0
+        form_expected_units = form_actual_units = 0.0
         for pid in neighbours:
             own = [r for r in in_form if r.product_id == pid]
             base_rows = [r for r in own if not r.is_promoted and r.week_key not in promo_weeks]
@@ -335,9 +337,21 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
                     ),
                 })
                 continue
+            # UNITS ARE THE HEADLINE, REVENUE THE CORROBORATION. Both are read the
+            # same way -- the neighbour's own mean per week over the weeks it was
+            # not promoted, scaled to the promotion weeks measured -- so the two
+            # answer the same question in two currencies and can be compared.
+            # Units are what a reader can hold: 6,326 against 6,156 rather than
+            # 3,637,925.3 against 3,544,560.0, which is the same finding pooled
+            # across every store in the channel.
+            per_week_units = sum(r.actual_quantity for r in base_rows) / len(base_weeks)
+            expected_units = per_week_units * len(during_weeks)
+            actual_units = sum(r.actual_quantity for r in during)
             per_week = sum(r.actual_revenue for r in base_rows) / len(base_weeks)
             expected = per_week * len(during_weeks)
             actual = sum(r.actual_revenue for r in during)
+            form_expected_units += expected_units
+            form_actual_units += actual_units
             form_expected += expected
             form_actual += actual
             detail.append({
@@ -346,6 +360,12 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
                 "computable": True,
                 "baseline_weeks": len(base_weeks),
                 "promotion_weeks_measured": len(during_weeks),
+                "expected_units": round(expected_units, 1),
+                "actual_units": round(actual_units, 1),
+                "units_change_pct": (
+                    round((actual_units - expected_units) / expected_units * 100, 1)
+                    if expected_units else None
+                ),
                 "expected_sales": round(expected, 1),
                 "actual_sales": round(actual, 1),
                 # (during - baseline) / baseline: POSITIVE means it sold MORE.
@@ -354,15 +374,23 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
 
         total_expected += form_expected
         total_actual += form_actual
+        total_expected_units += form_expected_units
+        total_actual_units += form_actual_units
         per_form.append({
             "brand_form": form,
             "promoted_products": promoted_here,
             "promotions": promo_names,
             "promotion_weeks": promo_weeks,
             "neighbour_count": len(neighbours),
-            "computable": form_expected > 0,
-            "reason": None if form_expected > 0 else (
-                "Baseline neighbour sales are zero, so a percentage change cannot be expressed."
+            "computable": form_expected_units > 0,
+            "reason": None if form_expected_units > 0 else (
+                "Baseline neighbour volume is zero, so a percentage change cannot be expressed."
+            ),
+            "expected_neighbour_units": round(form_expected_units, 1),
+            "actual_neighbour_units": round(form_actual_units, 1),
+            "neighbour_units_change_pct": (
+                round((form_actual_units - form_expected_units) / form_expected_units * 100, 1)
+                if form_expected_units else None
             ),
             "expected_neighbour_sales": round(form_expected, 1),
             "actual_neighbour_sales": round(form_actual, 1),
@@ -372,12 +400,16 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
             "neighbours": detail,
         })
 
+    overall_units = (
+        round((total_actual_units - total_expected_units) / total_expected_units * 100, 1)
+        if total_expected_units else None
+    )
     overall = round((total_actual - total_expected) / total_expected * 100, 1) if total_expected else None
     return {
         "available": True,
-        "metric": "neighbour_sales_change_pct",
+        "metric": "neighbour_units_change_pct",
         "direction": (
-            "(promotion-period sales - baseline sales) / baseline sales x 100. NEGATIVE means "
+            "(promotion-period volume - baseline volume) / baseline volume x 100. NEGATIVE means "
             "neighbouring products sold LESS than their ordinary level -- report that as a "
             "decline of that size, indicating POTENTIAL cannibalization. POSITIVE means neighbour "
             "sales ROSE -- report the increase and state that no decline was detected. Never "
@@ -388,13 +420,19 @@ def neighbour_sales_decline(filters: dict[str, Any] | None = None) -> dict[str, 
             "which this dataset uses as the brand+form grouping). The promoted product is excluded."
         ),
         "baseline_definition": (
-            "Each neighbour's own mean revenue per week over the weeks it was not promoted and the "
+            "Each neighbour's own mean UNITS per week over the weeks it was not promoted and the "
             "promotion was not running, scaled to the number of promotion weeks measured."
         ),
         "causality_note": (
             "An observed co-movement, not an attribution. A decline here is CONSISTENT WITH "
             "cannibalization and does not establish that the promotion caused it."
         ),
+        # THE HEADLINE IS VOLUME. Revenue travels beside it, unchanged, as the
+        # corroborating figure and for the evidence line -- a decline in units
+        # that is not matched in money (or the reverse) is itself worth saying.
+        "expected_neighbour_units": round(total_expected_units, 1),
+        "actual_neighbour_units": round(total_actual_units, 1),
+        "neighbour_units_change_pct": overall_units,
         "expected_neighbour_sales": round(total_expected, 1),
         "actual_neighbour_sales": round(total_actual, 1),
         "promotions": promo_names,
