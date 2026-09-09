@@ -154,3 +154,41 @@ export interface StarInspectResult {
   message: string
   locked: boolean
 }
+
+// ===== Databricks Unity Catalog source =====
+// The same six tables again, this time as catalog tables rather than files.
+// Browsing is metadata-only; data moves once, at install. Credentials are sent
+// per request and never persisted — see backend/app/databricks_catalog.py.
+
+export interface DbxCatalog {
+  name: string
+  comment: string
+}
+
+export interface DbxSchema {
+  name: string
+  comment: string
+}
+
+export interface DbxTable {
+  name: string
+  table_type: string
+  comment: string
+  /** Column names, supplied by Unity Catalog with the listing — this is what
+   *  identifies a table's star role, with no query and no data read. */
+  columns: string[]
+}
+
+export interface DbxTableListing {
+  catalog: string
+  schema_name: string
+  tables: DbxTable[]
+}
+
+/** A table the user has picked, fully qualified. `schema_name` rather than
+ *  `schema` because Pydantic reserves the latter on the backend model. */
+export interface DbxTableSel {
+  catalog: string
+  schema_name: string
+  name: string
+}

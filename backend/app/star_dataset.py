@@ -181,6 +181,31 @@ def read_header(filename: str, content: bytes) -> list[str]:
     return _read_header(content)
 
 
+def match_columns(header: list[str]) -> tuple[str, tuple[str, ...]] | None:
+    """Match a column list to a star role, or None if it matches none.
+
+    THE identification rule, factored out so every source shares one copy. A
+    CSV upload reaches it via `classify`, which parses a header row first; a
+    Databricks table reaches it with the column list Unity Catalog already
+    supplies, no file and no download involved. Both must agree on what a table
+    IS, so neither gets its own version of this loop.
+
+    Returns (role, missing_columns) — missing being empty for a usable table.
+    """
+    # Case-insensitive so `PRODUCT_ID` and `Product_id` both match — Excel
+    # round-trips and hand-maintained exports rarely preserve exact casing.
+    present = {h.strip().lower() for h in header if h and h.strip()}
+    if not present:
+        return None
+
+    for role, discriminators in ROLE_DISCRIMINATORS:
+        if all(col.lower() in present for col in discriminators):
+            missing = tuple(col for col in ROLE_COLUMNS[role] if col.lower() not in present)
+            return role, missing
+
+    return None
+
+
 def classify(filename: str, content: bytes) -> Classified | None:
     """Identify one uploaded file BY ITS COLUMN HEADERS alone.
 
@@ -201,23 +226,80 @@ def classify(filename: str, content: bytes) -> Classified | None:
     if not header:
         return None
 
-    # Case-insensitive so `PRODUCT_ID` and `Product_id` both match — Excel
-    # round-trips and hand-maintained exports rarely preserve exact casing.
-    present = {h.strip().lower() for h in header if h and h.strip()}
+    matched = match_columns(header)
+    if matched is None:
+        return None
+    role, missing = matched
+    return Classified(
+        role=role,
+        target_name=ROLE_FILES[role],
+        original_name=safe,
+        content=content,
+        matched_by="column headers",
+        missing_columns=missing,
+    )
 
-    for role, discriminators in ROLE_DISCRIMINATORS:
-        if all(col.lower() in present for col in discriminators):
-            missing = tuple(col for col in ROLE_COLUMNS[role] if col.lower() not in present)
-            return Classified(
+
+def inspect_columns(sources: list[tuple[str, list[str]]]) -> dict[str, Any]:
+    """Pre-flight check for sources whose columns are known WITHOUT reading data.
+
+    The Databricks equivalent of `inspect`: Unity Catalog hands over a table's
+    column list as metadata, so a whole selection can be checked with no query,
+    no warehouse and no bytes transferred. Returns the same shape `inspect`
+    does, so the frontend renders either identically.
+
+    `sources` is (display_name, column_names) per selected table.
+    """
+    matched = [(name, match_columns(cols)) for name, cols in sources]
+
+    recognised: list[Classified] = []
+    for name, hit in matched:
+        if hit is None:
+            continue
+        role, missing = hit
+        recognised.append(
+            Classified(
                 role=role,
                 target_name=ROLE_FILES[role],
-                original_name=safe,
-                content=content,
-                matched_by="column headers",
+                original_name=name,
+                content=b"",  # nothing is read at this stage
+                matched_by="column names",
                 missing_columns=missing,
             )
+        )
+    unrecognised = [name for name, hit in matched if hit is None]
 
-    return None
+    try:
+        validate(recognised, unrecognised)
+        message = ""
+    except StarDatasetError as e:
+        message = str(e)
+
+    by_role: dict[str, list[Classified]] = {}
+    for item in recognised:
+        by_role.setdefault(item.role, []).append(item)
+    satisfied = {r for r, f in by_role.items() if len(f) == 1 and f[0].is_usable}
+
+    return {
+        "files": [
+            {
+                "filename": name,
+                "role": hit[0] if hit else None,
+                "label": ROLE_LABELS[hit[0]] if hit else None,
+                "missing_columns": list(hit[1]) if hit else [],
+                "recognised": hit is not None,
+            }
+            for name, hit in matched
+        ],
+        "missing_roles": [
+            {"role": role, "label": ROLE_LABELS[role], "required_columns": list(ROLE_COLUMNS[role])}
+            for role in ROLE_COLUMNS
+            if role not in satisfied
+        ],
+        "ready": not message,
+        "message": message,
+        "locked": is_locked(),
+    }
 
 
 def _to_csv_bytes(item: Classified) -> bytes:

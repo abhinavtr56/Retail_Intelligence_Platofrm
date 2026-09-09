@@ -4,8 +4,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from app import azure_blob, star_dataset
+from app import azure_blob, databricks_catalog, star_dataset
 from app.azure_blob import AzureError, BlobRef, ContainerScopedSas
+from app.databricks_catalog import DatabricksError, TableRef
 from app.dataset_store import delete_dataset, get_dataset, list_datasets
 from app.deps import current_user
 from app.star_dataset import StarDatasetError
@@ -281,6 +282,147 @@ async def azure_install(
     items: list[star_dataset.Classified] = []
     unrecognised: list[str] = []
     for name, content in downloaded:
+        classified = star_dataset.classify(name, content)
+        if classified is None:
+            unrecognised.append(name)
+        else:
+            items.append(classified)
+
+    try:
+        return star_dataset.install(items, unrecognised)
+    except StarDatasetError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+# ==================================================== Databricks Unity Catalog ==
+# The third source for the same six tables. A Databricks table is not a file,
+# but the SQL API returns one AS CSV, so `star_dataset` is reused unchanged —
+# identification by columns, all six or nothing, the lock, the reset.
+#
+# Browsing is metadata-only (no warehouse, no compute). Data moves exactly once,
+# at install time. Credentials arrive per request and are never stored.
+class DbxCredsReq(BaseModel):
+    workspace_url: str = ""
+    token: str = ""
+
+
+class DbxSchemasReq(DbxCredsReq):
+    catalog: str = ""
+
+
+class DbxTablesReq(DbxSchemasReq):
+    schema_name: str = ""
+
+
+class DbxTableSel(BaseModel):
+    catalog: str
+    schema_name: str
+    name: str
+
+
+class DbxSelectionReq(DbxCredsReq):
+    tables: list[DbxTableSel] = []
+
+
+def _table_refs(req: DbxSelectionReq) -> list[TableRef]:
+    if not req.tables:
+        raise HTTPException(400, "Select the 6 tables to load.")
+    return [
+        TableRef(catalog=t.catalog, schema=t.schema_name, name=t.name) for t in req.tables
+    ]
+
+
+@router.post("/databricks/catalogs")
+async def dbx_catalogs(
+    req: DbxCredsReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Catalogs visible to the token — the picker's first screen."""
+    try:
+        return {"catalogs": await databricks_catalog.list_catalogs(req.workspace_url, req.token)}
+    except DatabricksError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/databricks/schemas")
+async def dbx_schemas(
+    req: DbxSchemasReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Schemas in one catalog, minus Unity Catalog's own metadata schemas."""
+    try:
+        return {
+            "schemas": await databricks_catalog.list_schemas(
+                req.workspace_url, req.token, req.catalog
+            )
+        }
+    except DatabricksError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/databricks/tables")
+async def dbx_tables(
+    req: DbxTablesReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Tables in one schema, each with its column names.
+
+    The columns come back on this call, so the picker can label a table with its
+    star role as soon as it is listed — no query, no warehouse, no data read.
+    """
+    try:
+        tables = await databricks_catalog.list_tables(
+            req.workspace_url, req.token, req.catalog, req.schema_name
+        )
+    except DatabricksError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"catalog": req.catalog, "schema_name": req.schema_name, "tables": tables}
+
+
+@router.post("/databricks/inspect")
+async def dbx_inspect(
+    req: DbxSelectionReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Identify the selected tables by their column names, reading no data.
+
+    Cheaper than the Azure equivalent, which has to fetch 256 KB per blob to see
+    a header: Unity Catalog already knows the columns, so this is pure metadata.
+    """
+    try:
+        pairs = await databricks_catalog.columns_for(
+            req.workspace_url, req.token, _table_refs(req)
+        )
+    except DatabricksError as e:
+        raise HTTPException(400, str(e)) from e
+    return star_dataset.inspect_columns([(ref.full_name, cols) for ref, cols in pairs])
+
+
+@router.post("/databricks/install")
+async def dbx_install(
+    req: DbxSelectionReq, user: dict[str, Any] = Depends(current_user)
+) -> dict[str, Any]:
+    """Export the selected tables to CSV and install them as the star schema.
+
+    Refused while a complete set is loaded, exactly as the other two sources
+    are — checked before any query runs, so a locked install costs no warehouse
+    time. A SQL warehouse is picked automatically, preferring one already
+    RUNNING to avoid a cold start.
+    """
+    if star_dataset.is_locked():
+        raise HTTPException(
+            409,
+            "A complete dataset is already loaded. Use Reset to clear all 6 files "
+            "before loading a new set.",
+        )
+    refs = _table_refs(req)
+    try:
+        warehouse_id = await databricks_catalog.pick_warehouse(req.workspace_url, req.token)
+        exported = await databricks_catalog.export_all(
+            req.workspace_url, req.token, warehouse_id, refs
+        )
+    except DatabricksError as e:
+        raise HTTPException(400, str(e)) from e
+
+    items: list[star_dataset.Classified] = []
+    unrecognised: list[str] = []
+    for name, content in exported:
         classified = star_dataset.classify(name, content)
         if classified is None:
             unrecognised.append(name)
