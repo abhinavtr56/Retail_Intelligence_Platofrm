@@ -28,9 +28,31 @@ export function NodeDetailPopover({
         >
           <Icon name={node.icon as IconName} />
         </div>
-        <div>
+        <div className="min-w-0">
           <div className="text-base font-extrabold">{node.label}</div>
-          <div className="text-xs text-ink-muted">{node.metric}</div>
+          {/* The delta moved here from the graph node, where it sat as a bare
+              red figure with nothing to read it against. Beside the metric —
+              and directly above the bars it is drawn from — it can at least be
+              checked against the two values it compares. */}
+          <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
+            <span>{node.metric}</span>
+            {node.delta && (
+              <span
+                className="inline-flex items-center gap-0.5 font-bold"
+                style={{
+                  color:
+                    node.trend === 'down'
+                      ? 'var(--status-danger)'
+                      : node.trend === 'up'
+                        ? 'var(--brand-blue)'
+                        : 'var(--text-muted)',
+                }}
+              >
+                <Icon name={node.trend === 'down' ? 'arrowDown' : 'arrowUp'} className="h-2.5 w-2.5" />
+                {node.delta}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -58,7 +80,15 @@ export function NodeDetailPopover({
                     {it.label}
                   </span>
                   <span className="shrink-0 text-sm font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
-                    {it.value}
+                    {/* GROUPED, BUT NOT GIVEN A UNIT. The viz carries a `unit`
+                        field that every recorded run leaves empty, so the only
+                        thing known about a value is its magnitude — printed raw
+                        it read "32717886.4". Most large ones are rupees (Trade
+                        Spend, At Stake, Neighbour Sales) but some are counts
+                        (Critical Events), so a currency symbol here would
+                        mislabel the counts. Separators and one decimal, which
+                        is how the evidence line below already writes them. */}
+                    {it.value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
                   </span>
                 </div>
                 <span className="mt-1 block h-[9px] overflow-hidden rounded-full bg-black/[0.06]">

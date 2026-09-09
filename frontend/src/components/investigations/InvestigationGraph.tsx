@@ -109,12 +109,13 @@ export function InvestigationGraph({
               >
                 <Icon name={n.icon as IconName} />
               </div>
+              {/* ICON, NAME AND DELTA ONLY. `metric` is deliberately not drawn
+                  here: it is a different figure on every node — an ROI, a
+                  mechanic's return, a retailer's — so six of them side by side
+                  invited comparison between numbers that are not comparable.
+                  It leads the popover instead, where the bars it came from are
+                  directly underneath it. */}
               <div className="text-sm font-bold leading-tight text-ink-primary">{n.label}</div>
-              {n.metric && (
-                <div className="mt-[3px] text-base font-extrabold text-ink-primary [font-variant-numeric:tabular-nums]">
-                  {n.metric}
-                </div>
-              )}
               {n.delta && (
                 <div className="mt-0.5 inline-flex items-center gap-0.5 text-sm font-bold" style={{ color: trendColor }}>
                   <Icon name={n.trend === 'down' ? 'arrowDown' : 'arrowUp'} className="h-2.5 w-2.5" />

@@ -26,6 +26,7 @@ import { ASK_WHY_STATE_KEY, type AskWhyIntent } from '../lib/askWhy'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { InvestigationGraph } from '../components/investigations/InvestigationGraph'
 import { bindCannibalizationNode } from '../components/investigations/cannibalizationNode'
+import { bindComparisonDelta } from '../components/investigations/comparisonDelta'
 import { NodeDetailPopover } from '../components/investigations/NodeDetailPopover'
 import { BizQuestionCard } from '../components/investigations/BizQuestionCard'
 import { AccelList } from '../components/investigations/AccelList'
@@ -547,7 +548,15 @@ export function Investigations() {
   // The Cannibalization Agent's node shows the figure the agent computed rather
   // than the one it wrote about — see cannibalizationNode.ts. Every other node
   // passes through untouched.
-  const graphNodes = view ? bindCannibalizationNode(view.nodes, run?.result?.findings ?? []) : []
+  // ...and Benchmarking's and Effectiveness's deltas are computed from the two
+  // bars they compare rather than taken from the model's prose — see
+  // comparisonDelta.ts. Every other node passes through untouched.
+  const graphNodes = view
+    ? bindComparisonDelta(
+        bindCannibalizationNode(view.nodes, run?.result?.findings ?? []),
+        view.nodeDetails,
+      )
+    : []
   const isAgentRun = Boolean(liveOrch)
   const running = run?.status === 'running'
 
