@@ -17,7 +17,7 @@ export function SaturationChart({ curve, height = 240 }: { curve: SaturationCurv
 
   const pts = curve.points.filter((p) => p.roi_pct !== null)
   if (!pts.length) {
-    return <div className="grid h-[200px] place-items-center text-sm text-ink-muted">No mechanic carries a discount depth.</div>
+    return <div className="grid h-[200px] place-items-center text-base text-ink-muted">No mechanic carries a discount depth.</div>
   }
 
   const maxDepth = Math.max(...pts.map((p) => p.depth_pct), 30)

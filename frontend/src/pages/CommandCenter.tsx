@@ -148,14 +148,14 @@ export function CommandCenter() {
   const trend = useTrend(granularity)
   const alerts = useRiskAlerts(ALERT_FETCH_LIMIT)
   const underperforming = useUnderperforming(UNDERPERFORMING_FETCH_LIMIT)
-  // Both metrics per MECHANIC for the Promotion Mix toggle.
+  // Both metrics per SCHEME for the Promotion Mix toggle.
   //
-  // Was `by=promotion`, which is why the 20% seasonal mechanic never appeared
+  // Was `by=promotion`, which is why the 20% seasonal scheme never appeared
   // here: it is not one offer but six (PBNY24 … PBDI24), so the largest
-  // mechanic in 2024 was split into six slices each smaller than the 5%
+  // scheme in 2024 was split into six slices each smaller than the 5%
   // Discount slice and was never named. `by=promotion_mechanic` groups them on
   // dim_promotion.Promotion_Name, which is what the Promotion Contribution
-  // card already does. 50 comfortably exceeds the five mechanics.
+  // card already does. 50 comfortably exceeds the five schemes.
   const mixBreakdown = useBreakdown('promotion_mechanic', { limit: 50 })
   const mix = usePromotionMix()
 

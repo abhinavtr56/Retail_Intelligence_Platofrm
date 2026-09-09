@@ -3,20 +3,20 @@ import { Card, CardHeader, CardBody, InfoBlock, InfoPopover } from '../ui'
 import { DonutBreakdown } from '../charts'
 import type { BreakdownResponse, PromotionMixResponse } from '../../types/commandCenter'
 
-/** Promotion Mix by Mechanic, switchable between Trade Spend and Incremental
+/** Promotion Mix by Scheme, switchable between Trade Spend and Incremental
  *  Sales.
  *
  *  Values come from `/breakdown?by=promotion_mechanic`, which already returns
- *  BOTH metrics per mechanic — no new endpoint. Grouping by MECHANIC rather
- *  than by offer is what makes the 20% seasonal mechanic visible: it is six
+ *  BOTH metrics per scheme — no new endpoint. Grouping by SCHEME rather
+ *  than by offer is what makes the 20% seasonal scheme visible: it is six
  *  Promotion_Ids (PBNY24 … PBDI24) sharing one Promotion_Name, so grouping by
- *  offer scattered the largest 2024 mechanic across six slices and never named
+ *  offer scattered the largest 2024 scheme across six slices and never named
  *  it. Colour still comes from `/promotion-mix` where a code matches, and
  *  falls back to the palette that mirrors service._MIX_COLORS otherwise.
  *
- *  Both metrics decompose exactly across mechanics in this dataset: the slices
+ *  Both metrics decompose exactly across schemes in this dataset: the slices
  *  sum to the headline Trade Spend and Incremental Sales to the rupee (each
- *  promoted row belongs to exactly one mechanic). Shares are therefore taken
+ *  promoted row belongs to exactly one scheme). Shares are therefore taken
  *  against the sum of the slices, which IS the headline total, and they add up
  *  to 100%. The centre total is the KPI card's own display value for the same
  *  scope, so the donut and the card above it can never disagree.
@@ -29,8 +29,8 @@ const METRICS = [
 type MetricKey = (typeof METRICS)[number]['key']
 
 const HINT: Record<MetricKey, string> = {
-  trade_spend: 'Share of total trade spend by promotion mechanic.',
-  incremental_sales: 'Share of total incremental sales by promotion mechanic.',
+  trade_spend: 'Share of total trade spend by promotion scheme.',
+  incremental_sales: 'Share of total incremental sales by promotion scheme.',
 }
 
 export function PromotionMixCard({
@@ -82,7 +82,7 @@ export function PromotionMixCard({
       <CardHeader
         title={
           <span className="flex items-center gap-1.5">
-            Promotion Mix by Mechanic
+            Promotion Mix by Scheme
             <InfoPopover label="About Promotion Mix" title="Promotion Mix">
               <InfoBlock label="Shows">{HINT[metric]}</InfoBlock>
             </InfoPopover>
