@@ -6,9 +6,9 @@ import type { CalendarCellDetail, CalendarPromotion } from '../../types/promotio
 
 /** Promotion details for one Channel x Month.
  *
- *  MONTHLY channels (CH002 / CH003 / CH005) show the month's promotions.
- *  WEEKLY channels (CH001 / CH004) additionally show the week-by-week
- *  breakdown, because a month there holds several separate promotion events —
+ *  MONTHLY-cadence channels show the month's promotions. WEEKLY-cadence ones
+ *  additionally show the week-by-week breakdown, because a month there holds
+ *  several separate promotion events —
  *  October's Dussehra and Diwali stay two distinct weekly promotions and are
  *  never merged into one.
  *

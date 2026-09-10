@@ -22,7 +22,7 @@ from app.tpo.filters import FilterState, baseline_rows_for, rows_for
 from app.tpo.loader import NO_PROMOTION, get_store
 
 YEAR = 2025
-CHANNELS = ["CH001", "CH002", "CH003", "CH004", "CH005"]
+CHANNELS = ["CH001", "CH002", "CH003", "CH004", "CH005", "CH006"]
 
 
 @pytest.fixture(scope="session")

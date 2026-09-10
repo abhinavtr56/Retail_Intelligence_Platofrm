@@ -1217,7 +1217,7 @@ data-derived right axis.
 ### 10.14 `src/components/calendar/` (4 files)
 
 - **`statusColors.ts`** (104) — **the** promotion-status palette, one definition imported by cells, legend, details and the Upcoming feed. Deliberately **not** the app's theme tokens: those serve KPI and alert surfaces and shift with them, while the calendar's four statuses are their own semantic set. Colour is never the only signal — every cell states its name, ids and product count.
-- **`PromotionMatrix.tsx`** (194) — **one reusable component for all five channels**, never one calendar per channel, so a promotion in October lines up across channels by eye. The channel header is `sticky left-0` because a horizontally-scrolled row is otherwise unattributable.
+- **`PromotionMatrix.tsx`** (194) — **one reusable component for every channel**, never one calendar per channel, so a promotion in October lines up across channels by eye. The channel header is `sticky left-0` because a horizontally-scrolled row is otherwise unattributable.
 - **`PromotionDetailPanel.tsx`** (237) — weekly channels additionally show a week-by-week breakdown, because October's Dussehra and Diwali stay two distinct weekly promotions and are never merged.
 - **`UpcomingEventsPanel.tsx`** (123) — a **contextual** feed, never a fixed list, and never crosses into another year because the matrix beside it is a one-year plan.
 

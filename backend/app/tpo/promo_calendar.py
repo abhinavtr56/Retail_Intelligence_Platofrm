@@ -46,7 +46,14 @@ CADENCE: dict[str, str] = {
     "CH003": "MONTHLY",
     "CH004": "WEEKLY",
     "CH005": "MONTHLY",
+    "CH006": "WEEKLY",
 }
+
+#: Cadence for a channel CADENCE does not name. A new channel reaching the data
+#: before this declaration is updated still appears everywhere -- it plans on the
+#: more conservative monthly rule until someone states otherwise, rather than
+#: vanishing from the Calendar or being handed the weekly rule by accident.
+DEFAULT_CADENCE = "MONTHLY"
 
 MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
@@ -62,6 +69,18 @@ KIND_NONE = "none"
 KIND_REGULAR = "regular"
 KIND_SEASONAL = "seasonal"
 KIND_FESTIVAL = "festival"
+
+
+def known_channels() -> list[str]:
+    """Every channel the data carries, in dimension order.
+
+    The roster for validation and fan-out, deliberately NOT `CADENCE`. That dict
+    declares HOW a channel plans; it does not decide WHETHER one exists. Using
+    it as the roster meant a channel present in dim_channel but absent from the
+    declaration was rejected at the API with "Unknown channel", which is not
+    true of it -- it is simply undeclared, and `DEFAULT_CADENCE` covers that.
+    """
+    return list(get_store().dims.channels)
 
 
 def _year_of(week_key: str) -> int:
@@ -201,7 +220,22 @@ def matrix(year: int, channels: list[str] | None = None) -> dict[str, Any]:
     """The 12-month x N-channel grid for one year."""
     store = get_store()
     agg = _aggregate(year)
-    wanted = [c for c in CADENCE if not channels or c in channels]
+    # THE ROSTER IS THE DIMENSION'S, THE CADENCE IS THE DECLARATION'S.
+    #
+    # This used to iterate CADENCE, which made that dict the gatekeeper for the
+    # whole module: a channel present in dim_channel but not named there was
+    # dropped from the grid, from `all_channels`, and so from the channel picker
+    # the frontend builds out of it -- invisible everywhere in Calendar, with
+    # nothing to indicate it had been skipped. Reading the roster from the
+    # dimension instead means adding a channel to the data is enough to make it
+    # appear, which is what every other module already does.
+    #
+    # CADENCE still supplies the cadence, because that is a business rule and
+    # not something to infer from the transaction pattern (see its docstring).
+    # A channel it does not name takes DEFAULT_CADENCE, exactly as `month_plan`
+    # and `rescue.cadence_for` already do.
+    roster = list(store.dims.channels)
+    wanted = [c for c in roster if not channels or c in channels]
 
     return {
         "year": year,
@@ -214,21 +248,19 @@ def matrix(year: int, channels: list[str] | None = None) -> dict[str, Any]:
         "all_channels": [
             {
                 "channel_id": code,
-                "name": store.dims.channels[code].name if code in store.dims.channels else code,
-                "cadence": CADENCE[code],
+                "name": store.dims.channels[code].name,
+                "cadence": CADENCE.get(code, DEFAULT_CADENCE),
             }
-            for code in CADENCE
-            if code in store.dims.channels
+            for code in roster
         ],
         "channels": [
             {
                 "channel_id": code,
-                "name": store.dims.channels[code].name if code in store.dims.channels else code,
-                "cadence": CADENCE[code],
+                "name": store.dims.channels[code].name,
+                "cadence": CADENCE.get(code, DEFAULT_CADENCE),
                 "cells": [_cell(agg, code, month) for month in range(1, 13)],
             }
             for code in wanted
-            if code in store.dims.channels
         ],
     }
 
@@ -278,7 +310,7 @@ def cell_detail(year: int, month: int, channel: str) -> dict[str, Any]:
     """
     store = get_store()
     agg = _aggregate(year)
-    cadence = CADENCE.get(channel, "MONTHLY")
+    cadence = CADENCE.get(channel, DEFAULT_CADENCE)
 
     promotion_ids = sorted(
         {pid for (ch, mo, pid) in agg["products"] if ch == channel and mo == month},
@@ -355,9 +387,13 @@ def _business_events() -> list[dict[str, Any]]:
 
 def _event_channel_ids(token: str) -> list[str]:
     """"GT" -> ["CH003"]; "All" -> every channel. Unknown tokens map to
-    nothing rather than being guessed at."""
+    nothing rather than being guessed at.
+
+    "All" fans out over the dimension, not over CADENCE: an event marked for
+    every channel must reach every channel the data actually has, including one
+    the cadence declaration has not been told about yet."""
     if token == "All":
-        return list(CADENCE)
+        return list(get_store().dims.channels)
     name = _EVENT_CHANNEL_TOKENS.get(token)
     if name is None:
         return []
@@ -376,7 +412,7 @@ def upcoming(
     year". The feed never crosses into another year — the calendar is a
     one-year plan and mixing years would misreport it.
     """
-    scope = [c for c in CADENCE if not channels or c in channels]
+    scope = [c for c in known_channels() if not channels or c in channels]
     store = get_store()
     agg = _aggregate(year)
     events: list[dict[str, Any]] = []

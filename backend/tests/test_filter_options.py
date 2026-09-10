@@ -203,7 +203,7 @@ def test_a_selected_option_stays_visible():
     state = FilterState.build(year=YEAR, channel=["CH002"])
     codes = _codes(options_for(state), "channel")
     assert "CH002" in codes
-    assert len(codes) == 5, "selecting a channel collapsed the channel list to itself"
+    assert len(codes) == 6, "selecting a channel collapsed the channel list to itself"
 
 
 @pytest.mark.parametrize("name,kwargs", CASES, ids=[c[0] for c in CASES])

@@ -180,9 +180,10 @@ EXPECTED_CADENCE = {
     "CH003": "MONTHLY",
     "CH004": "WEEKLY",
     "CH005": "MONTHLY",
+    "CH006": "WEEKLY",
 }
 MONTHLY_CHANNELS = ("CH002", "CH003", "CH005")
-WEEKLY_CHANNELS = ("CH001", "CH004")
+WEEKLY_CHANNELS = ("CH001", "CH004", "CH006")
 
 
 def test_cadence_is_read_from_the_project_declaration() -> None:

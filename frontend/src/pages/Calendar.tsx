@@ -9,7 +9,7 @@ import { usePromotionCell, usePromotionMatrix, useUpcoming } from '../hooks/useP
 
 /** Monthly Promotion Calendar.
  *
- *      YEAR -> 12 MONTHS -> 5 CHANNELS -> PROMOTION -> PROMOTED PRODUCTS
+ *      YEAR -> 12 MONTHS -> N CHANNELS -> PROMOTION -> PROMOTED PRODUCTS
  *
  *  A trade-promotion plan, not a diary: the primary view is a Channel x Month
  *  matrix for one year, never a grid of days. The year is the top-level
@@ -51,6 +51,15 @@ export function Calendar() {
   const channelLabel = channel
     ? (channelOptions.find((o) => o.label.startsWith(channel))?.label ?? channel)
     : ALL_CHANNELS
+
+  // Named from the payload's cadence, not written down here. The sentence used
+  // to read "Weekly channels (CH001, CH004)", which was already wrong the day a
+  // third weekly channel arrived and told the user the opposite of what the
+  // grid was showing them.
+  const weeklyNames = useMemo(
+    () => (matrix.data?.all_channels ?? []).filter((c) => c.cadence === 'WEEKLY').map((c) => c.name),
+    [matrix.data],
+  )
 
   const years = matrix.data?.years ?? [year]
 
@@ -179,8 +188,10 @@ export function Calendar() {
               <Icon name="info" />
             </span>
             <span>
-              Weekly channels (CH001, CH004) may run several promotions in one month — the cell is a
-              summary. Click any month to see its promotions, and the weekly breakdown where it applies.
+              {weeklyNames.length > 0
+                ? `Weekly channels (${weeklyNames.join(', ')}) may run several promotions in one month — the cell is a summary. `
+                : 'A cell summarises the month. '}
+              Click any month to see its promotions, and the weekly breakdown where it applies.
             </span>
           </div>
         </Card>

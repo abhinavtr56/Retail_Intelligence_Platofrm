@@ -56,11 +56,14 @@ def main() -> int:
     promoted = [r for r in rows if r["Promotion_Id"].strip() != NO_PROMOTION]
 
     print("\nA. DATA INTEGRITY")
-    check("row count == 205,920", len(rows) == 205_920, f"{len(rows):,}")
+    # 205,920 through CH001-CH005; + 37,440 when CH006 (Q-Commerce) was added as
+    # 10 stores x 36 products x 104 weeks, matching the sample size every other
+    # channel carries. See scripts/generate_ch006.py.
+    check("row count == 243,360", len(rows) == 243_360, f"{len(rows):,}")
     products = {r["Product_id"] for r in rows}
     check("36 products", len(products) == 36, str(len(products)))
     channels = {r["Channel_Id"] for r in rows}
-    check("5 channels", channels == {"CH001", "CH002", "CH003", "CH004", "CH005"}, ",".join(sorted(channels)))
+    check("6 channels", channels == {"CH001", "CH002", "CH003", "CH004", "CH005", "CH006"}, ",".join(sorted(channels)))
     years = {r["Date"].strip()[-4:] for r in rows}
     check("2024 + 2025", years == {"2024", "2025"}, ",".join(sorted(years)))
     yw = {(r["Date"].strip()[-4:], r["Week"]) for r in rows}

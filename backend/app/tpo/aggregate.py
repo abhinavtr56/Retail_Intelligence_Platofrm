@@ -12,7 +12,7 @@ The property everything rests on:
 
     On every row, promoted or not, Base_Quantity == Actual_Quantity.
 
-Verified on all 205,920 rows of the finalized fact table. So
+Verified on all 243,360 rows of the finalized fact table. So
 `Actual_Quantity - Base_Quantity` is identically zero and measures nothing.
 Uplift is instead measured against the product's own NON-PROMOTIONAL baseline
 — the level at which it trades when no promotion is running:
@@ -39,18 +39,20 @@ Four invariants hold throughout:
     sales.
   * Every product carries its OWN baseline. One pooled average across products
     would measure pack size, not promotional response.
-  * That baseline is per CHANNEL. `Schedule` is a property of the channel:
-    CH001/CH004 book one row per WEEK (mean Base_Quantity 142.9) while
-    CH002/CH003/CH005 book one row per MONTH (mean 576.9). Pooling those would
+  * That baseline is per CHANNEL. `Schedule` is a property of the channel: a
+    WEEKLY channel books one row per WEEK (mean Base_Quantity 142.9) while a
+    MONTHLY one books one row per MONTH (mean 576.9). Pooling those would
     measure period length, not promotional response — the same error as pooling
     pack sizes, and the reason this key gained a channel when the schema did.
+    Which channel is which is declared in `promo_calendar.CADENCE` and recorded
+    in `fact_sales.Schedule`; nothing here needs to know the roster.
   * A promoted (product, channel) with no non-promoted row in the selection has
     no baseline. It is skipped and reported, never defaulted to zero.
 
 One consequence worth stating because it looks like a bug and is not: a year
 does NOT equal the sum of its months, and All Channels does NOT equal the sum
-of the five channels, for the volume-derived KPIs. Each selection re-derives
-its baseline from its own non-promoted rows. Trade Spend and Margin Impact are
+of the individual channels, for the volume-derived KPIs. Each selection
+re-derives its baseline from its own non-promoted rows. Trade Spend and Margin Impact are
 plain sums and do add up exactly.
 """
 

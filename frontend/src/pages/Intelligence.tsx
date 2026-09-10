@@ -36,6 +36,7 @@ import {
   fmtCr,
   fmtPct,
 } from '../components/promotionIntelligence/panels'
+import { useChannelNames } from '../hooks/useCommandCenter'
 import { proposedDiscountPct, useIntelligenceHandoffStore } from '../store/intelligenceHandoff'
 import { useGeneralOptimizationStore } from '../store/generalOptimization'
 import type { InvestigationContext, KeyInsight, Recommendation } from '../types/promotionIntelligence'
@@ -54,23 +55,23 @@ const TABS = [
 // dimension tables and risk load only when their own tab is opened.
 const EXTRA_SECTION: (FactSection | null)[] = [null, null, null, 'dimensions', 'dimensions', 'risk', null]
 
-const CHANNEL_NAMES: Record<string, string> = {
-  CH001: 'E-commerce',
-  CH002: 'Modern Trade',
-  CH003: 'General Trade',
-  CH004: 'B2B',
-  CH005: 'Travel & Hospitality',
-}
-
 const MONTHS = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** Render the investigation's own filter object as something readable.
  *  Every dimension the scope carries is shown — an omitted one would make the
- *  page look broader than the figures actually are. */
-function describeScope(scope: Record<string, unknown>): string {
+ *  page look broader than the figures actually are.
+ *
+ *  `channelNames` comes from `useChannelNames()`, i.e. from dim_channel, and is
+ *  NOT a table kept here. The table this replaced had drifted: it mapped CH004
+ *  to "B2B" and CH005 to "Travel & Hospitality", which is the two swapped, so
+ *  every Travel & Hospitality investigation on this page was labelled B2B and
+ *  vice versa. A hand-maintained copy of a dimension is exactly the thing that
+ *  goes quietly wrong, so there is no longer one. Codes the roster has not
+ *  loaded yet fall back to the raw code rather than to a guess. */
+function describeScope(scope: Record<string, unknown>, channelNames: Record<string, string>): string {
   const parts: string[] = []
   const list = (v: unknown) => (Array.isArray(v) ? v : v == null || v === '' ? [] : [v]).map(String)
-  list(scope.channel).forEach((c) => parts.push(CHANNEL_NAMES[c] ?? c))
+  list(scope.channel).forEach((c) => parts.push(channelNames[c] ?? c))
   for (const dim of ['region', 'state', 'city', 'retailer', 'category', 'brand', 'promotion_type'] as const) {
     list(scope[dim]).forEach((v) => parts.push(v))
   }
@@ -163,6 +164,7 @@ function InvestigationHeader({
   available: { run_id: string; question: string; created_at: number }[]
   onPick: (runId: string) => void
 }) {
+  const channelNames = useChannelNames()
   const when = new Date(ctx.created_at).toLocaleString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -177,7 +179,7 @@ function InvestigationHeader({
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <Pill tone="violet">Deepening your investigation from {when}</Pill>
             {ctx.investigation_type && <Pill tone="neutral">{ctx.investigation_type}</Pill>}
-            <Pill tone="neutral">{describeScope(ctx.scope)}</Pill>
+            <Pill tone="neutral">{describeScope(ctx.scope, channelNames)}</Pill>
             {ctx.confidence != null && <Pill tone="success">{ctx.confidence}% confidence</Pill>}
           </div>
           <div className="text-base font-bold leading-[1.4]">{ctx.question}</div>
@@ -239,6 +241,7 @@ export function Intelligence() {
   const navigate = useNavigate()
   const { show } = useToast()
   const live = useLiveStatus()
+  const channelNames = useChannelNames()
 
   const [tab, setTab] = useState(0)
   const [runId, setRunId] = useState<string | undefined>(undefined)
@@ -310,7 +313,7 @@ export function Intelligence() {
       intelligenceRunId: run?.id ?? null,
       question: investigation.question,
       scope: investigation.scope,
-      scopeLabel: describeScope(investigation.scope),
+      scopeLabel: describeScope(investigation.scope, channelNames),
       rootCause: investigation.root_cause,
       recommendation: r,
       // Null unless the recommendation names exactly one depth on the lever
@@ -322,8 +325,8 @@ export function Intelligence() {
     setSimulationMode('investigation')
     show(
       r
-        ? `Opening Simulation Studio on this recommendation · ${describeScope(investigation.scope)}`
-        : `Opening Simulation Studio on this investigation · ${describeScope(investigation.scope)}`,
+        ? `Opening Simulation Studio on this recommendation · ${describeScope(investigation.scope, channelNames)}`
+        : `Opening Simulation Studio on this investigation · ${describeScope(investigation.scope, channelNames)}`,
       { duration: 3000 },
     )
     navigate('/simulation')
@@ -367,7 +370,7 @@ export function Intelligence() {
           </div>
           <p className="mt-1.5 text-base text-ink-muted">
             The mechanism behind the investigation's finding ·{' '}
-            <strong className="text-ink-secondary">{describeScope(investigation.scope)}</strong>
+            <strong className="text-ink-secondary">{describeScope(investigation.scope, channelNames)}</strong>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -402,7 +405,7 @@ export function Intelligence() {
       {facts && k && (
         <div className="mt-3.5 grid grid-cols-3 gap-3 @max-[900px]:grid-cols-2">
           {[
-            { label: 'Trade Spend in scope', value: fmtCr(k.trade_spend), sub: describeScope(investigation.scope) },
+            { label: 'Trade Spend in scope', value: fmtCr(k.trade_spend), sub: describeScope(investigation.scope, channelNames) },
             {
               label: 'Incremental Sales',
               value: fmtCr(k.incremental_sales),

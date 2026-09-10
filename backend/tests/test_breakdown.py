@@ -134,7 +134,7 @@ def test_top_n(limit):
 
 def test_truncated_is_false_when_everything_fits():
     payload = service.breakdown(FilterState.build(year=YEAR), by="channel", limit=15)
-    assert payload["total_groups"] == 5
+    assert payload["total_groups"] == 6
     assert payload["truncated"] is False
 
 

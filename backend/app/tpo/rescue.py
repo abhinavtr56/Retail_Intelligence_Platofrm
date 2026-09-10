@@ -127,8 +127,8 @@ MODE = "target_rescue"
 # --- cadence ----------------------------------------------------------------
 #
 # THE CADENCE IS THE PROJECT'S, READ NOT REDECLARED. `promo_calendar.CADENCE` is
-# the authoritative channel structure -- CH001/CH004 WEEKLY, CH002/CH003/CH005
-# MONTHLY -- and its own docstring says it is "declared once HERE so the frontend
+# the authoritative channel structure -- CH001/CH004/CH006 WEEKLY, CH002/CH003/
+# CH005 MONTHLY -- and its own docstring says it is "declared once HERE so the frontend
 # never carries its own copy". The same applies to this module: it is imported,
 # never restated, and nothing here infers a cadence from the transaction pattern,
 # which would make a business rule depend on a data accident.
@@ -476,8 +476,11 @@ def resolve_cadence(state: FilterState) -> Cadence:
     """The cadence of the scope's channel(s).
 
     An unconstrained channel selection covers every channel the store holds, and
-    this project's five channels do not all plan the same way -- so that scope is
-    MIXED, and says so, rather than quietly adopting one cadence for all of them.
+    they do not all plan the same way -- so that scope is MIXED, and says so,
+    rather than quietly adopting one cadence for all of them. The roster is read
+    from the dimension, so a channel added to the data is covered here without
+    this code changing; one the declaration does not name is reported through
+    `unknown` rather than dropped.
     """
     store = get_store()
     codes = tuple(sorted(state.channel) if state.channel else sorted(store.dims.channels))

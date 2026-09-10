@@ -4,7 +4,7 @@ import type { CalendarCell, CalendarMatrix, CellKind } from '../../types/promoti
 
 /** The Year x Month x Channel promotion grid.
  *
- *  One reusable component for all five channels — never one calendar per
+ *  One reusable component for every channel — never one calendar per
  *  channel. Every month column is the same width and every channel row shares
  *  the same twelve columns, so a promotion in October lines up across channels
  *  by eye.
@@ -21,6 +21,7 @@ const CHANNEL_ICON: Record<string, IconName> = {
   CH003: 'retailer',
   CH004: 'layers',
   CH005: 'database',
+  CH006: 'zap',
 }
 
 /** Cell chrome. Colour comes from `statusColors`; these classes only say WHERE

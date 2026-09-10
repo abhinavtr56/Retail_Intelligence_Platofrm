@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '../lib/api'
 import { toQuery, useCommandFilters, type CommandFilters } from '../store/commandFilters'
@@ -104,6 +105,32 @@ export function useFilterOptions() {
   })
 }
 
+/** Every channel in the dataset as `code -> display name`, read from
+ *  dim_channel through the options payload.
+ *
+ *  DELIBERATELY UNFILTERED, unlike `useFilterOptions`. That hook narrows its
+ *  lists to the current selection, which is what a control wants and exactly
+ *  what a LABEL does not: a scope saved earlier can name a channel the user
+ *  has since filtered out, and it would then render as a raw "CH006" instead
+ *  of its name. Asking for the whole roster means a label never depends on
+ *  what happens to be selected now.
+ *
+ *  Nothing here enumerates channels. Adding a channel to dim_channel makes it
+ *  appear everywhere this map is used, with no code change.
+ */
+export function useChannelNames(): Record<string, string> {
+  const query = useQuery({
+    queryKey: ['command-center', 'channel-names'],
+    queryFn: () => apiFetch<FiltersResponse>('/command-center/filters'),
+    staleTime: Infinity,
+  })
+  return useMemo(() => {
+    const names: Record<string, string> = {}
+    for (const channel of query.data?.channels ?? []) names[channel.code] = channel.name
+    return names
+  }, [query.data])
+}
+
 export function useTrend(granularity: 'week' | 'month') {
   const { year, currency, enabled } = useScope()
   return useQuery({
@@ -161,26 +188,45 @@ export function useBreakdown(
     metric = 'incremental_sales',
     limit = 10,
     promotion,
+    scope = 'chart',
     enabled: callerEnabled = true,
   }: {
     metric?: BreakdownMetric
     limit?: number
-    /** One offer code, or the set of codes behind one promotion mechanic. */
+    /** One offer code, or the set of codes behind one promotion mechanic —
+     *  a chart-level scope (the Channel card's mechanic), not a global filter. */
     promotion?: string | string[]
+    /** Which selection this chart answers for.
+     *
+     *  'chart' (the default) is the split described at the top of this file:
+     *  year and currency plus the chart's own parameters, nothing else.
+     *
+     *  'page' is the KPI cards' scope — the FULL filter payload, so the card
+     *  moves with every control in the filter bar. Used by the cards that are
+     *  meant to read as a cut of the headline numbers rather than as a
+     *  standing view of the year. It costs a refetch on any filter change,
+     *  which is the price of agreeing with the cards above it. */
+    scope?: 'chart' | 'page'
     /** Hold the request until the caller has what it needs to scope it. */
     enabled?: boolean
   } = {},
 ) {
-  const { year, currency, enabled } = useScope()
-  // `promotion` is a CHART-LEVEL scope (the Channel card's discount level), not
-  // a global filter. It is the only dimension any Command Center request sends
-  // besides year.
+  const { filters, year, currency, enabled } = useScope()
+  // Besides year, a 'chart'-scoped request sends ONLY the parameters named
+  // here, so a card that does not name a dimension does not send it and its
+  // cache survives a change to that filter untouched. A 'page'-scoped request
+  // sends the same payload the KPI cards do, through the same `toQuery`.
+  const chartParams = { by, metric, limit, promotion }
+  const query =
+    scope === 'page'
+      ? `${toQuery(filters, currency)}&${commandQuery(null, undefined, chartParams)}`
+      : commandQuery(year, currency, chartParams)
   return useQuery({
-    queryKey: [...key('breakdown', year, currency), by, metric, limit, promotion ?? null],
-    queryFn: () =>
-      apiFetch<BreakdownResponse>(
-        `/command-center/breakdown?${commandQuery(year, currency, { by, metric, limit, promotion })}`,
-      ),
+    queryKey:
+      scope === 'page'
+        ? [...fullKey('breakdown', filters, currency), by, metric, limit, promotion ?? null]
+        : [...key('breakdown', year, currency), by, metric, limit, promotion ?? null],
+    queryFn: () => apiFetch<BreakdownResponse>(`/command-center/breakdown?${query}`),
     enabled: enabled && callerEnabled,
     placeholderData: (previous) => previous,
   })
