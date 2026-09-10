@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../components/layout/AppShell'
 import {
@@ -10,10 +9,6 @@ import {
   TpoKpiGrid,
   TpoKpiTile,
   AlertBanner,
-  Table,
-  Th,
-  Td,
-  Tr,
   Dropdown,
   LiveStatus,
   useLiveStatus,
@@ -25,7 +20,6 @@ import { calendarYear } from '../lib/labels'
 import { FilterBar } from '../components/command/FilterBar'
 import { PromotionMixCard } from '../components/command/PromotionMixCard'
 import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
-import { ASK_WHY_STATE_KEY, buildAskWhyIntent } from '../lib/askWhy'
 import { ALERT_FETCH_LIMIT, topPriorityAlert } from '../components/command/riskRanking'
 import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
 import { TrendPanels } from '../components/command/TrendPanels'
@@ -35,6 +29,7 @@ import {
   ProductSection,
   PromotionTypeSection,
   PromotionContributionSection,
+  SalesByRegionSection,
   TopPerformingSection,
 } from '../components/command/ChartSections'
 import {
@@ -44,7 +39,6 @@ import {
   useBreakdown,
   useRiskAlerts,
   useTrend,
-  useUnderperforming,
 } from '../hooks/useCommandCenter'
 import { useCommandFilters } from '../store/commandFilters'
 import { ExportReportButton } from '../components/reports/ExportReportButton'
@@ -52,9 +46,7 @@ import { ExportReportButton } from '../components/reports/ExportReportButton'
 // posts with. Reused rather than rewritten: a second implementation is how an
 // export starts describing a different selection from the screen.
 import { toSimulationFilters as toReportScope } from '../hooks/useSimulation'
-import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { useAlertHandoff } from '../hooks/useAlertHandoff'
-import type { UnderperformingRow } from '../types/commandCenter'
 import type { KpiCard } from '../types/commandCenter'
 
 const GRANULARITIES = [
@@ -104,33 +96,15 @@ function cannibalizationSub(card: KpiCard): string | null {
 }
 
 
-// Same reason as the alerts: `/underperforming-promotions` ranks by At Stake
-// DESC, so the worst-ROI promotions are NOT at the head of its list. The full
-// set for the scope is fetched and re-ranked here.
-const UNDERPERFORMING_FETCH_LIMIT = 100000
-
-// How many ranked rows are rendered. The card reports the true total in its
-// header; this only bounds the DOM, and the scroller reaches every one of them.
-const UNDERPERFORMING_ROWS = 25
-
-// Three rows above the fold, the rest inside the scroller. Sized so the card
-// keeps a fixed height whatever the row count.
-const UNDERPERFORMING_VIEWPORT_PX = 252
-
 export function CommandCenter() {
   const [granularity, setGranularity] = useState<'week' | 'month'>('week')
   const { show } = useToast()
-  const navigate = useNavigate()
   const live = useLiveStatus()
   const queryClient = useQueryClient()
 
   const initialise = useCommandFilters((s) => s.initialise)
   const initialised = useCommandFilters((s) => s.initialised)
   const reset = useCommandFilters((s) => s.reset)
-  // Read-only, for the RCA hand-off below. The Command Center's own filter
-  // state is never written from here — the hand-off copies it.
-  const filters = useCommandFilters((s) => s.filters)
-  const startFromCommandCenter = useActiveInvestigationStore((s) => s.startFromCommandCenter)
   /** The RCA hand-off for a risk alert. EXTRACTED to hooks/useAlertHandoff.ts
    *  so the header's notification bell opens the same investigation this page's
    *  own alert rows open — one definition, not two that can drift. Behaviour is
@@ -147,7 +121,6 @@ export function CommandCenter() {
   const kpis = useKpis()
   const trend = useTrend(granularity)
   const alerts = useRiskAlerts(ALERT_FETCH_LIMIT)
-  const underperforming = useUnderperforming(UNDERPERFORMING_FETCH_LIMIT)
   // Both metrics per SCHEME for the Promotion Mix toggle.
   //
   // Was `by=promotion`, which is why the 20% seasonal scheme never appeared
@@ -159,17 +132,6 @@ export function CommandCenter() {
   const mixBreakdown = useBreakdown('promotion_mechanic', { limit: 50 })
   const mix = usePromotionMix()
 
-  // Highest-impact underperformers: worst ROI first, larger Trade Spend
-  // breaking ties. Computed from the API's own rows — no row is hardcoded and
-  // nothing is recomputed, only re-ordered.
-  const worstPromotions = useMemo(
-    () =>
-      [...(underperforming.data?.rows ?? [])]
-        .sort((a, b) => (a.roi_pct ?? 0) - (b.roi_pct ?? 0) || b.trade_spend - a.trade_spend)
-        .slice(0, UNDERPERFORMING_ROWS),
-    [underperforming.data],
-  )
-
   // Default the period to the most recent year the data actually contains,
   // rather than to a hardcoded year that a future extract might not have.
   useEffect(() => {
@@ -179,8 +141,7 @@ export function CommandCenter() {
 
   const crumbs = [{ label: 'TPO Intelligence' }, { label: 'Command Center' }]
 
-  const refreshing =
-    kpis.isFetching || trend.isFetching || alerts.isFetching || underperforming.isFetching || mix.isFetching
+  const refreshing = kpis.isFetching || trend.isFetching || alerts.isFetching || mix.isFetching
 
   const handleRefresh = () => {
     show('Refreshing all data sources...', { duration: 1500 })
@@ -247,47 +208,6 @@ export function CommandCenter() {
   // genuine result.
   const isEmpty = meta.row_count === 0
 
-  const handOffPromotion = (row: UnderperformingRow) => {
-    // ONE narrowed FilterState for both consumers — see useAlertHandoff,
-    // which does the identical thing for a risk alert.
-    const narrowed = {
-      ...filters,
-      promotion: [row.promotion_id],
-      product: [row.product_id],
-      channel: [row.channel_id],
-    }
-    startFromCommandCenter({
-      origin: 'underperforming',
-      label: row.promotion,
-      // The current selection narrowed by the three codes this event genuinely
-      // carries. The PERIOD SELECTION IS LEFT ALONE on purpose: an event's
-      // Incremental Sales is measured against the baseline of the whole
-      // selection, so changing the period window would move the baseline and
-      // the drill-down would answer a different question from the row that was
-      // clicked. `row.period` is a week and stays a label — FilterState has no
-      // week, so the scope reaches this (promotion, product, channel) and
-      // pools whatever weeks it traded in.
-      filters: narrowed,
-      identifiers: {
-        promotion_id: row.promotion_id,
-        product_id: row.product_id,
-        channel_id: row.channel_id,
-      },
-      labels: { product: row.product, channel: row.channel, period: row.period },
-    })
-    // THE WHOLE HAND-OFF, from either control in the row. This used to
-    // navigate with nothing but the store scope, so the RCA opened on a
-    // blank prompt, while the "Ask why" button beside it sent the question
-    // and no scope — two halves of one drill-down, each missing the other's.
-    navigate('/investigations', {
-      state: {
-        [ASK_WHY_STATE_KEY]: {
-          ...buildAskWhyIntent(row),
-          scope: toReportScope(narrowed),
-        },
-      },
-    })
-  }
 
   return (
     <AppShell activeKey="command" crumbs={crumbs}>
@@ -493,99 +413,7 @@ export function CommandCenter() {
       </div>
 
       <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
-        <Card>
-          <CardHeader
-            title="Top Underperforming Promotions"
-            actions={
-              underperforming.data ? (
-                <span className="text-xs font-semibold text-ink-muted">
-                  {underperforming.data.total} below {meta.target_roi_pct}% target
-                </span>
-              ) : null
-            }
-          />
-          {/* Fixed-height internal scroller: the worst three sit above the fold
-              and the rest scroll INSIDE the card, so neither the card nor the
-              page grid grows with the row count. `overflow-x` stays on the same
-              element so a narrow viewport still scrolls the table sideways. */}
-          <div
-            // Tighter horizontal cell padding than the shared Table default
-            // (18px), scoped to this table only: eight columns at the default
-            // spend 288px on padding alone and pushed the Action control out of
-            // view behind a horizontal scrollbar.
-            className="overflow-auto rounded-b-[var(--r-lg)] [&_td]:!px-2.5 [&_th]:!px-2.5"
-            style={{ maxHeight: UNDERPERFORMING_VIEWPORT_PX }}
-          >
-            <Table>
-              <thead className="sticky top-0 z-10 bg-surface-muted">
-                <tr>
-                  <Th>Promotion</Th>
-                  {/* The event grain is promotion x product x channel x week.
-                      Without Product on screen, three SKUs of one promotion in
-                      one channel and week read as one row repeated with
-                      different numbers. */}
-                  <Th>Product</Th>
-                  <Th>Channel</Th>
-                  <Th>Period</Th>
-                  <Th className="text-right">ROI</Th>
-                  <Th className="text-right">Trade Spend</Th>
-                  <Th>Primary Cause</Th>
-                  <Th>Action</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {worstPromotions.map((p, i) => (
-                  <Tr
-                    key={`${p.promotion}-${p.period}-${p.product}-${i}`}
-                    onClick={() => {
-                      show(`Drilling into "${p.promotion}"...`, { duration: 1500 })
-                      window.setTimeout(() => handOffPromotion(p), 700)
-                    }}
-                  >
-                    <Td emphasis className="max-w-[120px] truncate" title={p.promotion}>
-                      {p.promotion}
-                    </Td>
-                    <Td className="max-w-[130px] truncate" title={p.product}>{p.product}</Td>
-                    <Td className="max-w-[110px] truncate" title={p.channel}>{p.channel}</Td>
-                    <Td className="whitespace-nowrap">{p.period}</Td>
-                    <Td
-                      className={`text-right font-bold tabular-nums ${
-                        (p.roi_pct ?? 0) < 0 ? 'text-status-danger' : 'text-ink-primary'
-                      }`}
-                    >
-                      {p.roi_display}
-                    </Td>
-                    <Td className="whitespace-nowrap text-right tabular-nums">{p.trade_spend_display}</Td>
-                    <Td className="max-w-[130px] truncate" title={p.primary_cause}>
-                      {p.primary_cause}
-                    </Td>
-                    <Td>
-                      {/* The recommended action rides as the tooltip so the
-                          control stays one line. This button is the RCA entry
-                          point — it hands the row's context to Investigations. */}
-                      <button
-                        title={p.action}
-                        onClick={(e) => {
-                          // The row behind this cell hands off too; without
-                          // this the click would run both and navigate twice.
-                          e.stopPropagation()
-                          handOffPromotion(p)
-                        }}
-                        className="inline-flex cursor-pointer items-center gap-1 whitespace-nowrap rounded-[var(--r-sm)] px-2 py-1 text-sm font-semibold text-brand-violet transition-colors duration-150 hover:bg-brand-violet-50 [&_svg]:h-3 [&_svg]:w-3"
-                      >
-                        Ask why
-                        <Icon name="arrowRight" />
-                      </button>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-            {worstPromotions.length === 0 && (
-              <EmptyState message="No promotion in this selection is below target." />
-            )}
-          </div>
-        </Card>
+        <SalesByRegionSection />
 
         <PromotionMixCard
           mix={mix.data}

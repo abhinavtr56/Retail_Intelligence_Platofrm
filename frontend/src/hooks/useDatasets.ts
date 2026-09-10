@@ -1,6 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiDelete, apiFetch, apiUpload } from '../lib/api'
-import type { DatasetDetail, DatasetSummary, StarStatus, UploadResult } from '../types/dataset'
+import { apiDelete, apiFetch, apiPost, apiUpload } from '../lib/api'
+import type {
+  AzureBlobListing,
+  AzureContainer,
+  DatasetDetail,
+  DatasetSummary,
+  DbxCatalog,
+  DbxSchema,
+  DbxTableListing,
+  DbxTableSel,
+  StarInspectResult,
+  StarInstallResult,
+  StarPreview,
+  StarResetResult,
+  StarRole,
+  StarStatus,
+  UploadResult,
+} from '../types/dataset'
+
+/** Workspace URL + personal access token, as the Databricks routes take them.
+ *  Held in component state for the life of the modal and sent per request. */
+export interface DbxCreds {
+  workspace_url: string
+  token: string
+}
+
+/** Storage account + SAS, as the Azure routes take them. Held in component
+ *  state for the life of the modal and sent per request — never persisted. */
+export interface AzureCreds {
+  account: string
+  sas: string
+}
+
+/** A blob the user has picked, addressed within the account. */
+export interface AzureBlobSel {
+  container: string
+  name: string
+}
 
 export function useDatasets() {
   return useQuery({
@@ -45,6 +81,119 @@ export function useUploadDatasets() {
       // any more. Blanket-invalidate rather than listing the dozens of query
       // keys that would each need naming here.
       if (result.star?.installed.length) queryClient.invalidateQueries()
+    },
+  })
+}
+
+// A page of rows from one installed star table. Enabled only when a role is
+// actually selected, so opening the connector doesn't fetch six previews.
+export function useStarPreview(role: StarRole | null, offset = 0) {
+  return useQuery({
+    queryKey: ['datasets', 'star', 'preview', role, offset],
+    queryFn: () => apiFetch<StarPreview>(`/datasets/star/preview/${role}?offset=${offset}`),
+    enabled: Boolean(role),
+  })
+}
+
+// Clear all six files. Destructive and deliberate: it is the only route back to
+// the upload prompt, since uploading over a complete set is refused.
+export function useResetStar() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => apiDelete<StarResetResult>('/datasets/star'),
+    onSuccess: () => {
+      // Same reasoning as a star install: every KPI, chart and filter in the
+      // app was derived from the files just deleted, so nothing cached still
+      // describes the current state.
+      queryClient.invalidateQueries()
+    },
+  })
+}
+
+// ===== Azure Blob Storage =====
+// All four are mutations rather than queries: each carries a SAS token in its
+// body, which must not end up in a react-query cache key.
+
+export function useAzureContainers() {
+  return useMutation({
+    mutationFn: (creds: AzureCreds) =>
+      apiPost<{ containers: AzureContainer[]; container_scoped: boolean }>(
+        '/datasets/azure/containers',
+        creds,
+      ),
+  })
+}
+
+export function useAzureBlobs() {
+  return useMutation({
+    mutationFn: (req: AzureCreds & { container: string; prefix: string }) =>
+      apiPost<AzureBlobListing>('/datasets/azure/blobs', req),
+  })
+}
+
+// Header-only reads of the picked blobs, so the modal can name which table each
+// file is before committing to downloading 21 MB.
+export function useAzureInspect() {
+  return useMutation({
+    mutationFn: (req: AzureCreds & { blobs: AzureBlobSel[] }) =>
+      apiPost<StarInspectResult>('/datasets/azure/inspect', req),
+  })
+}
+
+export function useAzureInstall() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (req: AzureCreds & { blobs: AzureBlobSel[] }) =>
+      apiPost<StarInstallResult>('/datasets/azure/install', req),
+    onSuccess: () => {
+      // Same blanket invalidation as an Excel install: this replaced the CSVs
+      // behind every KPI, chart and filter in the platform.
+      queryClient.invalidateQueries()
+    },
+  })
+}
+
+// ===== Databricks Unity Catalog =====
+// Mutations for the same reason the Azure ones are: each carries a personal
+// access token in its body, which must not end up in a react-query cache key.
+
+export function useDbxCatalogs() {
+  return useMutation({
+    mutationFn: (creds: DbxCreds) =>
+      apiPost<{ catalogs: DbxCatalog[] }>('/datasets/databricks/catalogs', creds),
+  })
+}
+
+export function useDbxSchemas() {
+  return useMutation({
+    mutationFn: (req: DbxCreds & { catalog: string }) =>
+      apiPost<{ schemas: DbxSchema[] }>('/datasets/databricks/schemas', req),
+  })
+}
+
+export function useDbxTables() {
+  return useMutation({
+    mutationFn: (req: DbxCreds & { catalog: string; schema_name: string }) =>
+      apiPost<DbxTableListing>('/datasets/databricks/tables', req),
+  })
+}
+
+// Identification from catalog metadata alone — no query, no warehouse, no rows.
+export function useDbxInspect() {
+  return useMutation({
+    mutationFn: (req: DbxCreds & { tables: DbxTableSel[] }) =>
+      apiPost<StarInspectResult>('/datasets/databricks/inspect', req),
+  })
+}
+
+export function useDbxInstall() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (req: DbxCreds & { tables: DbxTableSel[] }) =>
+      apiPost<StarInstallResult>('/datasets/databricks/install', req),
+    onSuccess: () => {
+      // Replaced the CSVs behind every KPI, chart and filter in the platform.
+      queryClient.invalidateQueries()
     },
   })
 }

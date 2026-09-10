@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useBreakdown, useTopPromotions } from '../../hooks/useCommandCenter'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useBreakdown, useFilterOptions, useTopPromotions } from '../../hooks/useCommandCenter'
 import { useCommandFilters } from '../../store/commandFilters'
 import { ChartFrame } from './ChartFrame'
 import { RankedBar } from './RankedBar'
@@ -7,10 +7,19 @@ import type { BreakdownGroup } from '../../types/commandCenter'
 
 /** The chart sections of the Command Center.
  *
- *  Every one reads the SAME filter state as the KPI cards, through the same
- *  `useBreakdown` hook. There is no chart-local filter copy and no second
- *  serialisation path, so a chart cannot silently describe a different scope
- *  from the cards above it. */
+ *  Every one takes its SCOPE from the same filter state as the KPI cards,
+ *  through the same `useBreakdown` hook. There is no chart-local copy of a
+ *  filter and no second serialisation path, so a chart cannot silently describe
+ *  a different selection from the cards above it.
+ *
+ *  Each filter a chart honours is named EXPLICITLY in its query rather than
+ *  reached by walking the filter object, so a dimension a chart does not use
+ *  cannot leak into its requests — and a chart's cache survives a change to a
+ *  filter it never sent.
+ *
+ *  The only card-local control on this page is the mechanic on Channel
+ *  Performance, which is a chart-level Offer scope rather than a copy of
+ *  anything the filter bar holds. */
 
 const SYMBOL = { INR: '₹', USD: '$' } as const
 
@@ -948,6 +957,446 @@ export function ProductSection() {
           </div>
         ))}
       </div>
+    </ChartFrame>
+  )
+}
+
+
+/** ---- Sales by Region · the plot ------------------------------------------
+ *
+ *  A GROUPED COLUMN chart: two money series per region, drawn as a pair of
+ *  vertical bars on ONE shared axis. Both are rupees, so they are directly
+ *  comparable in height and the gap between the pair IS the return.
+ *
+ *  ROI IS NOT PLOTTED. It is a percentage and shares no scale with money, so
+ *  it rides in the axis band under each region as a direct label rather than
+ *  on a second y-axis — the same rule TrendPanels states for its own ROI
+ *  series, and the reason this card has one axis instead of two.
+ *
+ *  Same idiom as TrendPanels: width and height measured from the container,
+ *  real px text, design tokens for every colour so dark mode follows the
+ *  theme, and an HTML tooltip over the SVG rather than a native title.
+ */
+
+/** The smallest round step at or above `raw` — the ladder TrendPanels uses,
+ *  finer than the usual 1/2/5 so a ₹29.7 Cr peak does not round up to a ₹50 Cr
+ *  axis and leave every column squashed into the bottom half of the card. */
+const COLUMN_NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10]
+
+function columnNiceStep(raw: number): number {
+  if (raw <= 0) return 1
+  const mag = 10 ** Math.floor(Math.log10(raw))
+  return (COLUMN_NICE.find((c) => c >= raw / mag - 1e-9) ?? 10) * mag
+}
+
+const COLUMN_DIVISIONS = 4
+
+/** Width AND height from the container, so the plot fills the card the grid
+ *  row actually gives it instead of a hardcoded box. The SVG is positioned
+ *  absolutely inside the measured element, so it can never feed its own height
+ *  back into the measurement. */
+function useChartSize(fallbackW: number, fallbackH: number) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ width: fallbackW, height: fallbackH })
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const read = () =>
+      setSize({ width: el.clientWidth || fallbackW, height: el.clientHeight || fallbackH })
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [fallbackW, fallbackH])
+
+  return { ref, width: size.width, height: size.height }
+}
+
+/** One column, with the DATA END rounded and the baseline end square — so the
+ *  bar reads as growing out of the axis rather than floating above it. */
+function columnPath(x: number, top: number, w: number, h: number, down: boolean): string {
+  const r = Math.min(4, w / 2, h)
+  const b = top + h
+  return down
+    ? `M${x},${top} L${x + w},${top} L${x + w},${b - r} Q${x + w},${b} ${x + w - r},${b} ` +
+      `L${x + r},${b} Q${x},${b} ${x},${b - r} Z`
+    : `M${x},${b} L${x},${top + r} Q${x},${top} ${x + r},${top} ` +
+      `L${x + w - r},${top} Q${x + w},${top} ${x + w},${top + r} L${x + w},${b} Z`
+}
+
+/** Ellipsise a region name that cannot fit its slot. SVG text does not wrap or
+ *  truncate on its own, and an overrunning label would collide with its
+ *  neighbour's. */
+function fitLabel(text: string, px: number): string {
+  const max = Math.max(3, Math.floor(px / 6.4))
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+}
+
+const SERIES = {
+  incremental: 'var(--brand-violet)',
+  spend: 'var(--status-danger)',
+} as const
+
+function RegionColumns({
+  groups,
+  rate,
+  symbol,
+}: {
+  groups: BreakdownGroup[]
+  /** From `meta.exchange_rate` — the single backend-defined rate. Used for the
+   *  AXIS TICKS only, which are synthetic values; every figure that names a
+   *  group is the backend's own `*_display` string. */
+  rate: number
+  symbol: string
+}) {
+  const { ref, width, height } = useChartSize(700, 300)
+  const [hover, setHover] = useState<number | null>(null)
+
+  const n = groups.length
+  const padL = 56
+  const padR = 12
+  const padT = 24
+  const padB = 40
+  const innerW = Math.max(140, width - padL - padR)
+  const innerH = Math.max(90, height - padT - padB)
+
+  const money = (v: number) => {
+    const a = v * rate
+    if (symbol === '₹') {
+      if (Math.abs(a) >= 1e7) return `${symbol}${(a / 1e7).toFixed(1)} Cr`
+      if (Math.abs(a) >= 1e5) return `${symbol}${(a / 1e5).toFixed(1)} L`
+      return `${symbol}${a.toFixed(0)}`
+    }
+    if (Math.abs(a) >= 1e6) return `${symbol}${(a / 1e6).toFixed(1)} M`
+    if (Math.abs(a) >= 1e3) return `${symbol}${(a / 1e3).toFixed(1)} K`
+    return `${symbol}${a.toFixed(0)}`
+  }
+
+  // ONE axis, covering both money series. A null Incremental Sales is left out
+  // of the extent entirely rather than counted as zero — see the bars below.
+  const sales = groups.map((g) => g.incremental_sales).filter((v): v is number => v !== null)
+  const rawMax = Math.max(1, ...sales, ...groups.map((g) => g.trade_spend))
+  const rawMin = Math.min(0, ...sales)
+
+  const step = columnNiceStep(
+    (rawMin < 0 ? rawMax - rawMin : rawMax) / COLUMN_DIVISIONS,
+  )
+  const lo = rawMin < 0 ? Math.floor(rawMin / step) * step : 0
+  let hi = lo + step * COLUMN_DIVISIONS
+  // A negative floor can eat divisions the positive side still needs; extend
+  // the axis rather than clipping a column at the top of the plot.
+  while (hi < rawMax) hi += step
+
+  const y = (v: number) => padT + innerH * (1 - (v - lo) / (hi - lo || 1))
+  const zeroY = y(0)
+
+  const ticks: number[] = []
+  for (let t = lo; t <= hi + 1e-6; t += step) ticks.push(t)
+
+  const slot = innerW / n
+  // THIN marks. A saturated fill 30px wide reads as a block rather than as a
+  // measurement; capped well below the slot so the pair sits inside its own
+  // whitespace and the eye compares heights instead of areas.
+  const barW = Math.max(7, Math.min(22, slot * 0.2))
+  const gap = Math.max(4, barW * 0.26)
+  const pairW = barW * 2 + gap
+  const centreX = (i: number) => padL + slot * i + slot / 2
+  const active = hover !== null && hover < n ? hover : null
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* A legend is always present: two series must never be identified by
+          colour alone in the tooltip and nowhere else. */}
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES.incremental }} />
+          Incremental Sales
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: SERIES.spend }} />
+          Trade Spend
+        </span>
+        <span className="ml-auto">ROI under each region</span>
+      </div>
+
+      <div ref={ref} className="relative min-h-[250px] w-full flex-1">
+        <svg
+          className="absolute inset-0"
+          width={width}
+          height={height}
+          role="img"
+          aria-label="Incremental Sales and Trade Spend by region"
+        >
+          {/* Recessive hairline grid — solid, one shade off the surface. */}
+          {ticks.map((t) => (
+            <g key={t}>
+              <line
+                x1={padL}
+                x2={padL + innerW}
+                y1={y(t)}
+                y2={y(t)}
+                /* The baseline is the AXIS and carries one step more weight
+                   than the grid above it; everything else stays a recessive
+                   hairline one shade off the surface. */
+                stroke={t === lo ? 'var(--border-default)' : 'var(--border-subtle)'}
+              />
+              <text
+                x={padL - 8}
+                y={y(t) + 3}
+                textAnchor="end"
+                fontSize={10}
+                fill="var(--text-muted)"
+              >
+                {money(t)}
+              </text>
+            </g>
+          ))}
+
+          {/* The zero line only exists when the axis crosses it. */}
+          {lo < 0 && (
+            <line x1={padL} x2={padL + innerW} y1={zeroY} y2={zeroY} stroke="var(--border-strong)" />
+          )}
+
+          {groups.map((g, i) => {
+            const x1 = centreX(i) - pairW / 2
+            const x2 = x1 + barW + gap
+            const isActive = active === i
+
+            /** A bar from the baseline to `v`. Null draws nothing at all — an
+             *  unmeasurable Incremental Sales is not zero, and a zero-height
+             *  column would claim it was. */
+            const bar = (v: number | null, x: number, fill: string) => {
+              if (v === null) return null
+              const down = v < 0
+              const top = Math.min(y(v), zeroY)
+              const h = Math.max(Math.abs(y(v) - zeroY), v === 0 ? 0 : 2)
+              if (h === 0) return null
+              return (
+                <path
+                  d={columnPath(x, top, barW, h, down)}
+                  fill={fill}
+                  className="transition-opacity duration-150"
+                  opacity={active === null || isActive ? 1 : 0.45}
+                />
+              )
+            }
+
+            const roi = g.roi
+
+            return (
+              <g key={g.code}>
+                {/* Hover band, behind the columns. */}
+                <rect
+                  x={padL + slot * i + 1}
+                  y={padT - 6}
+                  width={Math.max(0, slot - 2)}
+                  height={innerH + 12}
+                  rx={6}
+                  fill="var(--surface-hover)"
+                  opacity={isActive ? 1 : 0}
+                  className="transition-opacity duration-150"
+                />
+                {bar(g.incremental_sales, x1, SERIES.incremental)}
+                {bar(g.trade_spend, x2, SERIES.spend)}
+
+                {/* SELECTIVE direct label: the primary series only. Trade Spend
+                    is read off the axis beside it and named in the tooltip. */}
+                <text
+                  x={centreX(i)}
+                  y={
+                    g.incremental_sales !== null && g.incremental_sales < 0
+                      ? Math.max(y(g.incremental_sales), zeroY) + 13
+                      : Math.min(y(g.incremental_sales ?? 0), zeroY) - 7
+                  }
+                  textAnchor="middle"
+                  fontSize={10.5}
+                  fontWeight={700}
+                  fill="var(--text-primary)"
+                >
+                  {g.incremental_sales === null ? '—' : g.incremental_sales_display}
+                </text>
+
+                {/* Axis band: the region, and its ROI as a direct label. */}
+                <text
+                  x={centreX(i)}
+                  y={height - 21}
+                  textAnchor="middle"
+                  fontSize={11}
+                  fontWeight={600}
+                  fill="var(--text-primary)"
+                >
+                  {fitLabel(g.label, slot - 6)}
+                </text>
+                <text
+                  x={centreX(i)}
+                  y={height - 7}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontWeight={700}
+                  fill={
+                    roi === null
+                      ? 'var(--text-muted)'
+                      : roi < 0
+                        ? 'var(--status-danger)'
+                        : 'var(--status-success)'
+                  }
+                >
+                  {roi === null ? '—' : `${roi.toFixed(1)}%`}
+                </text>
+
+                {/* The hit area is the whole slot, not the columns. */}
+                <rect
+                  x={padL + slot * i}
+                  y={0}
+                  width={slot}
+                  height={height}
+                  fill="transparent"
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(null)}
+                >
+                  {/* Reaches assistive tech and survives a missing pointer. */}
+                  <title>
+                    {`${g.label}\nIncremental Sales: ${g.incremental_sales_display}\n` +
+                      `Trade Spend: ${g.trade_spend_display}\n` +
+                      `ROI: ${roi === null ? '—' : `${roi.toFixed(1)}%`}`}
+                  </title>
+                </rect>
+              </g>
+            )
+          })}
+        </svg>
+
+        {active !== null && (
+          <div
+            className="pointer-events-none absolute top-1 z-20 w-52 rounded-[var(--r-md)] border border-border-default bg-surface-card p-2.5 text-xs shadow-[var(--shadow-lg)]"
+            style={{ left: Math.min(Math.max(0, centreX(active) - 104), Math.max(0, width - 208)) }}
+          >
+            <div className="font-bold text-ink-primary">{groups[active].label}</div>
+            <TipRow
+              swatch={SERIES.incremental}
+              k="Incremental Sales"
+              v={groups[active].incremental_sales === null ? '—' : groups[active].incremental_sales_display}
+            />
+            <TipRow swatch={SERIES.spend} k="Trade Spend" v={groups[active].trade_spend_display} />
+            <TipRow
+              k="ROI"
+              v={groups[active].roi === null ? '—' : `${groups[active].roi.toFixed(1)}%`}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TipRow({ k, v, swatch }: { k: string; v: string; swatch?: string }) {
+  return (
+    <div className="mt-1 flex items-center justify-between gap-3">
+      <span className="flex min-w-0 items-center gap-1.5 text-ink-muted">
+        {swatch && <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: swatch }} />}
+        <span className="truncate">{k}</span>
+      </span>
+      <span className="shrink-0 font-semibold tabular-nums text-ink-primary">{v}</span>
+    </div>
+  )
+}
+
+/** ---- Sales by Region -----------------------------------------------------
+ *
+ *  Incremental Sales per geography, ranked, with Trade Spend riding underneath
+ *  on the same money axis and ROI on every row — so a region that carries the
+ *  most sales is never mistaken for the one that returns the most.
+ *
+ *  SCOPED BY THE PAGE FILTER BAR. It holds no controls of its own — Year,
+ *  Month, Channel and everything under More Filters all come from the shared
+ *  `commandFilters` store, through the same `toQuery` the KPI cards post with,
+ *  so this card cannot describe a selection the rest of the page is not
+ *  showing. That is `scope: 'page'` on the hook below.
+ *
+ *  It is the one breakdown card on the page that takes the full selection
+ *  rather than the year alone, and it pays a refetch on every filter change for
+ *  it. That is deliberate: a geography ranking that ignored the bar's Region or
+ *  Channel would sit directly beneath KPI cards that did not, and the two would
+ *  disagree on screen with nothing to explain why.
+ *
+ *  A RANKING, never a composition. Region is a STORE dimension, so Incremental
+ *  Sales is re-baselined per region and the regions do not add back to the
+ *  headline KPI. No share is shown, for the same reason Product Performance
+ *  shows none.
+ */
+
+/** 50 is the endpoint's maximum and comfortably exceeds the region count, so
+ *  the ranking is the whole population rather than a head the server cut. */
+const REGION_LIMIT = 50
+
+export function SalesByRegionSection() {
+  const { symbol } = useDisplay()
+  const year = useCommandFilters((s) => s.filters.year)
+  const month = useCommandFilters((s) => s.filters.month)
+  const channel = useCommandFilters((s) => s.filters.channel)
+
+  const q = useBreakdown('region', {
+    metric: 'incremental_sales',
+    limit: REGION_LIMIT,
+    scope: 'page',
+  })
+
+  // The page's own option lists, already in flight for the filter bar — reused
+  // here only to turn the selected month number and channel codes into the
+  // names the bar itself shows. No second request, and no month or channel
+  // name held in the frontend.
+  const options = useFilterOptions()
+
+  // The endpoint already ranks by the metric; sorting here keeps the card
+  // correct if a future response arrives in another order, and dropping the
+  // regions this scope left with nothing measurable beats drawing a
+  // zero-length bar that reads as a real result.
+  const rows = useMemo(
+    () =>
+      [...(q.data?.groups ?? [])]
+        .filter((g) => g.incremental_sales !== null || g.trade_spend > 0)
+        .sort(
+          (a, b) =>
+            (b.incremental_sales ?? 0) - (a.incremental_sales ?? 0) || b.trade_spend - a.trade_spend,
+        ),
+    [q.data],
+  )
+
+  const yearLabel = year === null ? 'All years' : String(year)
+  const monthLabel =
+    month === null
+      ? 'all months'
+      : ((options.data?.months ?? []).find((o) => Number(o.code) === month)?.name ?? `month ${month}`)
+  const channelLabel =
+    channel.length === 0
+      ? 'all channels'
+      : channel
+          .map((code) => (options.data?.channels ?? []).find((o) => o.code === code)?.name ?? code)
+          .join(', ')
+  const cut = `${yearLabel} · ${monthLabel} · ${channelLabel}`
+
+  return (
+    <ChartFrame
+      fill
+      title="Sales by Region"
+      hint={`Incremental Sales by geography, with Trade Spend and ROI alongside. Follows the page filter bar — every control on it, including Month and Channel under More Filters. Currently showing ${cut}.`}
+      actions={
+        rows.length > 0 ? (
+          <span className="text-xs font-semibold text-ink-muted">
+            {rows.length} region{rows.length === 1 ? '' : 's'}
+          </span>
+        ) : null
+      }
+      isLoading={q.isLoading}
+      isFetching={q.isFetching}
+      error={q.error}
+      onRetry={() => void q.refetch()}
+      isEmpty={rows.length === 0}
+      emptyMessage={`No promotion activity in any region for ${cut}.`}
+      footnote={`${rows.length} region${rows.length === 1 ? '' : 's'} ranked by Incremental Sales · ${cut}. A ranking, not a share — Incremental Sales is re-baselined per region, so the regions do not sum to the headline figure.`}
+    >
+      <RegionColumns groups={rows} rate={q.data?.meta.exchange_rate ?? 1} symbol={symbol} />
     </ChartFrame>
   )
 }

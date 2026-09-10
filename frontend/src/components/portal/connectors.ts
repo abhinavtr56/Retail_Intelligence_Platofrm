@@ -9,6 +9,6 @@ export const INITIAL_CONNECTORS: PortalConnector[] = [
   // uploaded (see Home.tsx) — it used to be hardcoded true, which claimed a
   // connection that didn't exist.
   { key: 'xls', name: 'Excel / Shared Drives', desc: 'Promotion planning files', logo: 'excel', on: false, upload: true },
-  { key: 'azure', name: 'Azure Blob Storage', desc: 'Blob containers & Data Lake files', logo: 'azure', on: false, special: 'azure' },
-  { key: 'databricks', name: 'Databricks', desc: 'SQL warehouses & Delta tables', logo: 'databricks', on: false, special: 'databricks' },
+  { key: 'azure', name: 'Azure Blob Storage', desc: 'Blob containers', logo: 'azure', on: false, special: 'azure' },
+  { key: 'databricks', name: 'Databricks', desc: 'Catalog', logo: 'databricks', on: false, special: 'databricks' },
 ]

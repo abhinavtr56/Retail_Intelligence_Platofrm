@@ -77,6 +77,29 @@ export interface StarStatus {
   data_dir: string
   files: StarStatusFile[]
   complete: boolean
+  /** All six present — uploading is closed until a reset clears them. */
+  locked: boolean
+}
+
+/** A window of rows from one installed table, for the View panel. */
+export interface StarPreview {
+  role: StarRole
+  label: string
+  filename: string
+  columns: string[]
+  rows: Record<string, string>[]
+  /** Total data rows in the file, not just those returned. */
+  row_count: number
+  offset: number
+  limit: number
+  size_bytes: number
+  modified_at: number
+}
+
+export interface StarResetResult {
+  /** Canonical filenames actually deleted. */
+  removed: string[]
+  data_dir: string
 }
 
 export interface UploadResult {
@@ -84,4 +107,88 @@ export interface UploadResult {
   errors: { filename: string; error: string }[]
   /** Present when the upload included star-schema files. */
   star: StarInstallResult | null
+}
+
+// ===== Azure Blob Storage source =====
+// The same six tables as the Excel connector, reached from a storage account.
+// Credentials are passed per request and never persisted server-side — see
+// backend/app/azure_blob.py.
+
+export interface AzureContainer {
+  name: string
+}
+
+export interface AzureBlob {
+  /** Full blob name, including any virtual-folder prefix. The address. */
+  name: string
+  /** Just the part below the folder being viewed — what the list shows. */
+  display_name: string
+  size_bytes: number
+  modified: string
+}
+
+export interface AzureBlobListing {
+  container: string
+  prefix: string
+  /** Virtual subfolders at this level, as full prefixes ending in '/'. */
+  folders: string[]
+  files: AzureBlob[]
+  /** Azure cut the listing short — more blobs exist than are shown. */
+  truncated: boolean
+}
+
+/** One file in an inspect result, matched to a table by its header. */
+export interface StarInspectFile {
+  filename: string
+  role: StarRole | null
+  label: string | null
+  missing_columns: string[]
+  recognised: boolean
+}
+
+export interface StarInspectResult {
+  files: StarInspectFile[]
+  missing_roles: { role: StarRole; label: string; required_columns: string[] }[]
+  ready: boolean
+  /** Empty when ready; otherwise names exactly what is wrong. */
+  message: string
+  locked: boolean
+}
+
+// ===== Databricks Unity Catalog source =====
+// The same six tables again, this time as catalog tables rather than files.
+// Browsing is metadata-only; data moves once, at install. Credentials are sent
+// per request and never persisted — see backend/app/databricks_catalog.py.
+
+export interface DbxCatalog {
+  name: string
+  comment: string
+}
+
+export interface DbxSchema {
+  name: string
+  comment: string
+}
+
+export interface DbxTable {
+  name: string
+  table_type: string
+  comment: string
+  /** Column names, supplied by Unity Catalog with the listing — this is what
+   *  identifies a table's star role, with no query and no data read. */
+  columns: string[]
+}
+
+export interface DbxTableListing {
+  catalog: string
+  schema_name: string
+  tables: DbxTable[]
+}
+
+/** A table the user has picked, fully qualified. `schema_name` rather than
+ *  `schema` because Pydantic reserves the latter on the backend model. */
+export interface DbxTableSel {
+  catalog: string
+  schema_name: string
+  name: string
 }

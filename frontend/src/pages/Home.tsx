@@ -2,40 +2,31 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Dropdown, IconButton, ThemeToggle, useToast } from '../components/ui'
 import { useCurrentUser, useLogout } from '../hooks/useAuth'
-import { useDatasets, useStarStatus } from '../hooks/useDatasets'
+import { useStarStatus } from '../hooks/useDatasets'
 import { HeroArt } from '../components/portal/HeroArt'
 import { ModuleGrid } from '../components/portal/ModuleGrid'
 import { ConnectorRail } from '../components/portal/ConnectorRail'
 import { INITIAL_CONNECTORS } from '../components/portal/connectors'
 import { UploadModal } from '../components/portal/modals/UploadModal'
-import { AzureModal } from '../components/portal/modals/AzureModal'
+import { AzureDatasetModal } from '../components/portal/modals/AzureDatasetModal'
 import { DatabricksModal } from '../components/portal/modals/DatabricksModal'
 import { SapModal } from '../components/portal/modals/SapModal'
 import { PowerBiModal } from '../components/portal/modals/PowerBiModal'
 import { NielsenModal } from '../components/portal/modals/NielsenModal'
-import { clearAzureConn, loadAzureConn, clearProxyConn } from '../lib/portalConnectors'
+import { loadAzureConn, loadDatasetSource, saveDatasetSource } from '../lib/portalConnectors'
 import type { ConnectorSpecial, PortalConnector } from '../types/portal'
 
 // Connectors the portal does not offer. A DISPLAY choice and nothing more:
 // the catalog in components/portal/connectors.ts still carries them, their
 // modals and the /api/proxy endpoints behind them are untouched, and offering
 // one again means only removing its key from here.
-const HIDDEN_ON_HOME = new Set(['sap', 'niq'])
-
-const DISCONNECT_KIND: Record<ConnectorSpecial, string> = {
-  azure: 'azure',
-  databricks: 'databricks',
-  sap: 'sap',
-  powerbi: 'powerbi',
-  nielsen: 'nielsen',
-}
+const HIDDEN_ON_HOME = new Set(['sap', 'niq', 'pbi'])
 
 // Ported from home.html + js/portal.js's Portal.initHome(). Same topbar/hero/module
 // grid/connector rail/advisor layout as the vanilla app, state-driven instead of
 // direct DOM mutation.
 export function Home() {
   const { data: user } = useCurrentUser()
-  const { data: datasets } = useDatasets()
   const { data: starStatus } = useStarStatus()
   const logout = useLogout()
   const navigate = useNavigate()
@@ -44,6 +35,7 @@ export function Home() {
     INITIAL_CONNECTORS.filter((c) => !HIDDEN_ON_HOME.has(c.key)),
   )
   const [modal, setModal] = useState<ConnectorSpecial | 'upload' | null>(null)
+  const [source, setSource] = useState<string | null>(() => loadDatasetSource())
   const [uploadTarget, setUploadTarget] = useState<PortalConnector | null>(null)
 
   // Reflect a saved Azure session (this browser tab) before first paint, same as
@@ -56,49 +48,50 @@ export function Home() {
   }, [])
 
   // Excel / Shared Drives reflects real ingested data, not a hardcoded flag.
-  // The core star-schema tables in the Data/ folder are what it reports first:
-  // those are the files every dashboard and KPI actually reads, so "6 of 6 core
-  // tables" is the honest description of the connection. Standalone profiled
-  // uploads (anything that isn't one of the six) are mentioned alongside.
+  // The core star-schema tables in the Data/ folder are what it reports: those
+  // are the files every dashboard and KPI actually reads, so "6 of 6 core
+  // tables" is the honest description of the connection. Only the six count —
+  // the upload route rejects anything else by name, so there is no such thing
+  // as a standalone profiled upload to mention alongside them any more.
   useEffect(() => {
-    if (!datasets && !starStatus) return
-    const present = starStatus?.files.filter((f) => f.present).length ?? 0
-    const total = starStatus?.files.length ?? 0
-    const extras = datasets?.length ?? 0
-    const bits: string[] = []
-    if (total) bits.push(`${present}/${total} core tables`)
-    if (extras) bits.push(`${extras} extra file${extras > 1 ? 's' : ''}`)
+    if (!starStatus) return
+    const present = starStatus.files.filter((f) => f.present).length
+    const total = starStatus.files.length
     setConnectors((prev) =>
       prev.map((c) =>
-        c.key === 'xls' ? { ...c, on: present > 0 || extras > 0, detail: bits.join(' · ') || undefined } : c,
+        c.key === 'xls'
+          ? { ...c, on: present > 0, detail: total ? `${present}/${total} core tables` : undefined }
+          : c,
       ),
     )
-  }, [datasets, starStatus])
+  }, [starStatus])
 
   const updateConnector = (key: string, patch: Partial<PortalConnector>) => {
     setConnectors((prev) => prev.map((c) => (c.key === key ? { ...c, ...patch } : c)))
   }
 
-  const handleToggle = (key: string) => {
-    const c = connectors.find((x) => x.key === key)
-    if (!c) return
-    if (c.special) {
-      // Only reached when already on (see ConnectorRail) — disconnect + clear session.
-      if (c.special === 'azure') clearAzureConn()
-      else clearProxyConn(DISCONNECT_KIND[c.special])
-      updateConnector(key, { on: false, detail: undefined })
-      show(`${c.name} disconnected — session cleared from this browser.`)
-      return
-    }
-    updateConnector(key, { on: !c.on })
-  }
+  // Null unless a dataset is really installed, so a Reset silently retires the
+  // remembered source rather than leaving the rail claiming a stale one.
+  const presentCount = starStatus?.files.filter((f) => f.present).length ?? 0
+  const totalCount = starStatus?.files.length ?? 0
+  const anyLoaded = presentCount > 0
+  const sourceConnector = anyLoaded ? connectors.find((c) => c.key === source) ?? null : null
+  // Read from the star status rather than the connector's own label, so the
+  // count is right even for a dataset loaded before the source was recorded.
+  const sourceDetail = totalCount ? `${presentCount}/${totalCount} core tables` : null
 
   const closeModal = () => {
     setModal(null)
     setUploadTarget(null)
   }
 
-  const onConnected = (key: string) => (detail: string) => updateConnector(key, { on: true, detail })
+  // Remember which connector the dataset came from — the backend stores the six
+  // files but not their provenance, so the rail could not otherwise say.
+  const onConnected = (key: string) => (detail: string) => {
+    saveDatasetSource(key)
+    setSource(key)
+    updateConnector(key, { on: true, detail })
+  }
 
   const signOut = () => {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) })
@@ -162,12 +155,14 @@ export function Home() {
           <div className="flex flex-col gap-6">
             <ConnectorRail
               connectors={connectors}
-              onToggle={handleToggle}
               onOpenSpecial={(special) => setModal(special)}
               onOpenUpload={(c) => {
                 setUploadTarget(c)
                 setModal('upload')
               }}
+              loaded={anyLoaded}
+              sourceName={sourceConnector?.name ?? null}
+              sourceDetail={sourceDetail}
             />
           </div>
         </div>
@@ -175,7 +170,7 @@ export function Home() {
 
       {modal === 'upload' && uploadTarget && <UploadModal connector={uploadTarget} onClose={closeModal} onConnected={onConnected('xls')} />}
       {modal === 'azure' && (
-        <AzureModal connector={connectors.find((c) => c.key === 'azure')!} onClose={closeModal} onConnected={onConnected('azure')} />
+        <AzureDatasetModal connector={connectors.find((c) => c.key === 'azure')!} onClose={closeModal} onConnected={onConnected('azure')} />
       )}
       {modal === 'databricks' && (
         <DatabricksModal

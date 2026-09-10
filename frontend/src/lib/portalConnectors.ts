@@ -49,6 +49,28 @@ export function clearProxyConn(kind: string) {
   }
 }
 
+//: Which connector the installed star schema came from. The backend records
+//: the six files but not their provenance, so the browser remembers it — read
+//: back only while a dataset is actually loaded, which keeps it from going
+//: stale after a Reset. localStorage rather than sessionStorage: the dataset
+//: outlives the tab that loaded it.
+const DATASET_SOURCE_KEY = 'tiq_dataset_source'
+
+export function saveDatasetSource(key: string) {
+  try {
+    localStorage.setItem(DATASET_SOURCE_KEY, key)
+  } catch {
+    /* ignore */
+  }
+}
+export function loadDatasetSource(): string | null {
+  try {
+    return localStorage.getItem(DATASET_SOURCE_KEY)
+  } catch {
+    return null
+  }
+}
+
 export function fmtSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`

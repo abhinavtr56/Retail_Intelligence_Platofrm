@@ -4,41 +4,40 @@ import { MissingTables } from './MissingTables'
 import { InstallProgress } from './InstallProgress'
 import { Modal, Button, IconButton, Field, Input, Spinner, useToast, useConfirm, BrandLogo } from '../../ui'
 import { ErrorBox, InfoNote } from './shared'
-import { fmtSize, saveProxyConn, loadProxyConn } from '../../../lib/portalConnectors'
+import { fmtSize, saveAzureConn, loadAzureConn } from '../../../lib/portalConnectors'
 import {
   useStarStatus,
   useResetStar,
-  useDbxCatalogs,
-  useDbxSchemas,
-  useDbxTables,
-  useDbxInspect,
-  useDbxInstall,
+  useAzureContainers,
+  useAzureBlobs,
+  useAzureInspect,
+  useAzureInstall,
 } from '../../../hooks/useDatasets'
-import { STAR_ROLE_LABELS, matchHeader } from '../../../lib/starSchema'
+import type { AzureBlobSel } from '../../../hooks/useDatasets'
+import { STAR_ROLE_LABELS } from '../../../lib/starSchema'
 import { ApiError } from '../../../lib/api'
 import type { PortalConnector } from '../../../types/portal'
-import type { DbxTable, DbxTableSel, StarInspectResult, StarRole } from '../../../types/dataset'
+import type { AzureBlobListing, StarInspectResult, StarRole } from '../../../types/dataset'
 import { StarFileViewer } from './StarFileViewer'
 
-// Loading the six star-schema tables from a Databricks Unity Catalog.
+// Loading the six star-schema tables from an Azure Blob Storage container.
 //
-// THE SAME CONNECTOR AS EXCEL AND AZURE, WITH A THIRD SOURCE. Every rule about
-// what is acceptable — the six tables identified by their columns, all of them
-// or none, no extras, locked once loaded, reset before reloading — is the
-// backend's `star_dataset`, shared with the other two. This modal differs only
-// in where the data comes from, and mirrors AzureDatasetModal's states: loaded
-// shows View/Reset and no picker; empty shows the picker.
+// THE SAME CONNECTOR AS EXCEL, WITH A DIFFERENT SOURCE. Every rule about what
+// is acceptable — the six tables identified by column headers, all of them or
+// none, no extra files, locked once loaded, reset before reloading — is the
+// backend's `star_dataset` and is shared with the Excel upload. This modal
+// differs only in where the bytes come from, and so deliberately mirrors
+// UploadModal's states: loaded shows View/Reset with no picker at all; empty
+// shows the picker.
 //
-// A DATABRICKS TABLE IS NOT A FILE, which is the one real difference. The SQL
-// API can return a table AS CSV, so the backend exports the six and hands the
-// installer exactly the bytes it would have got from an upload. Nothing about
-// the six-table contract had to be re-specified for this source.
-//
-// BROWSING COSTS NOTHING. Catalogs, schemas and tables all come from Unity
-// Catalog metadata, which needs no SQL warehouse and reads no rows — and the
-// column names arrive with the table listing, so a table is labelled with its
-// star role the moment it appears. Only "Load 6 tables" runs a query.
-export function DatabricksModal({
+// THE BYTES NEVER TOUCH THE BROWSER. Selecting files sends blob NAMES to the
+// backend, which fetches them from Azure server-to-server. Downloading 21 MB
+// into the tab only to upload the same 21 MB back would be slower and would
+// additionally require CORS on the storage account — a setting many users
+// cannot change. The SAS token is sent per request and is not persisted server
+// side; `saveAzureConn` keeps it in this tab's sessionStorage only, so
+// reopening the modal doesn't mean re-pasting it.
+export function AzureDatasetModal({
   connector,
   onClose,
   onConnected,
@@ -47,17 +46,19 @@ export function DatabricksModal({
   onClose: () => void
   onConnected: (detail: string) => void
 }) {
-  const saved = loadProxyConn<{ workspace_url: string; token: string }>('databricks')
-  const [workspace, setWorkspace] = useState(saved?.workspace_url ?? '')
-  const [token, setToken] = useState(saved?.token ?? '')
-  const [showToken, setShowToken] = useState(false)
+  const saved = loadAzureConn()
+  const [account, setAccount] = useState(saved?.account ?? '')
+  const [sas, setSas] = useState(saved?.sas ?? '')
+  const [showSas, setShowSas] = useState(false)
   const [error, setError] = useState('')
-  const [catalogs, setCatalogs] = useState<string[] | null>(null)
-  const [catalog, setCatalog] = useState<string | null>(null)
-  const [schemas, setSchemas] = useState<string[] | null>(null)
-  const [schema, setSchema] = useState<string | null>(null)
-  const [tables, setTables] = useState<DbxTable[] | null>(null)
-  const [picked, setPicked] = useState<DbxTableSel[]>([])
+  const [containers, setContainers] = useState<string[] | null>(null)
+  // A SAS scoped to one container (sr=c) can't enumerate the account, so the
+  // user names the container instead. Normal, not an error — often the only
+  // kind of token someone who doesn't own the account can be given.
+  const [containerScoped, setContainerScoped] = useState(false)
+  const [manualContainer, setManualContainer] = useState('')
+  const [listing, setListing] = useState<AzureBlobListing | null>(null)
+  const [picked, setPicked] = useState<AzureBlobSel[]>([])
   const [inspection, setInspection] = useState<StarInspectResult | null>(null)
   const [viewing, setViewing] = useState<StarRole | null>(null)
 
@@ -65,105 +66,83 @@ export function DatabricksModal({
   const confirm = useConfirm()
   const status = useStarStatus()
   const reset = useResetStar()
-  const listCatalogs = useDbxCatalogs()
-  const listSchemas = useDbxSchemas()
-  const listTables = useDbxTables()
-  const inspect = useDbxInspect()
-  const install = useDbxInstall()
+  const listContainers = useAzureContainers()
+  const listBlobs = useAzureBlobs()
+  const inspect = useAzureInspect()
+  const install = useAzureInstall()
 
   const locked = status.data?.locked ?? false
-  const creds = { workspace_url: workspace.trim(), token: token.trim() }
-  const busy =
-    listCatalogs.isPending || listSchemas.isPending || listTables.isPending ||
-    inspect.isPending || install.isPending
+  const creds = { account: account.trim(), sas: sas.trim() }
+  const busy = listContainers.isPending || listBlobs.isPending || inspect.isPending || install.isPending
 
   const fail = (e: unknown) =>
     setError(e instanceof ApiError ? e.message : "Couldn't reach the server — is the backend running?")
 
   const connect = () => {
     setError('')
-    if (!creds.workspace_url || !creds.token) {
-      setError('Enter both a workspace URL and a personal access token.')
+    if (!creds.account || !creds.sas) {
+      setError('Enter both a storage account name and a SAS token.')
       return
     }
-    listCatalogs.mutate(creds, {
+    listContainers.mutate(creds, {
       onSuccess: (res) => {
-        setCatalogs(res.catalogs.map((c) => c.name))
-        setCatalog(null)
-        setSchemas(null)
-        setSchema(null)
-        setTables(null)
-        saveProxyConn('databricks', creds)
+        setContainers(res.containers.map((c) => c.name))
+        setContainerScoped(res.container_scoped)
+        setListing(null)
+        saveAzureConn(creds)
       },
       onError: fail,
     })
   }
 
-  const openCatalog = (name: string) => {
+  const openFolder = (container: string, prefix: string) => {
     setError('')
-    listSchemas.mutate(
-      { ...creds, catalog: name },
-      {
-        onSuccess: (res) => {
-          setCatalog(name)
-          setSchemas(res.schemas.map((s) => s.name))
-          setSchema(null)
-          setTables(null)
-        },
-        onError: fail,
-      },
+    listBlobs.mutate(
+      { ...creds, container, prefix },
+      { onSuccess: setListing, onError: fail },
     )
   }
 
-  const openSchema = (name: string) => {
-    setError('')
-    listTables.mutate(
-      { ...creds, catalog: catalog ?? '', schema_name: name },
-      {
-        onSuccess: (res) => {
-          setSchema(name)
-          setTables(res.tables)
-        },
-        onError: fail,
-      },
-    )
-  }
-
-  // Selection spans the whole workspace, not one schema: the six tables can sit
-  // in different schemas, so navigating away must not drop what was ticked.
-  const toggle = (sel: DbxTableSel) => {
+  // Selection is account-wide, not per-folder: the six tables are often spread
+  // across folders, so navigating away must not silently drop what was ticked.
+  const toggle = (container: string, name: string) => {
     setInspection(null)
     setPicked((prev) => {
-      const hit = prev.findIndex(
-        (t) => t.catalog === sel.catalog && t.schema_name === sel.schema_name && t.name === sel.name,
-      )
-      return hit >= 0 ? prev.filter((_, i) => i !== hit) : [...prev, sel]
+      const hit = prev.findIndex((b) => b.container === container && b.name === name)
+      return hit >= 0 ? prev.filter((_, i) => i !== hit) : [...prev, { container, name }]
     })
   }
-  const isPicked = (sel: DbxTableSel) =>
-    picked.some(
-      (t) => t.catalog === sel.catalog && t.schema_name === sel.schema_name && t.name === sel.name,
-    )
+  const isPicked = (container: string, name: string) =>
+    picked.some((b) => b.container === container && b.name === name)
 
-  // Clear a stale error when the selection changes — it described a set the
-  // user has since edited. Keyed on contents, so a swap of equal length counts.
-  const pickedKey = picked.map((t) => `${t.catalog}.${t.schema_name}.${t.name}`).join('|')
+  // Clear a stale error whenever the selection changes — it described a set the
+  // user has since edited. Keyed on the selection's CONTENTS, not its length:
+  // swapping one file for another leaves the count identical, and that is
+  // exactly the edit most likely to follow an error about a specific file.
+  // (The stale identification itself is dropped in `toggle`, which is the only
+  // thing that can invalidate one.)
+  const pickedKey = picked.map((b) => `${b.container}/${b.name}`).join('|')
   useEffect(() => setError(''), [pickedKey])
 
   const runInspect = () => {
     setError('')
-    inspect.mutate({ ...creds, tables: picked }, { onSuccess: setInspection, onError: fail })
+    inspect.mutate(
+      { ...creds, blobs: picked },
+      { onSuccess: setInspection, onError: fail },
+    )
   }
 
   const runInstall = () => {
     setError('')
     install.mutate(
-      { ...creds, tables: picked },
+      { ...creds, blobs: picked },
       {
         onSuccess: (res) => {
           const rows = res.rows
           onConnected(`${res.installed.length} core tables${rows ? ` · ${rows.toLocaleString()} fact rows` : ''}`)
-          show(`Dataset loaded from Databricks — ${rows?.toLocaleString() ?? ''} fact rows ready.`, { duration: 4000 })
+          show(`Dataset loaded from Azure — ${rows?.toLocaleString() ?? ''} fact rows ready.`, { duration: 4000 })
+          // Stay open: the modal flips to the loaded view so the user can see
+          // what landed rather than the dialog just disappearing.
           setPicked([])
           setInspection(null)
         },
@@ -202,25 +181,17 @@ export function DatabricksModal({
   const installed = status.data?.files.filter((f) => f.present) ?? []
   const ready = inspection?.ready ?? false
 
-  // Star role for a table, matched locally from the columns the listing already
-  // carries. `matchHeader` is the same rule `star_dataset` applies, mirrored in
-  // starSchema.ts — so a table is labelled the moment it is listed, with no
-  // request at all, and the label cannot contradict the backend's verdict.
-  const roleOf = (t: DbxTable): StarRole | null => matchHeader(t.columns).role
-
   return (
     <Modal open onClose={onClose} maxWidthClassName="max-w-[560px]">
       <div className="flex items-center justify-between border-b border-border-subtle p-[16px_20px]">
         <div className="flex items-center gap-2.5">
           <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[9px]">
-            <BrandLogo logo="databricks" name={connector.name} />
+            <BrandLogo logo="azure" name={connector.name} />
           </div>
           <div>
-            <h3 className="text-md font-bold">{locked ? 'Your dataset' : 'Load dataset from Databricks'}</h3>
+            <h3 className="text-md font-bold">{locked ? 'Your dataset' : 'Load dataset from Azure'}</h3>
             <div className="mt-0.5 text-sm text-ink-muted">
-              {locked
-                ? 'All 6 tables loaded · view or reset'
-                : 'Pick the 6 tables · recognised by their column names'}
+              {locked ? 'All 6 tables loaded · view or reset' : 'Pick the 6 tables · recognised by their column headers'}
             </div>
           </div>
         </div>
@@ -243,7 +214,7 @@ export function DatabricksModal({
               <Icon name="checkCircle" />
               <span>
                 All 6 tables are loaded and every dashboard is reading from them. To load a different
-                dataset, reset first — the six tables are only consistent as one set.
+                dataset, reset first — the six files are only consistent as one set.
               </span>
             </div>
             <div className="flex flex-col gap-2">
@@ -265,31 +236,31 @@ export function DatabricksModal({
           </>
         )}
 
-        {/* ---------------- EMPTY: credentials, then the catalog picker ------ */}
+        {/* ---------------- EMPTY: credentials, then the picker ---------------- */}
         {!status.isLoading && !locked && (
           <>
             <div className="mb-3">
-              <Field label="Workspace URL">
+              <Field label="Storage account name">
                 <Input
-                  value={workspace}
-                  onChange={(e) => { setWorkspace(e.target.value); setCatalogs(null) }}
-                  placeholder="https://dbc-xxxxxxxx.cloud.databricks.com"
+                  value={account}
+                  onChange={(e) => { setAccount(e.target.value); setContainers(null); setContainerScoped(false) }}
+                  placeholder="mystorageaccount"
                 />
               </Field>
             </div>
             <div className="mb-1.5">
-              <Field label="Personal access token">
+              <Field label="SAS token">
                 <div className="relative">
                   <Input
-                    type={showToken ? 'text' : 'password'}
-                    value={token}
-                    onChange={(e) => { setToken(e.target.value); setCatalogs(null) }}
-                    placeholder="dapi..."
+                    type={showSas ? 'text' : 'password'}
+                    value={sas}
+                    onChange={(e) => { setSas(e.target.value); setContainers(null); setContainerScoped(false) }}
+                    placeholder="sv=2024-...&ss=b&srt=co&sp=rl&se=...&sig=..."
                     className="pr-9"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowToken((v) => !v)}
+                    onClick={() => setShowSas((v) => !v)}
                     className="absolute right-1 top-1/2 grid h-[26px] w-[26px] -translate-y-1/2 place-items-center rounded-md text-ink-muted"
                   >
                     <Icon name="eye" className="h-4 w-4" />
@@ -298,8 +269,8 @@ export function DatabricksModal({
               </Field>
             </div>
             <InfoNote>
-              Needs a token with USE and SELECT on the tables. Browsing reads catalog metadata only —
-              a SQL warehouse is used just once, to export the data when you load. The token is sent
+              Needs Read and List permission on blobs and containers. The files are fetched by the
+              server, so CORS does not need to be enabled on the storage account. The token is used
               per request and never stored on the server.
             </InfoNote>
 
@@ -308,55 +279,55 @@ export function DatabricksModal({
               block
               className="mt-3.5"
               onClick={connect}
-              disabled={listCatalogs.isPending}
+              disabled={listContainers.isPending}
             >
               <Icon name="database" />{' '}
-              {listCatalogs.isPending ? 'Connecting…' : catalogs ? 'Reconnect' : 'Connect & list catalogs'}
+              {listContainers.isPending ? 'Connecting…' : containers ? 'Reconnect' : 'Connect & list containers'}
             </Button>
 
-            {/* Catalogs */}
-            {catalogs && !catalog && (
+            {/* A container-scoped token: ask which container it is for. */}
+            {containerScoped && !listing && (
               <div className="mt-3.5">
-                <div className="mb-2 text-sm text-ink-muted">
-                  {catalogs.length} catalog{catalogs.length === 1 ? '' : 's'} — open one to find your tables
+                <div className="mb-2 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
+                  <Icon name="info" />
+                  <span>
+                    This token is scoped to a single container, so the list of containers can't be
+                    read. Enter the container name it was created for.
+                  </span>
                 </div>
-                <div className="flex max-h-[240px] flex-col gap-1.5 overflow-y-auto">
-                  {catalogs.map((name) => (
-                    <button
-                      key={name}
-                      onClick={() => openCatalog(name)}
-                      className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
-                    >
-                      <Icon name="database" className="h-4 w-4 text-ink-muted" />
-                      <span className="min-w-0 flex-1 truncate">{name}</span>
-                      <Icon name="chevronRight" className="h-4 w-4 text-ink-muted" />
-                    </button>
-                  ))}
-                  {!catalogs.length && (
-                    <div className="text-sm text-ink-muted">No catalogs visible to this token.</div>
-                  )}
+                <div className="flex gap-2">
+                  <Input
+                    value={manualContainer}
+                    onChange={(e) => setManualContainer(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualContainer.trim()) {
+                        openFolder(manualContainer.trim(), '')
+                      }
+                    }}
+                    placeholder="container name"
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => openFolder(manualContainer.trim(), '')}
+                    disabled={!manualContainer.trim() || listBlobs.isPending}
+                  >
+                    {listBlobs.isPending ? 'Opening…' : 'Open'}
+                  </Button>
                 </div>
               </div>
             )}
 
-            {/* Schemas */}
-            {catalog && !schema && (
+            {/* Containers */}
+            {containers && !containerScoped && !listing && (
               <div className="mt-3.5">
-                <button
-                  onClick={() => { setCatalog(null); setSchemas(null) }}
-                  className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-brand-violet"
-                >
-                  <Icon name="chevronLeft" className="h-3.5 w-3.5" /> All catalogs
-                </button>
-                <div className="mb-2 truncate text-sm text-ink-muted">
-                  {catalog}
-                  {listSchemas.isPending && ' · loading…'}
+                <div className="mb-2 text-sm text-ink-muted">
+                  {containers.length} container{containers.length === 1 ? '' : 's'} — open one to pick files
                 </div>
                 <div className="flex max-h-[240px] flex-col gap-1.5 overflow-y-auto">
-                  {(schemas ?? []).map((name) => (
+                  {containers.map((name) => (
                     <button
                       key={name}
-                      onClick={() => openSchema(name)}
+                      onClick={() => openFolder(name, '')}
                       className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
                     >
                       <Icon name="folder" className="h-4 w-4 text-ink-muted" />
@@ -364,63 +335,92 @@ export function DatabricksModal({
                       <Icon name="chevronRight" className="h-4 w-4 text-ink-muted" />
                     </button>
                   ))}
-                  {schemas && !schemas.length && (
-                    <div className="text-sm text-ink-muted">No schemas in this catalog.</div>
+                  {!containers.length && (
+                    <div className="text-sm text-ink-muted">No containers visible to this SAS token.</div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Tables */}
-            {schema && tables && (
+            {/* Blobs in one container/folder */}
+            {listing && (
               <div className="mt-3.5">
                 <button
-                  onClick={() => { setSchema(null); setTables(null) }}
+                  onClick={() => {
+                    // Up one virtual folder, or out of the container entirely.
+                    const parent = listing.prefix.replace(/[^/]+\/$/, '')
+                    if (listing.prefix) openFolder(listing.container, parent)
+                    else setListing(null)  // back to the container list / name prompt
+                  }}
                   className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-brand-violet"
                 >
-                  <Icon name="chevronLeft" className="h-3.5 w-3.5" /> All schemas
+                  <Icon name="chevronLeft" className="h-3.5 w-3.5" />
+                  {/* At the container root a scoped token has no list to go back
+                      to — it returns to the name prompt, so say that instead of
+                      offering "All containers" and showing nothing. */}
+                  {listing.prefix
+                    ? 'Up one level'
+                    : containerScoped
+                      ? 'Change container'
+                      : 'All containers'}
                 </button>
                 <div className="mb-2 truncate text-sm text-ink-muted">
-                  {catalog}.{schema}
-                  {listTables.isPending && ' · loading…'}
+                  {listing.container}/{listing.prefix}
+                  {listBlobs.isPending && ' · loading…'}
                 </div>
+
                 <div className="flex max-h-[240px] flex-col gap-1.5 overflow-y-auto">
-                  {tables.map((t) => {
-                    const sel = { catalog: catalog ?? '', schema_name: schema, name: t.name }
-                    const on = isPicked(sel)
-                    const role = roleOf(t)
+                  {listing.folders.map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => openFolder(listing.container, f)}
+                      className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_11px] text-left text-base font-semibold hover:bg-brand-violet-50 hover:text-brand-violet"
+                    >
+                      <Icon name="folder" className="h-4 w-4 text-ink-muted" />
+                      <span className="min-w-0 flex-1 truncate">{f.replace(listing.prefix, '')}</span>
+                      <Icon name="chevronRight" className="h-4 w-4 text-ink-muted" />
+                    </button>
+                  ))}
+
+                  {listing.files.map((b) => {
+                    const on = isPicked(listing.container, b.name)
                     return (
                       <button
-                        key={t.name}
-                        onClick={() => toggle(sel)}
+                        key={b.name}
+                        onClick={() => toggle(listing.container, b.name)}
                         className={`flex items-center gap-2.5 rounded-[var(--r-md)] p-[9px_11px] text-left text-base ${
                           on ? 'bg-brand-violet-50 text-brand-violet' : 'bg-surface-muted hover:bg-surface-hover'
                         }`}
                       >
                         <Icon
-                          name={on ? 'checkCircle' : 'grid'}
+                          name={on ? 'checkCircle' : 'file'}
                           className={`h-4 w-4 shrink-0 ${on ? 'text-brand-violet' : 'text-ink-muted'}`}
                         />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">{t.name}</div>
-                          <div className="mt-px truncate text-xs text-ink-muted">
-                            {role ? STAR_ROLE_LABELS[role] : `${t.columns.length} columns`}
-                          </div>
-                        </div>
+                        <span className="min-w-0 flex-1 truncate font-medium">{b.display_name}</span>
+                        <span className="shrink-0 text-xs text-ink-muted">{fmtSize(b.size_bytes)}</span>
                       </button>
                     )
                   })}
-                  {!tables.length && <div className="text-sm text-ink-muted">No tables in this schema.</div>}
+
+                  {!listing.folders.length && !listing.files.length && (
+                    <div className="text-sm text-ink-muted">No CSV or Excel files in this folder.</div>
+                  )}
                 </div>
+
+                {listing.truncated && (
+                  <div className="mt-1.5 text-xs text-ink-muted">
+                    Listing was cut short — this folder holds more files than shown.
+                  </div>
+                )}
               </div>
             )}
 
-            {/* What was picked, and what the columns say it is. */}
+            {/* What was picked, and what the headers say it is. */}
             {picked.length > 0 && (
               <div className="mt-3.5">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-sm font-bold">
-                    {picked.length} table{picked.length === 1 ? '' : 's'} selected
+                    {picked.length} file{picked.length === 1 ? '' : 's'} selected
                   </span>
                   <button
                     onClick={() => { setPicked([]); setInspection(null) }}
@@ -430,21 +430,21 @@ export function DatabricksModal({
                   </button>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {picked.map((t) => {
-                    const full = `${t.catalog}.${t.schema_name}.${t.name}`
-                    const found = inspection?.files.find((f) => f.filename === full)
+                  {picked.map((b) => {
+                    const leaf = b.name.split('/').pop() ?? b.name
+                    const found = inspection?.files.find((f) => f.filename === leaf)
                     const ok = found?.recognised && found.missing_columns.length === 0
                     return (
-                      <div key={full} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_12px]">
+                      <div key={`${b.container}/${b.name}`} className="flex items-center gap-2.5 rounded-[var(--r-md)] bg-surface-muted p-[9px_12px]">
                         <Icon
-                          name={!inspection ? 'grid' : ok ? 'check' : 'info'}
+                          name={!inspection ? 'file' : ok ? 'check' : 'info'}
                           className={`h-4 w-4 shrink-0 ${!inspection ? 'text-ink-muted' : ok ? 'text-[#047857]' : 'text-[#B91C1C]'}`}
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-base font-semibold">{t.name}</div>
+                          <div className="truncate text-base font-semibold">{leaf}</div>
                           <div className="mt-px truncate text-xs leading-[1.45]">
                             {!inspection ? (
-                              <span className="text-ink-muted">{full}</span>
+                              <span className="text-ink-muted">{b.container}/{b.name}</span>
                             ) : ok && found?.role ? (
                               <span className="text-[#047857]">{STAR_ROLE_LABELS[found.role]}</span>
                             ) : found?.recognised && found.role ? (
@@ -457,7 +457,7 @@ export function DatabricksModal({
                           </div>
                         </div>
                         <button
-                          onClick={() => toggle(t)}
+                          onClick={() => toggle(b.container, b.name)}
                           className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-ink-muted hover:bg-status-danger-bg hover:text-[#B91C1C]"
                         >
                           <Icon name="x" className="h-3.5 w-3.5" />
@@ -469,22 +469,20 @@ export function DatabricksModal({
               </div>
             )}
 
+            {/* The backend's own verdict, which names exactly what is wrong. */}
             {inspection && !inspection.ready && <MissingTables inspection={inspection} />}
 
             <InstallProgress
               active={install.isPending}
               estimateMs={60_000}
-              label="Exporting from Databricks"
-              note="The six tables are exported through a SQL warehouse. The fact table is the big one."
+              label="Downloading from Azure"
+              note="The six blobs are downloaded and written to the data folder. The fact table is the big one."
             />
 
             {inspection?.ready && (
               <div className="mt-3.5 flex items-start gap-2 rounded-[var(--r-md)] bg-surface-muted p-[10px_12px] text-sm leading-[1.5] text-ink-muted [&_svg]:mt-px [&_svg]:h-[15px] [&_svg]:w-[15px] [&_svg]:shrink-0">
                 <Icon name="check" />
-                <span>
-                  All 6 tables recognised. They'll be exported through a SQL warehouse and every
-                  dashboard will load from them — the fact table takes about a minute.
-                </span>
+                <span>All 6 tables recognised. They'll be downloaded from Azure and every dashboard will load from them.</span>
               </div>
             )}
           </>
@@ -493,7 +491,7 @@ export function DatabricksModal({
 
       <div className="flex items-center justify-between gap-2 border-t border-border-subtle p-[14px_22px]">
         <span className="text-xs text-ink-muted">
-          {locked ? '6 of 6 loaded' : picked.length > 0 ? `${picked.length} selected` : 'Unity Catalog'}
+          {locked ? '6 of 6 loaded' : picked.length > 0 ? `${picked.length} selected` : 'Read + List SAS token'}
         </span>
         <div className="flex gap-2">
           {locked ? (
@@ -506,15 +504,15 @@ export function DatabricksModal({
           ) : (
             <>
               <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              {/* Check first, load second. Checking is metadata-only and
-                  instant; loading runs a real query against a warehouse. */}
+              {/* Check first, load second — identification is a 256 KB read per
+                  file, so the user learns what is wrong before 21 MB moves. */}
               {!ready ? (
                 <Button variant="primary" onClick={runInspect} disabled={picked.length === 0 || busy}>
-                  <Icon name="search" /> {inspect.isPending ? 'Checking…' : 'Check tables'}
+                  <Icon name="search" /> {inspect.isPending ? 'Checking…' : 'Check files'}
                 </Button>
               ) : (
                 <Button variant="primary" onClick={runInstall} disabled={busy}>
-                  <Icon name="download" /> {install.isPending ? 'Exporting…' : 'Load 6 tables'}
+                  <Icon name="download" /> {install.isPending ? 'Loading dataset…' : 'Load 6 tables'}
                 </Button>
               )}
             </>
