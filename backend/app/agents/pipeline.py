@@ -11,8 +11,9 @@ Shape of the work:
   2. AGGREGATE pure pandas, no model. See aggregates.py.
   3. SPECIALISTS  N calls in parallel, one per analysis, each seeing only its
                own aggregate table. Each returns a structured finding.
-  4. SYNTHESIS one call. Cross-cutting narrative and confidence over all
-               findings.
+  4. SYNTHESIS one call. Cross-cutting narrative over all findings. The
+               confidence beside it is measured, not written — see
+               app/agents/confidence.py.
 
 Graph *structure* (node positions, icon choice, progress arithmetic) is
 assembled deterministically in Python afterwards — the model supplies
@@ -26,6 +27,13 @@ import pandas as pd
 
 from app.agents.aggregates import ColumnRoles, build_analysis, overall
 from app.agents.client import complete_json
+from app.agents.confidence import finding_confidence, synthesis_confidence
+from app.agents.figures import (
+    computed_delta,
+    numeric_provenance,
+    prose_figures,
+    verified_viz_items,
+)
 
 # Icons the Investigations graph already ships with (see icons/icons.ts) —
 # the model must choose from these or the node renders blank.
@@ -89,7 +97,7 @@ PLAN_SCHEMA = {
 FINDING_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["headline", "body", "evidence", "metric", "delta", "trend", "impact", "confidence", "viz_items"],
+    "required": ["headline", "body", "evidence", "metric", "delta_basis", "impact", "viz_items"],
     "properties": {
         "headline": {"type": "string", "description": "One line, states the finding"},
         "body": {"type": "string", "description": "1–2 sentences of explanation"},
@@ -102,10 +110,40 @@ FINDING_SCHEMA = {
                 "NOT the overall/selection total, which every other analysis also sees."
             ),
         },
-        "delta": {"type": "string", "description": "Change vs comparison, e.g. '-18%'. Empty string if none."},
-        "trend": {"type": "string", "enum": ["up", "down", ""]},
+        # WAS A FREE-TEXT `delta` PLUS A `trend` THE MODEL PICKED. Both are now
+        # derived from the two figures named here — see `figures.computed_delta`
+        # for the measurements that forced the change.
+        "delta_basis": {
+            "type": ["object", "null"],
+            "additionalProperties": False,
+            "required": ["value", "compared_to", "kind", "label"],
+            "description": (
+                "The comparison behind the delta on your graph node, given as the TWO "
+                "FIGURES you are comparing, each copied from your table. Do not subtract "
+                "them and do not state the result — the platform computes the difference, "
+                "the sign and the arrow. Null when your finding is not a comparison of two "
+                "figures, which is better than forcing one."
+            ),
+            "properties": {
+                "value": {"type": "number", "description": "Your subject's figure, copied from the table."},
+                "compared_to": {"type": "number", "description": "The figure you are comparing it against, copied from the table."},
+                "kind": {
+                    "type": "string",
+                    "enum": ["percentage_point_gap", "relative_change_pct"],
+                    "description": (
+                        "percentage_point_gap when both figures are already percentages and "
+                        "the gap between them is the point (13.4% ROI against a 39.5% norm). "
+                        "relative_change_pct when you mean how much smaller or larger one is "
+                        "than the other (6,156 units against an expected 6,326)."
+                    ),
+                },
+                "label": {"type": "string", "description": "What it is against, e.g. 'vs whole business'"},
+            },
+        },
         "impact": {"type": "string", "enum": ["strong", "moderate", "negative", "risk", "data"]},
-        "confidence": {"type": "integer", "description": "0-100, how well the data supports this"},
+        # `confidence` was here, as an integer the model chose. It is now
+        # measured from the evidence this finding rests on — see
+        # app/agents/confidence.py and docs/CONFIDENCE_SCORE.md.
         "viz_items": {
             "type": "array",
             "description": "2–4 bars comparing the key values",
@@ -126,11 +164,15 @@ FINDING_SCHEMA = {
 SYNTHESIS_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["summary", "root_cause", "confidence", "insight_count", "recommendations"],
+    "required": ["summary", "root_cause", "insight_count", "recommendations"],
     "properties": {
         "summary": {"type": "string", "description": "2–3 sentences answering the question directly"},
         "root_cause": {"type": "string", "description": "The single most likely driver"},
-        "confidence": {"type": "integer", "description": "0-100 overall confidence"},
+        # KEPT IN THE SCHEMA, DISCARDED ON THE WAY OUT. The strip that renders
+        # it is labelled with the number of specialist findings the run
+        # produced, which is a property of the run and is counted in
+        # `ground_synthesis` — not something the synthesising model is in a
+        # position to know, since it never sees how many specialists ran.
         "insight_count": {"type": "integer", "description": "Distinct material insights found"},
         "recommendations": {
             "type": "array",
@@ -188,17 +230,28 @@ Rules:
   happened to mention. A headline your own data cannot support is a failure.
 - Beware of ranking noise. If the spread between best and worst is small, or the
   segments have few rows, that ordering is probably random variation, not a real
-  effect. Say so and set confidence below 40.
-- If the data does not support a strong conclusion, say so and set a low
-  confidence. A hedged accurate finding beats a confident wrong one.
-- viz_items must use real values from the table so the chart matches the text.
+  effect. SAY SO IN THE BODY. You are not asked for a confidence score and
+  cannot set one — it is measured from the evidence you were given and from how
+  much of what you write traces back to it — so hedging has to be in your words
+  to appear at all.
+- If the data does not support a strong conclusion, say that plainly. A hedged
+  accurate finding beats a confident wrong one.
+- viz_items must use real values COPIED from the table. Every bar is checked
+  against your table before it is drawn and a value that is not in it is
+  discarded, so a bar you worked out rather than read will simply not appear.
+- Do NOT subtract, divide or average anything. `delta_basis` takes the two
+  figures you are comparing and the platform does the arithmetic; set it to
+  null rather than forcing a comparison your table does not contain.
 - Keep headline under 60 characters; it renders on a graph node."""
 
 SYNTHESIS_SYSTEM = """You are the lead analyst synthesising specialist findings on a
 trade promotion investigation.
 
 Answer the user's actual question directly in the summary. Identify the single
-most likely root cause, weighing findings by their confidence and impact.
+most likely root cause, weighing findings by the confidence and impact shown
+against each one. Those confidences are MEASURED — they score the evidence each
+specialist worked from and how much of its prose traces back to that evidence —
+so a low one means thin ground, not a hesitant author.
 Do not introduce numbers that no specialist reported.
 
 Monetary figures are Indian Rupees — write ₹ or "INR", never $.
@@ -212,8 +265,10 @@ Weight interaction findings (segment / segment-by-discount) above single-factor
 ones. A specific underperforming combination is a far more credible root cause
 than a small difference in some column's overall average, which is usually noise.
 
-If no finding is well supported, say the data does not identify a clear cause and
-set a low confidence. Do not manufacture a root cause to have one."""
+If no finding is well supported, say the data does not identify a clear cause.
+Do not manufacture a root cause to have one. You are not asked for a confidence
+figure: the one shown beside your summary is computed from the findings beneath
+it and from how much of the panel actually reported."""
 
 
 def _plan_user_prompt(question: str, profile: dict[str, Any], filename: str) -> str:
@@ -308,11 +363,11 @@ async def run_pipeline(
                 "body": f"This analysis could not run: {data['error']}.",
                 "evidence": "",
                 "metric": "n/a",
-                "delta": "",
-                "trend": "",
+                "delta_basis": None,
                 "impact": "data",
-                "confidence": 0,
                 "viz_items": [],
+                # No evidence was gathered, so there is nothing to score.
+                "analysis_failed": True,
             }
         else:
             import json as _json
@@ -339,6 +394,12 @@ async def run_pipeline(
     if not ok_findings:
         raise RuntimeError(f"All specialists failed: {failed}")
 
+    # SCORED BEFORE THE SYNTHESIS SEES THEM, because the synthesis prompt shows
+    # each finding's confidence and is told to weigh by it. A measured figure
+    # there is the difference between weighing evidence and weighing assertion.
+    for finding in ok_findings:
+        finding.update(finding_confidence(finding, totals.get("rows")))
+
     # ---- 4. Synthesis ------------------------------------------------------
     import json as _json
 
@@ -358,6 +419,8 @@ async def run_pipeline(
         "investigation_synthesis",
         temperature=0.3,
     )
+    synthesis = ground_synthesis(synthesis, ok_findings)
+    synthesis.update(synthesis_confidence(ok_findings, attempted=len(specialists)))
 
     orchestration = assemble_orchestration(plan, ok_findings, synthesis, totals)
     return {
@@ -372,6 +435,21 @@ async def run_pipeline(
     }
 
 
+def ground_synthesis(
+    synthesis: dict[str, Any], findings: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Replace the synthesis's self-reported counts with the run's real ones.
+
+    `insight_count` is rendered on the Investigation Progress strip, beside the
+    row count, as the number of findings the run produced. The synthesising
+    model does not receive that number — it sees the findings' prose, not a
+    tally, and it has no way to know whether a specialist failed and dropped
+    out. Anything it writes there is therefore a guess at a figure Python is
+    holding, so Python supplies it.
+    """
+    return {**synthesis, "insight_count": len(findings)}
+
+
 def assemble_orchestration(
     plan: dict[str, Any], findings: list[dict[str, Any]], synthesis: dict[str, Any], totals: dict[str, Any]
 ) -> dict[str, Any]:
@@ -381,6 +459,16 @@ def assemble_orchestration(
     Node positions are computed here, not by the model: a ring around the
     centre at 50,50, matching the hand-authored layout. Asking an LLM for
     coordinates produces overlapping nodes and drifts between runs.
+
+    CHART BARS ARE CHECKED AGAINST THE SPECIALIST'S OWN TABLE. `viz_items` is
+    the one place a specialist writes a raw number that is then DRAWN: the
+    popover prints it to one decimal place and scales a bar to it, with nothing
+    beside it to say where it came from. The prompt has always required real
+    values, but a schema that types the field as a number cannot enforce that,
+    and a mistyped digit renders identically to a measurement. So each bar is
+    traced back to the payload that specialist was given (`app/agents/figures`),
+    and one that cannot be traced is dropped rather than drawn — recorded on the
+    finding as `unverified_viz_items` so a run can still be audited.
     """
     nodes: list[dict[str, Any]] = []
     accelerators: list[dict[str, Any]] = []
@@ -389,6 +477,10 @@ def assemble_orchestration(
     count = max(1, len(findings))
     for i, f in enumerate(findings):
         key = f["key"]
+        # Everything this specialist was actually shown. One scan per finding,
+        # reused by the delta, the bars and the prose check below.
+        supplied = numeric_provenance(f.get("analysis_data"))
+        delta, trend = computed_delta(f.get("delta_basis"), supplied)
         # Start at the top (-90°) and go clockwise; radius in the same 0-100
         # coordinate space the original layout uses.
         angle = -math.pi / 2 + (2 * math.pi * i / count)
@@ -400,8 +492,8 @@ def assemble_orchestration(
                 "key": key,
                 "label": f["name"].replace(" Analysis", ""),
                 "metric": f.get("metric", ""),
-                "delta": f.get("delta", ""),
-                "trend": f.get("trend", ""),
+                "delta": delta,
+                "trend": trend,
                 "impact": f.get("impact", "data"),
                 "icon": f.get("icon", "variance"),
                 "pos": {"x": x, "y": y},
@@ -418,12 +510,29 @@ def assemble_orchestration(
                 "node": key,
             }
         )
-        node_details[key] = {
+        traceable_bars, invented_bars = verified_viz_items(f.get("viz_items"), supplied)
+        # Recorded on the finding so the drop is visible in the stored run
+        # rather than silent. The finding dict is the pipeline's own, already
+        # about to be persisted, so this adds a field rather than a side effect.
+        f["unverified_viz_items"] = invented_bars
+        f["delta_computed"] = {"delta": delta, "trend": trend}
+        # Prose is flagged, not edited — see `figures.prose_figures`.
+        f["unverified_figures"] = sorted({
+            token
+            for field in ("metric", "headline", "body", "evidence")
+            for token in prose_figures(str(f.get(field) or ""), supplied)
+        })
+        detail: dict[str, Any] = {
             "headline": f.get("headline", ""),
             "body": f.get("body", ""),
             "evidence": f.get("evidence", ""),
-            "viz": {"type": "bars", "unit": "", "items": f.get("viz_items", [])},
         }
+        # `viz` is optional in the rendered type. Omitted rather than emptied
+        # when nothing survives, so the popover skips the panel instead of
+        # drawing an empty one.
+        if traceable_bars:
+            detail["viz"] = {"type": "bars", "unit": "", "items": traceable_bars}
+        node_details[key] = detail
 
     chips: dict[str, Any] = {}
     if totals.get("period_start") and totals.get("period_end"):
@@ -434,20 +543,24 @@ def assemble_orchestration(
         chips["roi"] = f"{totals['overall_roi']:.1f}x"
     chips["rows"] = f"{totals.get('rows', 0):,}"
 
-    confidence = int(synthesis.get("confidence", 0))
     return {
         "center": {"label": plan.get("focus_label", "Investigation"), "sub": plan.get("focus_sub", "")},
         "contextChips": chips,
         "nodes": nodes,
         "accelerators": accelerators,
+        # `confidence` and `confidenceDelta` used to sit here, carrying the
+        # synthesising model's self-assessment and a "{n}% supported" string
+        # built from it. B9 removed both from the rendered type and from the
+        # seed data on the grounds that no engine in this project produces a
+        # confidence figure; the live agent path kept emitting them anyway,
+        # which is the one route that test does not scan. Every number below
+        # is now counted rather than asserted.
         "progress": {
             "completed": len(findings),
             "total": len(findings),
             "pct": 100,
-            "insights": int(synthesis.get("insight_count", len(findings))),
+            "insights": len(findings),
             "sources": int(totals.get("rows", 0)),
-            "confidence": confidence,
-            "confidenceDelta": f"{confidence}% supported",
         },
         "nodeDetails": node_details,
     }

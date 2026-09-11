@@ -17,12 +17,14 @@ import re
 from typing import Any
 
 from app.agents.client import complete_json
+from app.agents.confidence import finding_confidence, synthesis_confidence
 from app.agents.pipeline import (
     FINDING_SCHEMA,
     MAX_SPECIALISTS,
     SYNTHESIS_SCHEMA,
     SYNTHESIS_SYSTEM,
     assemble_orchestration,
+    ground_synthesis,
 )
 from app.agents.roster import BY_KEY as ROSTER_BY_KEY
 from app.agents.roster import KEYS as ROSTER_KEYS
@@ -203,14 +205,26 @@ Rules:
   the total, because the baseline is re-derived per selection. Never present
   group figures as shares of a whole beyond the given share_pct.
 - If differences between groups are small, or a group carries very little
-  trade spend, that ordering is probably noise. Say so and set confidence
-  below 40. A large ROI on trivial spend is not a finding.
+  trade spend, that ordering is probably noise. SAY SO IN THE BODY. A large ROI
+  on trivial spend is not a finding. You are not asked for a confidence score
+  and cannot set one — it is measured from the evidence you were given and from
+  how much of what you write traces back to it — so any hedge has to be in your
+  own words to appear at all.
 - `metric` and `headline` must come from a GROUP in your table, naming it —
   "Buy3Get1 at 7.7%", not "ROI is 13.4%". The selection total in
   `selection_totals` is context you share with every other specialist; leading
   with it means your analysis contributed nothing the others didn't. Your value
   is which group inside your dimension explains the total.
-- viz_items must use real values from the table so the chart matches the text.
+- viz_items must use real values COPIED from the table. Every bar is checked
+  against the data you were given before it is drawn, and a value that is not
+  in it is discarded — so a bar you worked out rather than read will simply not
+  appear on the chart.
+- YOU DO NO ARITHMETIC. Do not subtract two figures, take a ratio, or average
+  anything, in any field. Where you want to report a comparison, put the two
+  figures in `delta_basis` and the platform computes the difference, its sign
+  and the arrow. Set `delta_basis` to null rather than forcing a comparison
+  your data does not contain — an absent delta is correct, a computed one is
+  not yours to make.
 - Keep headline under 60 characters; it renders on a graph node."""
 
 
@@ -504,11 +518,11 @@ async def run_star_pipeline(
                 "body": f"This analysis could not run: {error}.",
                 "evidence": "",
                 "metric": "n/a",
-                "delta": "",
-                "trend": "",
+                "delta_basis": None,
                 "impact": "data",
-                "confidence": 0,
                 "viz_items": [],
+                # No evidence was gathered, so there is nothing to score.
+                "analysis_failed": True,
             }
         else:
             result = await complete_json(
@@ -547,6 +561,17 @@ async def run_star_pipeline(
     if not findings:
         raise RuntimeError(f"All specialists failed: {failed}")
 
+    # THE ROWS THE SCOPE ACTUALLY HOLDS, resolved once. `rows_for` is the same
+    # resolver the specialists' own data calls went through, so this is the
+    # population they read — and it is the `support` term of every finding's
+    # evidence score as well as the run's "records analysed" figure below.
+    from app.agents.star_tools import build_filter_state as _rows_state
+    from app.tpo.filters import rows_for as _rows_for
+
+    rows_in_scope = len(_rows_for(_rows_state(global_filters)))
+    for finding in findings:
+        finding.update(finding_confidence(finding, rows_in_scope))
+
     # ---- 4. Synthesis ------------------------------------------------------
     synthesis = await complete_json(
         SYNTHESIS_SYSTEM,
@@ -566,6 +591,10 @@ async def run_star_pipeline(
         "investigation_synthesis",
         temperature=0.3,
     )
+    # The findings this run actually produced, counted rather than asserted --
+    # the panel is fixed at six, but a specialist can fail and drop out.
+    synthesis = ground_synthesis(synthesis, findings)
+    synthesis.update(synthesis_confidence(findings, attempted=len(specialists)))
 
     # Real fact-table size, not a literal — assemble_orchestration formats
     # `rows` with a thousands separator, so it must be a number.
@@ -583,9 +612,7 @@ async def run_star_pipeline(
     # is computed: `service._group_label` is the SAME code->name resolver the
     # Command Center's breakdowns use, so a channel is named identically in
     # both places.
-    from app.agents.star_tools import build_filter_state as _build_state
     from app.tpo import service as _service
-    from app.tpo.filters import rows_for
 
     store = get_store()
 
@@ -637,9 +664,10 @@ async def run_star_pipeline(
     # RECORDS ANALYSED. The rows the SCOPE holds, not the whole fact table.
     # `progress.sources` carried 205,920 for every investigation regardless of
     # what it looked at, which is the size of the dataset rather than a fact
-    # about the run. `rows_for` is the same resolver the specialists' own data
-    # calls go through, so this is the population they actually read.
-    orchestration["progress"]["sources"] = len(rows_for(_build_state(global_filters)))
+    # about the run. Resolved once above, where the evidence scores also read
+    # it, so the figure on the strip and the one inside every confidence
+    # cannot describe different populations.
+    orchestration["progress"]["sources"] = rows_in_scope
 
     return {
         "plan": plan,

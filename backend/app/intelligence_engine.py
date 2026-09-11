@@ -13,11 +13,13 @@ depth points to plot ROI against, which is a genuine elasticity read rather
 than a decorative curve.
 """
 import json
+import math
 import re
 from typing import Any
 
 from app.agents.star_tools import build_filter_state, run_analysis, segment_kpis
 from app.tpo import config, service
+from app.tpo.filters import rows_for
 
 # Effective discount depth per mechanic. Buy3Get1 is 25% (one unit free in
 # four) — the same reading the Command Center's economics fix applied.
@@ -172,6 +174,343 @@ def _dimension_table(filters: dict[str, Any] | None, by: str, limit: int = 10) -
     return rows
 
 
+# ---------------------------------------------------------------------------
+# Driver decomposition.
+#
+# THIS EXISTS BECAUSE THE ANALYST USED TO SUPPLY THE WEIGHTS ITSELF. The
+# schema asked for a `weight_pct` per driver described as "your judgement of
+# relative contribution", and the Intelligence page rendered it as a labelled
+# percentage beside a proportional bar. A reader cannot tell a judged 45% from
+# a measured one, and nothing in this project computed it — so the figure was
+# the one hallucination the page presented as arithmetic.
+#
+# It is now derived, exactly, from the same breakdown rows the page already
+# shows. The agent's remaining job is which drivers matter and what they mean,
+# which is judgement it is entitled to make.
+# ---------------------------------------------------------------------------
+
+
+def _largest_remainder(values: list[float], total: int = 100) -> list[int]:
+    """Integer percentages that sum to exactly `total`.
+
+    Rounding each share independently gives 34 + 33 + 32 = 99, and a set of
+    contributions that visibly fails to add up reads as an error in the maths
+    rather than in the rounding. Largest-remainder assigns the shortfall to the
+    values that lost the most to flooring, which is the standard apportionment
+    and is deterministic for a given input order.
+    """
+    if not values:
+        return []
+    pool = sum(values)
+    if pool <= 0:
+        return [0] * len(values)
+    exact = [v / pool * total for v in values]
+    floors = [int(math.floor(e)) for e in exact]
+    shortfall = total - sum(floors)
+    order = sorted(range(len(values)), key=lambda i: (exact[i] - floors[i], values[i]), reverse=True)
+    for i in order[: max(0, shortfall)]:
+        floors[i] += 1
+    return floors
+
+
+#: A driver has to account for at least this share of the movement to be worth
+#: a row. Below it the bar renders at 0% and says nothing.
+_DRIVER_FLOOR_PCT = 1
+
+#: Pareto cut for calling a driver a root cause rather than a contributor.
+_PRIMARY_CUMULATIVE_SHARE = 0.8
+
+
+def roi_gap_decomposition(
+    rows: list[dict[str, Any]], lens: str, limit: int = 8
+) -> dict[str, Any]:
+    """Each group's exact contribution to the ROI gap against target.
+
+    THE FORMULA, and why it is exact rather than attributed. Promotion ROI is
+
+        ROI_pct = (Incremental Sales - Trade Spend) / Trade Spend x 100
+
+    and Trade Spend is the one additive money measure in this engine (see
+    `service.breakdown`'s additivity contract). So across the groups of one
+    dimension the spend-weighted ROI is
+
+        weighted_roi = SUM_g( spend_g x roi_g ) / SUM_g( spend_g )
+
+    and its distance from the target hurdle decomposes with no residual:
+
+        weighted_roi - target = SUM_g( spend_g x (roi_g - target) / SUM(spend) )
+                              = SUM_g( contribution_pp_g )
+
+    `contribution_pp` is that per-group term, in percentage points of portfolio
+    ROI, and `weight_pct` is its share of the total absolute movement. Both are
+    arithmetic on figures app/tpo/aggregate.py produced; neither is an opinion.
+
+    A GROUP WITH HALF THE BUDGET AT A SMALL SHORTFALL OUTWEIGHS A TINY ONE AT A
+    CATASTROPHIC ROI, which is the ranking the prompts have always asked for in
+    words and can now stop asking for. `spend_g` is in the numerator precisely
+    so that a -80% ROI on a few hundred rupees cannot lead the list.
+
+    WHAT THIS IS NOT. It is not an attribution of cause: it says where the
+    distance from target sits, not why. And because Incremental Sales is
+    re-baselined per selection, `weighted_roi` is the spend-weighted mean of
+    the group ROIs rather than the headline KPI — the two are close but not
+    identical, and the payload reports it under its own name for that reason.
+    """
+    target = config.PROMOTION_TARGET_ROI_PCT
+    usable = [
+        r for r in rows
+        if r.get("roi_pct") is not None and (r.get("trade_spend") or 0) > 0
+    ]
+    total_spend = sum(r["trade_spend"] for r in usable)
+    if not usable or total_spend <= 0:
+        return {
+            "lens": lens,
+            "available": False,
+            "reason": (
+                "No group in this scope carries both trade spend and a defined ROI, "
+                "so the gap cannot be decomposed."
+            ),
+            "target_roi_pct": target,
+            "drivers": [],
+        }
+
+    contributions = [
+        r["trade_spend"] * (r["roi_pct"] - target) / total_spend for r in usable
+    ]
+    weights = _largest_remainder([abs(c) for c in contributions])
+
+    entries: list[dict[str, Any]] = []
+    for row, contribution, weight in zip(usable, contributions, weights):
+        spend = row["trade_spend"]
+        roi = row["roi_pct"]
+        entries.append({
+            "driver": str(row.get("name")),
+            "weight_pct": weight,
+            "direction": "negative" if contribution < 0 else "positive",
+            "contribution_pp": round(contribution, 1),
+            "trade_spend": round(spend, 1),
+            # Named for its denominator. It is NOT the row's own
+            # `spend_share_pct`: groups with an undefined ROI cannot be
+            # decomposed and are out of both sides of this ratio, so the two
+            # figures differ whenever any group was excluded.
+            "share_of_decomposed_spend_pct": round(spend / total_spend * 100, 1),
+            "roi_pct": roi,
+            "vs_target_pp": round(roi - target, 1),
+            "incremental_sales": row.get("incremental_sales"),
+            # The row a note can be written from without inventing anything.
+            "measured_note": (
+                f"₹{spend / 1e7:,.1f} Cr of trade spend "
+                f"({round(spend / total_spend * 100, 1)}% of the scope) at {roi}% ROI, "
+                f"{round(roi - target, 1):+} pp against the {target}% target."
+            ),
+            "is_primary": False,
+        })
+    entries.sort(key=lambda e: (-abs(e["contribution_pp"]), e["driver"]))
+
+    # PRIMARY = ROOT CAUSE, BY A STATED RULE. Take the drivers pulling the
+    # portfolio the wrong way, largest first, until they account for 80% of
+    # that adverse movement. Everything after them is a contributor. When
+    # nothing is adverse the same cut is applied to what is carrying the
+    # scope, so a healthy segment still names what is doing the work.
+    adverse = [e for e in entries if e["contribution_pp"] < 0]
+    if not adverse:
+        adverse = [e for e in entries if e["contribution_pp"] > 0]
+    pool = sum(abs(e["contribution_pp"]) for e in adverse)
+    running = 0.0
+    for entry in adverse:
+        if pool <= 0:
+            break
+        entry["is_primary"] = True
+        running += abs(entry["contribution_pp"])
+        if running / pool >= _PRIMARY_CUMULATIVE_SHARE:
+            break
+
+    weighted_roi = sum(r["trade_spend"] * r["roi_pct"] for r in usable) / total_spend
+    shown = [e for e in entries if e["weight_pct"] >= _DRIVER_FLOOR_PCT][:limit]
+
+    # NOTHING TO DECOMPOSE IS NOT THE SAME AS NOTHING TO REPORT. Every group
+    # sitting on the target gives a gap of zero and therefore no weights, which
+    # is a finding about the scope rather than a failure to measure it.
+    reason = None
+    if not shown:
+        reason = (
+            "Every group in this scope sits at the target ROI, so there is no gap to "
+            "decompose."
+            if abs(weighted_roi - target) < 0.05
+            else "No group accounts for as much as 1% of the movement against target."
+        )
+
+    return {
+        "lens": lens,
+        "available": True,
+        "reason": reason,
+        "target_roi_pct": target,
+        "weighted_roi_pct": round(weighted_roi, 1),
+        "gap_pp": round(weighted_roi - target, 1),
+        "trade_spend_decomposed": round(total_spend, 1),
+        "groups_decomposed": len(usable),
+        "formula": (
+            "contribution_pp = trade_spend x (roi_pct - target_roi_pct) / total_trade_spend; "
+            "weight_pct = |contribution_pp| as a share of the total absolute contribution, "
+            "apportioned to integers summing to 100. The contributions sum to gap_pp, which "
+            "is weighted_roi_pct - target_roi_pct; each is reported to one decimal place, so "
+            "adding the printed values back up can differ from gap_pp in the last digit. "
+            "gap_pp is the figure to quote."
+        ),
+        "primary_rule": (
+            "is_primary marks the adverse drivers that, taken largest first, account for "
+            f"{int(_PRIMARY_CUMULATIVE_SHARE * 100)}% of the adverse movement."
+        ),
+        "weighted_roi_note": (
+            "weighted_roi_pct is the spend-weighted mean of the group ROIs, not the "
+            "headline Promotion ROI: Incremental Sales is re-baselined per selection and "
+            "so does not sum across groups. Cite the KPI for the headline."
+        ),
+        "displayed_weight_pct_total": sum(e["weight_pct"] for e in shown),
+        "drivers": shown,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lever positions.
+#
+# The Advisor's `simulation.current_value` used to be prose it wrote from
+# memory of the facts, and it renders on both the Intelligence panel and the
+# Simulation handoff card as "<current> -> <proposed>" — i.e. as the measured
+# status quo. A proposal is the Advisor's to make; the status quo is not.
+# Every lever the recommendation schema offers is measurable from the facts
+# already computed for the same scope, so it is measured here and the agent's
+# version is replaced with it.
+# ---------------------------------------------------------------------------
+
+#: The levers `RECOMMENDATION_SCHEMA.simulation.lever` admits.
+LEVERS: tuple[str, ...] = (
+    "discount_depth", "mechanic_mix", "spend_allocation",
+    "channel_mix", "product_mix", "promotion_calendar",
+)
+
+
+def _unavailable(lever: str, reason: str) -> dict[str, Any]:
+    return {"lever": lever, "available": False, "value": None, "display": reason, "basis": reason}
+
+
+def _top_share(rows: list[dict[str, Any]] | None, lever: str, noun: str) -> dict[str, Any]:
+    """The largest holder of trade spend in one dimension, and its share."""
+    usable = [r for r in (rows or []) if (r.get("trade_spend") or 0) > 0]
+    if not usable:
+        return _unavailable(lever, f"No {noun} in this scope carries trade spend.")
+    total = sum(r["trade_spend"] for r in usable)
+    top = max(usable, key=lambda r: r["trade_spend"])
+    share = round(top["trade_spend"] / total * 100, 1)
+    return {
+        "lever": lever,
+        "available": True,
+        "value": share,
+        "display": f"{top.get('name')} at {share}% of trade spend",
+        "basis": (
+            f"Largest {noun} by Trade Spend across {len(usable)} in scope: "
+            f"₹{top['trade_spend'] / 1e7:,.1f} Cr of ₹{total / 1e7:,.1f} Cr."
+        ),
+    }
+
+
+def lever_positions(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """The MEASURED current value of each simulation lever, for this scope.
+
+    Every entry is arithmetic over figures already in `facts`; nothing here
+    calls the engine again and nothing is estimated. A lever whose inputs the
+    requested sections did not compute reports `available: false` and says so,
+    rather than falling back to a plausible number.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    by_mechanic = facts.get("by_mechanic")
+
+    # DISCOUNT DEPTH: spend-weighted mean of the depth each mechanic's name
+    # carries. Mechanics whose name states no depth are excluded from both
+    # sides of the ratio rather than counted as zero — see `mechanic_depth`.
+    if by_mechanic is None:
+        out["discount_depth"] = _unavailable(
+            "discount_depth", "The mechanic breakdown was not computed for this scope."
+        )
+    else:
+        weighted = [
+            (mechanic_depth(str(r.get("name") or "")), r.get("trade_spend") or 0.0)
+            for r in by_mechanic
+        ]
+        priced = [(d, s) for d, s in weighted if d is not None and s > 0]
+        spend = sum(s for _, s in priced)
+        if not priced or spend <= 0:
+            out["discount_depth"] = _unavailable(
+                "discount_depth", "No mechanic in this scope states a discount depth."
+            )
+        else:
+            depth = round(sum(d * s for d, s in priced) / spend, 1)
+            out["discount_depth"] = {
+                "lever": "discount_depth",
+                "available": True,
+                "value": depth,
+                "display": f"{depth}% average depth",
+                "basis": (
+                    f"Trade-spend-weighted mean of the depth {len(priced)} mechanics carry "
+                    f"in their names, over ₹{spend / 1e7:,.1f} Cr."
+                ),
+            }
+
+    out["mechanic_mix"] = (
+        _top_share(by_mechanic, "mechanic_mix", "mechanic")
+        if by_mechanic is not None
+        else _unavailable("mechanic_mix", "The mechanic breakdown was not computed for this scope.")
+    )
+    out["channel_mix"] = (
+        _top_share(facts.get("by_channel"), "channel_mix", "channel")
+        if facts.get("by_channel") is not None
+        else _unavailable("channel_mix", "The channel breakdown was not computed for this scope.")
+    )
+    out["product_mix"] = (
+        _top_share(facts.get("by_category"), "product_mix", "category")
+        if facts.get("by_category") is not None
+        else _unavailable("product_mix", "The category breakdown was not computed for this scope.")
+    )
+
+    # SPEND ALLOCATION: the pot itself. The KPI, not a re-sum of the groups —
+    # Trade Spend is additive, but the KPI is the figure every other page shows.
+    spend_total = (facts.get("kpis") or {}).get("trade_spend")
+    out["spend_allocation"] = (
+        {
+            "lever": "spend_allocation",
+            "available": True,
+            "value": round(float(spend_total), 1),
+            "display": f"₹{float(spend_total) / 1e7:,.1f} Cr of trade spend in scope",
+            "basis": "Trade Spend KPI for this scope, from app/tpo/aggregate.py.",
+        }
+        if isinstance(spend_total, (int, float))
+        else _unavailable("spend_allocation", "Trade Spend is not available for this scope.")
+    )
+
+    # PROMOTION CALENDAR: how much of the period actually carries spend. Read
+    # off the same monthly series the trend chart draws.
+    trend = facts.get("trend") or {}
+    labels = trend.get("labels") or []
+    spends = trend.get("trade_spend") or []
+    active = [s for s in spends if s]
+    if not labels or not spends:
+        out["promotion_calendar"] = _unavailable(
+            "promotion_calendar", "No monthly series was computed for this scope."
+        )
+    else:
+        out["promotion_calendar"] = {
+            "lever": "promotion_calendar",
+            "available": True,
+            "value": len(active),
+            "display": f"{len(active)} of {len(labels)} months carry trade spend",
+            "basis": (
+                "Months with non-zero Trade Spend in the monthly trend for this scope, "
+                f"covering {labels[0]} to {labels[-1]}."
+            ),
+        }
+    return out
+
+
 def risk_summary(filters: dict[str, Any] | None = None) -> dict[str, Any]:
     alerts = service.risk_alerts(build_filter_state(filters), limit=8)
     return {
@@ -216,23 +555,41 @@ def _cached(section: str, filters: dict[str, Any], build) -> Any:
 
 def _core(filters: dict[str, Any]) -> dict[str, Any]:
     """What the Overview and Saturation tabs need — the cheap, high-value half."""
+    by_mechanic = _dimension_table(filters, "promotion_mechanic")
     return {
         "kpis": segment_kpis(filters),
         "whole_business_kpis": segment_kpis({}),
         "saturation": saturation_curve(filters),
         "trend": inc_sales_trend(filters),
-        "by_mechanic": _dimension_table(filters, "promotion_mechanic"),
+        "by_mechanic": by_mechanic,
+        # Decomposed from the table above, so this costs no extra engine pass.
+        "drivers": roi_gap_decomposition(by_mechanic, "promotion_mechanic"),
     }
 
 
 def _dimensions(filters: dict[str, Any]) -> dict[str, Any]:
-    return {
+    tables = {
         "by_channel": _dimension_table(filters, "channel"),
         "by_region": _dimension_table(filters, "region"),
         "by_retailer": _dimension_table(filters, "retailer", limit=12),
         "by_category": _dimension_table(filters, "category"),
         "by_brand": _dimension_table(filters, "brand"),
         "by_product": _dimension_table(filters, "product", limit=12),
+    }
+    # The same decomposition through the other lenses, so the Analyst can see
+    # whether the gap concentrates by mechanic, by place or by product before
+    # it decides which drivers to lead with. Free — the tables are already built.
+    return {
+        **tables,
+        "driver_lenses": {
+            lens: roi_gap_decomposition(tables[key], lens)
+            for key, lens in (
+                ("by_channel", "channel"),
+                ("by_region", "region"),
+                ("by_category", "category"),
+                ("by_brand", "brand"),
+            )
+        },
     }
 
 
@@ -253,6 +610,12 @@ def build_intelligence_facts(
         "currency_symbol": "₹",
         "target_roi_pct": config.PROMOTION_TARGET_ROI_PCT,
         "sections": list(sections),
+        # The population every figure below was computed over. Carried because
+        # the Analyst's evidence score reads it as its `support` term, and
+        # because a reader is entitled to know how much data a scope holds
+        # before weighing what it says. `rows_for` is the same resolver the
+        # KPI calls go through, so this is exactly that population.
+        "rows_in_scope": len(rows_for(build_filter_state(filters))),
     }
     if "core" in sections:
         out.update(_cached("core", filters, lambda: _core(filters)))
@@ -262,4 +625,8 @@ def build_intelligence_facts(
         out["waterfall"] = _cached("waterfall", filters, lambda: contribution_waterfall(filters))
     if "risk" in sections:
         out["risk"] = _cached("risk", filters, lambda: risk_summary(filters))
+    # Measured, from whatever was computed above. Levers whose table this
+    # `sections` selection skipped report themselves unavailable rather than
+    # being filled in with something plausible.
+    out["lever_positions"] = lever_positions(out)
     return out

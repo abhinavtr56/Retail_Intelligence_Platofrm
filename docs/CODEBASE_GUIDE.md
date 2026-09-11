@@ -105,7 +105,7 @@ uvicorn process. There is no separate connector proxy.
 │  routers/ (17)  — HTTP surface only: parse, authorize, delegate      │
 │       ↓                                                              │
 │  ┌─────────────────┬──────────────────┬───────────────────────────┐ │
-│  │ app/tpo/ (21)   │ app/agents/ (7)  │ app/reports/ (5)          │ │
+│  │ app/tpo/ (21)   │ app/agents/ (9)  │ app/reports/ (5)          │ │
 │  │ THE ENGINE      │ LLM layer        │ xlsx / pdf export         │ │
 │  │ filters→        │ plan→analyse→    │ adapters → ReportDoc →    │ │
 │  │ aggregate→      │ specialists→     │ two writers               │ │
@@ -646,7 +646,8 @@ token cost flat regardless of dataset size, and makes the numbers reproducible.
 2. AGGREGATE   pure pandas / the TPO engine. No model.
 3. SPECIALISTS N calls IN PARALLEL, one per analysis, each seeing only its own
                           aggregate table. Each returns a structured finding.
-4. SYNTHESIS   one call.  Cross-cutting narrative and confidence over all findings.
+4. SYNTHESIS   one call.  Cross-cutting narrative over all findings. The confidence
+                          beside it is measured, not written — see `confidence.py`.
 ```
 
 Graph **structure** — node positions, icon choice, progress arithmetic — is assembled
@@ -790,7 +791,7 @@ tables can never describe different populations.
 | `dataset_store.py` | 248 | Upload ingestion + profiling. Caches schema, null counts, numeric distributions, top categoricals and 5 sample rows. **Raw rows must never reach an LLM** — agents read profiles, never CSVs. Promotes date-like columns when ≥90% parse. |
 | `investigation_history.py` | 41 | Recent-questions list. Deliberately separate from `data_loader` because that cache is immutable and this file is mutable. Lock-guarded; de-dupes on (type, question); caps at 8. |
 | `investigation_runs.py` | 132 | Run state. In-memory dict is the live view, JSON survives restart, most recent 50 kept. `kind` separates investigation vs intelligence runs (inferred from result shape for older records). |
-| `intelligence_engine.py` | 265 | The deterministic half of Promotion Intelligence: saturation curve, contribution waterfall, inc-sales-vs-target trend, dimension tables, risk summary. Sections memoised per (section, scope) — eager computation took ~40 s. |
+| `intelligence_engine.py` | 632 | The deterministic half of Promotion Intelligence: saturation curve, contribution waterfall, inc-sales-vs-target trend, dimension tables, risk summary, **driver decomposition** (`roi_gap_decomposition` — each mechanic's exact contribution to the ROI gap against target) and **lever positions** (the measured current value of every simulation lever). Sections memoised per (section, scope) — eager computation took ~40 s. |
 
 ### 9.2 The engine — `backend/app/tpo/` (21 files, ~10,900 lines)
 
@@ -842,17 +843,19 @@ Routers hold **no business logic**: they validate a Pydantic body or parse query
 | `simulation.py` | 697 | `/api/simulation` | 11 routes across three modes. `_REJECTED_INPUTS` rejects `spend_amount` **by name with a reason**, because a caller sending it has a mistaken model of the economics. |
 | `store.py` | 230 | `/api/store` | 6 routes. The docstring is a security disclosure written into the code; `UNAUTHENTICATED` is attached to every route's OpenAPI description. `VersionConflict` → **409** with `current_version`. |
 
-### 9.4 Agents — `backend/app/agents/` (7 files)
+### 9.4 Agents — `backend/app/agents/` (9 files)
 
 | File | Lines | Purpose |
 | --- | --- | --- |
 | `client.py` | 65 | The one OpenAI client. `gpt-4o-mini` default; key from `backend/.env` via an **explicit path** (not `find_dotenv()`, which walks the call stack). `complete_json()` uses `strict: true` json_schema. |
 | `aggregates.py` | 327 | Pure pandas for the uploaded-CSV pipeline. `ColumnRoles.from_dict` **drops any column the model hallucinated**. `by_segment()` ranks on a `roi_index` because single-dimension breakdowns cannot see interactions. |
-| `roster.py` | 335 | The fixed roster of 9 star-schema specialists, each owning one link in the ROI causal chain and pulling its own data. The cannibalization fetcher ships two different measures side by side and tells the model not to conflate them. |
-| `pipeline.py` | 453 | The uploaded-CSV pipeline + the deterministic graph assembler. Nodes are placed on a ring (`x = 50 + 34·cos θ`), because asking an LLM for coordinates produces overlapping nodes that drift between runs. `MAX_SPECIALISTS = 6`. |
-| `star_tools.py` | 394 | Thin adapter over `app/tpo/service.py`. `_bounded_int` guards against a planner emitting `month=41`. `neighbour_sales_decline` is a careful two-pass analysis with an explicit `causality_note`. |
-| `star_pipeline.py` | 602 | The star-schema pipeline. Leads with an **answerability gate** (refuse questions about people, weather, chit-chat), disambiguated by a value index so "is dussehra good or bad?" resolves to the *offer* named Dussehra Deal 25. Runs a **standing panel of 6** specialists every time. |
-| `intelligence_agent.py` | 326 | Analyst (temp 0.2) → Advisor (temp 0.3), sequential. Tone markup `[g]/[r]/[n]` is stripped from everything except `narrative`, because it leaked into insight titles as literal `[r]29.2%[/r]`. |
+| `roster.py` | 339 | The fixed roster of 9 star-schema specialists, each owning one link in the ROI causal chain and pulling its own data. The cannibalization fetcher ships two different measures side by side and tells the model not to conflate them. |
+| `pipeline.py` | 566 | The uploaded-CSV pipeline + the deterministic graph assembler. Nodes are placed on a ring (`x = 50 + 34·cos θ`), because asking an LLM for coordinates produces overlapping nodes that drift between runs. `MAX_SPECIALISTS = 6`. |
+| `star_tools.py` | 441 | Thin adapter over `app/tpo/service.py`. `_bounded_int` guards against a planner emitting `month=41`. `neighbour_sales_decline` is a careful two-pass analysis with an explicit `causality_note`. |
+| `star_pipeline.py` | 682 | The star-schema pipeline. Leads with an **answerability gate** (refuse questions about people, weather, chit-chat), disambiguated by a value index so "is dussehra good or bad?" resolves to the *offer* named Dussehra Deal 25. Runs a **standing panel of 6** specialists every time. |
+| `intelligence_agent.py` | 544 | Analyst (temp 0.2) → Advisor (temp 0.3), sequential. Tone markup `[g]/[r]/[n]` is stripped from everything except `narrative`, because it leaked into insight titles as literal `[r]29.2%[/r]`. Neither agent supplies a figure any more: driver weights come from `roi_gap_decomposition`, `simulation.current_value` from `lever_positions`, and both confidences from `confidence.py`. |
+| `figures.py` | 239 | **Numeric provenance.** Flattens what an agent was given into the set of values it may cite, then checks what it wrote: chart bars that do not trace are dropped before they are drawn, node deltas are subtracted here from two operands the agent named, prose figures are flagged. |
+| `confidence.py` | 423 | **The evidence score.** The one place a `confidence` percentage is produced — four components (support, breadth, completeness, traceability) combined by geometric mean. Specified in [`CONFIDENCE_SCORE.md`](CONFIDENCE_SCORE.md). |
 
 **Temperatures used:** planner 0.1 · specialists 0.2 · synthesis 0.3 · Analyst 0.2 · Advisor 0.3.
 
