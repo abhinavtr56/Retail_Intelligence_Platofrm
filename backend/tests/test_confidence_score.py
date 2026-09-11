@@ -23,7 +23,8 @@ from __future__ import annotations
 import pytest
 
 from app.agents.confidence import (
-    SUPPORT_HALF_SATURATION_ROWS,
+    OBSERVATIONS_PER_GROUP_HALF_SATURATION,
+    SCORE_CEILING,
     UNMEASURED_LEVER_FACTOR,
     analysis_confidence,
     breadth,
@@ -34,7 +35,12 @@ from app.agents.confidence import (
     synthesis_confidence,
     traceability,
 )
-from app.agents.figures import computed_delta, numeric_provenance
+from app.agents.figures import (
+    computed_delta,
+    numeric_provenance,
+    traceable as figure_traceable,
+    verified_viz_items,
+)
 from app.agents.intelligence_agent import RECOMMENDATION_SCHEMA, _analysis_schema
 from app.agents.pipeline import FINDING_SCHEMA, SYNTHESIS_SCHEMA
 from app.intelligence_engine import roi_gap_decomposition
@@ -114,16 +120,41 @@ def test_the_analyst_cannot_express_a_driver_weight():
 # --- each component is a ratio of two measured quantities ---------------------
 
 
-def test_support_is_half_at_the_stated_row_count():
-    assert support(SUPPORT_HALF_SATURATION_ROWS) == pytest.approx(0.5)
+def test_support_is_half_at_the_stated_observations_per_group():
+    K = OBSERVATIONS_PER_GROUP_HALF_SATURATION
+    assert support(K, 1) == pytest.approx(0.5)
+    assert support(K * 6, 6) == pytest.approx(0.5)
     assert support(0) == 0.0
     assert support(None) is None
 
 
-def test_support_rises_with_rows_and_never_reaches_one():
-    values = [support(n) for n in (10, 100, 1_000, 10_000, 205_920)]
+def test_support_rises_with_observations_and_never_reaches_one():
+    values = [support(n) for n in (1, 10, 100, 1_000, 205_920)]
     assert values == sorted(values)
     assert all(v < 1.0 for v in values)
+
+
+def test_a_narrow_scope_is_a_census_not_a_thin_sample():
+    """The bug this replaced: scoring a drill-down down for being specific.
+
+    36 rows across 6 mechanics is the COMPLETE population for that question.
+    Under the old raw-row-count rule it scored 0.067 and capped the whole
+    finding near 40% however good its evidence was.
+    """
+    assert support(36, 6) > 0.5
+
+
+def test_splitting_the_same_rows_further_lowers_support():
+    """What actually threatens a lens: too few observations per group."""
+    assert support(36, 6) > support(36, 30)
+
+
+def test_no_evidence_base_scores_a_hundred_percent():
+    """A perfect ratio on every component is still not certainty."""
+    flawless = _finding()
+    scored = finding_confidence(flawless, 10_000_000)
+    assert scored["confidence"] == round(SCORE_CEILING * 100)
+    assert scored["confidence"] < 100
 
 
 def test_breadth_is_the_spend_the_lens_resolved():
@@ -357,6 +388,48 @@ def test_a_group_with_the_budget_outranks_a_worse_one_without_it():
     drivers = roi_gap_decomposition(rows, "promotion_mechanic")["drivers"]
     assert drivers[0]["driver"] == "Big and mediocre"
     assert drivers[0]["weight_pct"] > drivers[1]["weight_pct"]
+
+
+def test_prose_may_rescale_a_figure_but_a_drawn_one_may_not():
+    """The split that took fabrications accepted on bars from 7.3% to 1.2%.
+
+    "₹3.3 Cr" is a correct way to write 32,717,886.4 in a SENTENCE. It is not a
+    correct way to write it in a CHART BAR: the popover prints bar values raw
+    and never labels a unit, so a bar in crores beside one in rupees renders as
+    comparable when it is not — and a delta cannot subtract across two scales
+    either. Allowing five scales also meant five chances for a fabricated
+    figure to collide with a supplied one.
+    """
+    supplied = numeric_provenance({"trade_spend": 32717886.4})
+    assert figure_traceable(3.3, supplied) is True
+    assert figure_traceable(3.3, supplied, allow_display_scales=False) is False
+    # The figure itself, and its rounding, still pass at the scale it was given.
+    assert figure_traceable(32717886.4, supplied, allow_display_scales=False) is True
+    assert figure_traceable(32717886, supplied, allow_display_scales=False) is True
+
+
+def test_chart_bars_are_checked_at_the_scale_they_were_given():
+    """`verified_viz_items` must use the strict policy, not merely offer it."""
+    data = _breakdown([{"group": "A", "roi": 6.8, "trade_spend": 32717886.4}])
+    supplied = numeric_provenance(data)
+    kept, dropped = verified_viz_items(
+        [
+            {"label": "raw", "value": 32717886.4, "tone": "accent"},
+            {"label": "rescaled to Cr", "value": 3.3, "tone": "muted"},
+        ],
+        supplied,
+    )
+    assert [i["label"] for i in kept] == ["raw"]
+    assert [i["label"] for i in dropped] == ["rescaled to Cr"]
+
+
+def test_a_delta_operand_may_not_be_rescaled_either():
+    """Subtracting crores from rupees yields a number in neither unit."""
+    supplied = numeric_provenance({"a": 32717886.4, "b": 1000000.0})
+    assert computed_delta(
+        {"value": 3.3, "compared_to": 1.0, "kind": "percentage_point_gap", "label": "x"},
+        supplied,
+    ) == ("", "")
 
 
 def test_the_node_delta_is_subtracted_here_not_by_the_model():

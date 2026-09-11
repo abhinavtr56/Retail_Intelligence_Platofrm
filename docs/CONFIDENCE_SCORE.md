@@ -82,27 +82,39 @@ unavailable metric. Every score carries a `confidence_basis` naming the
 components used and the ones that were not measurable, so any figure can be
 taken apart.
 
-### 3.1 `support` — how much data stands behind it
+### 3.1 `support` — enough observations behind each compared group
 
 ```
-support = n / (n + K)          K = SUPPORT_HALF_SATURATION_ROWS = 500
+observations_per_group = n / groups
+support = o / (o + K)     K = OBSERVATIONS_PER_GROUP_HALF_SATURATION = 5
 ```
 
 `n` is the number of fact rows the investigated scope holds, resolved with
 `rows_for` — the same resolver the agents' own data calls go through, so it is
-exactly the population they read.
+exactly the population they read. `groups` is how many things the lens is
+distinguishing between, taken as the longest list of records in its payload.
 
-The shrinkage form is used instead of a threshold because there is no row count
-at which evidence switches from bad to good, and instead of a raw count because
-a score has to be bounded. It is monotone in `n`, never reaches 0 or 1, and is
-worth exactly 0.5 at `n = K`.
+**This corrects a real mistake, and it is worth stating plainly.** The first
+version divided by nothing: it asked how many rows the scope held, with a
+half-point at 500, on the reasoning that a bigger sample is better evidence.
+That is true of a sample and false of this. An investigation scoped to one
+promotion, in one channel, in one week is a **census of the population its
+question is about** — all 36 rows *are* the evidence, and there is no larger
+sample to be had. Scoring it 0.067 for being specific capped every drill-down
+near 40% however good its evidence was, so the figure measured the narrowness
+of the question rather than the strength of the answer.
 
-| rows | support |
+What actually threatens a lens is too few observations behind each of the
+groups it is ranking. Thirty-six rows across six mechanics is thin but readable;
+the same thirty-six across thirty retailers is one row each and cannot support
+a ranking at all. Measuring per group says so, and says it per lens.
+
+| observations per group | support |
 |---:|---:|
-| 50 | 0.091 |
-| 500 | 0.500 |
-| 5,000 | 0.909 |
-| 205,920 (whole fact table) | 0.998 |
+| 1 | 0.167 |
+| 5 | 0.500 |
+| 20 | 0.800 |
+| 200 | 0.976 |
 
 ### 3.2 `breadth` — how much of the money the lens resolved
 
@@ -157,11 +169,41 @@ a well-supported lens can still produce a low-scoring finding. Both the chart
 bars and the figures in the prose are counted, because a reader takes both for
 measurements.
 
-Tracing is done by `app/agents/figures.traceable`, which accepts a figure at any
-display scale the project actually uses (₹32,717,886.4 may be written 3.3 Cr,
-327.2 L, 32,717.9 K or 32717886) and within a rounding tolerance. Two token
-shapes are ignored to keep the signal usable, following the precedent in
-`decision_brief.unverified_figures`: a bare single digit, and a four-digit year.
+Tracing is done by `app/agents/figures.traceable`, and it applies **two
+policies, because a figure in a sentence and a figure that gets drawn are not
+the same claim**:
+
+- **Prose** may rescale. ₹32,717,886.4 is correctly written 3.3 Cr, 327.2 L,
+  32,717.9 K or 32717886, so every display scale is accepted within a rounding
+  tolerance.
+- **A chart bar or a delta operand may not.** The popover prints bar values raw
+  and never labels a unit, so the bars of one chart cannot declare different
+  scales — a bar in crores beside one in rupees renders as comparable when it
+  is not — and a delta cannot subtract across two scales either. These are
+  checked at the scale they were given.
+
+That split is also what makes the guard worth having. Measured over 60,000
+trials against the six specialists' real payloads, and against 601 chart bars
+taken from recorded runs:
+
+| | before | now |
+| --- | ---: | ---: |
+| fabrications wrongly accepted | 7.29% | **1.20%** |
+| real chart bars wrongly rejected | 0/601 | 0/601 |
+
+It cost nothing because the allowance it removed was never used: of those 601
+real bars, 590 matched at the raw scale and 11 matched at no scale at all. Five
+scales meant five chances to collide per supplied value, so a lens holding 88
+numbers was far leakier than one holding 8.
+
+The residual ~1.2% is almost entirely the 0.05 absolute tolerance, which exists
+to accept the one-decimal-place rounding this project applies everywhere.
+Closing it would discard correct figures to catch a rare invented one. **This is
+a net, not a proof of provenance.**
+
+Two token shapes are ignored to keep the signal usable, following the precedent
+in `decision_brief.unverified_figures`: a bare single digit, and a four-digit
+year.
 
 An agent that cited nothing checkable has no ratio to compute and reports
 `None`. Silence is not evidence either way.
@@ -171,10 +213,11 @@ An agent that cited nothing checkable has no ratio to compute and reports
 ## 4. How the components combine
 
 ```
-score = 100 x ( PRODUCT of measured components ) ^ (1 / number of them)
+score = 100 x min( ( PRODUCT of measured components ) ^ (1 / number of them),
+                   SCORE_CEILING )
 ```
 
-An **unweighted geometric mean**.
+An **unweighted geometric mean**, capped.
 
 **Why geometric.** The components are conditions that must all hold, not a
 basket where a strong one buys off a weak one. A finding drawn from ample rows
@@ -186,6 +229,14 @@ any component takes the score to zero, which is the correct reading of
 **Why unweighted.** Any weighting would be a claim about which kind of weakness
 matters more, and there is no measurement behind such a claim. Equal weights
 are the only choice that needs no justification.
+
+**Why capped.** `completeness` and `traceability` are ratios that legitimately
+reach exactly 1.0, and on a wide scope `support` reaches 0.997 — so a
+year-scoped run scored **100%**. That is a claim about certainty, not about
+evidence, and no evidence base earns it: the method cannot see whether the
+conclusion drawn from that evidence is right. Clamped rather than scaled, so
+the informative middle of the range is untouched and only the overclaiming top
+is pulled in.
 
 ---
 
@@ -281,7 +332,8 @@ exactly which numbers were chosen rather than derived.
 
 | Constant | Value | What it is |
 |---|---|---|
-| `SUPPORT_HALF_SATURATION_ROWS` | 500 | The row count at which a scope counts as half as informative as an unlimited one. There is no sample size at which promotion data becomes objectively sufficient. 500 is roughly a quarter's worth of `(product, channel, week, offer)` rows for one narrow selection on this dataset, chosen so a scope as small as one retailer's fortnight scores visibly below one covering a year. |
+| `OBSERVATIONS_PER_GROUP_HALF_SATURATION` | 5 | Observations per compared group at which a lens counts as half as supported. There is no count at which promotion data becomes objectively sufficient; 5 is the point where a comparison starts to mean something on this dataset's `(product, channel, week, offer)` grain. |
+| `SCORE_CEILING` | 0.95 | The highest score any evidence base can earn, because a perfect set of ratios is still not certainty — see **Why capped** above. |
 | `UNMEASURED_LEVER_FACTOR` | 0.5 | What a recommendation keeps when the lever it moves has no measured current position. Not zero, because the diagnosis behind it is unaffected by the lever being unmeasurable. Not one, because a recommendation whose starting point is unknown cannot be simulated as written. |
 
 Changing either changes every score. `METHOD` (`"evidence_score_v1"`) is
@@ -346,19 +398,24 @@ subtraction, the sign and the arrow are done in Python.
 
 ## 8. Worked example
 
-A thin lens: 20,000 rows in scope, one group with a defined ROI carrying
-₹100 of ₹1,000, one hole, every cited figure traceable.
+The Geography lens on a single week of one channel: 36 rows in scope, split
+across 10 retailer/region groups, with a few unmeasurable entries and every
+cited figure traceable.
 
 ```
-support       = 20000 / (20000 + 500)      = 0.976
-breadth       = 100 / 1000                 = 0.100
-completeness  = 4 / (4 + 1)                = 0.800
-traceability  = 2 / 2                      = 1.000
+observations per group = 36 / 10           = 3.6
+support                = 3.6 / (3.6 + 5)   = 0.419
+completeness           = 54 / (54 + 7)     = 0.885
+traceability           = 4 / 4             = 1.000
 
-score = 100 x (0.976 x 0.100 x 0.800 x 1.000) ^ (1/4)
-      = 100 x (0.0781) ^ 0.25
-      = 53%
+score = 100 x (0.419 x 0.885 x 1.000) ^ (1/3)
+      = 100 x (0.371) ^ 0.333
+      = 72%
 ```
 
-Ample data, honest citations — and a lens that could place a tenth of the money.
-The score says so, and `confidence_basis` shows which term did it.
+The same 36 rows through the Mechanic lens, which distinguishes 5 groups rather
+than 10, score 83% — because 7.2 observations per group supports a ranking that
+3.6 does not. `confidence_basis` shows which term made the difference.
+
+Measured across the whole panel on that scope: individual findings 61–76%, and
+a synthesis of 83%. A year-scoped run sits at the 95% ceiling.

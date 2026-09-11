@@ -52,13 +52,27 @@ from app.agents.figures import cited_figures, numeric_provenance, traceable
 # two are conventions, declared here rather than buried, because a reader is
 # entitled to know exactly which numbers were chosen rather than derived.
 
-#: Rows at which a scope counts as half as informative as an unlimited one, in
-#: `support` below. A convention, not a measurement: there is no sample size at
-#: which promotion data becomes objectively sufficient. 500 is roughly a
-#: quarter's worth of (product, channel, week, offer) rows for a single narrow
-#: selection on this dataset, chosen so that a scope small enough to be one
-#: retailer's fortnight scores visibly below one covering a year.
-SUPPORT_HALF_SATURATION_ROWS = 500
+#: Observations PER COMPARED GROUP at which a lens counts as half as supported
+#: as one with unlimited data. A convention, not a measurement.
+#:
+#: THIS REPLACED A RAW ROW COUNT, WHICH WAS THE WRONG QUESTION. The first
+#: version asked how many fact rows the scope held, with a half-point at 500,
+#: on the reasoning that a bigger sample is better evidence. That is true of a
+#: sample and false of this: an investigation scoped to one promotion, in one
+#: channel, in one week is a CENSUS of the population its question is about.
+#: All 36 rows are the evidence; there is no larger sample to be had. Scoring
+#: it 0.067 for being specific meant every drill-down — the thing this product
+#: is for — was capped near 40% however good its evidence was, and the figure
+#: measured the narrowness of the question rather than the strength of the
+#: answer.
+#:
+#: What actually threatens a lens is too few observations behind each of the
+#: groups it is DISTINGUISHING. Thirty-six rows split across six mechanics is
+#: thin but readable; the same thirty-six split across thirty retailers is one
+#: row each and cannot support a ranking. So support is measured per group, and
+#: 5 is the point where a comparison starts to mean something on this grain of
+#: (product, channel, week, offer).
+OBSERVATIONS_PER_GROUP_HALF_SATURATION = 5
 
 #: What a recommendation keeps when the lever it moves has no measured current
 #: position. A convention. It is not zero because the diagnosis behind the
@@ -66,6 +80,21 @@ SUPPORT_HALF_SATURATION_ROWS = 500
 #: because a recommendation whose starting point is unknown cannot be simulated
 #: as written — `lever_positions` said so, and the card shows it.
 UNMEASURED_LEVER_FACTOR = 0.5
+
+#: The highest score any evidence base can earn. A convention, and the one that
+#: stops this becoming the thing it replaced.
+#:
+#: `completeness` and `traceability` are ratios that legitimately reach exactly
+#: 1.0 — a payload with no holes, an agent every one of whose figures traces —
+#: and with a wide scope `support` reaches 0.997. A year-scoped run therefore
+#: scored 100%, which is a claim about certainty rather than about evidence, and
+#: no evidence base earns it: the method cannot see whether the conclusion drawn
+#: from that evidence is right, and says so at the top of this file.
+#:
+#: Clamped rather than scaled, so the informative middle of the range is
+#: untouched and only the overclaiming top is pulled in. The same reasoning the
+#: connectors' `InstallProgress` applies to its own bar.
+SCORE_CEILING = 0.95
 
 
 def _clamp(value: float) -> float:
@@ -99,7 +128,7 @@ def _score(components: dict[str, float | None], **extra: Any) -> dict[str, Any]:
     measured = {k: round(_clamp(v), 4) for k, v in components.items() if v is not None}
     unmeasured = [k for k, v in components.items() if v is None]
     return {
-        "confidence": int(round(_geometric_mean(measured) * 100)),
+        "confidence": int(round(min(_geometric_mean(measured), SCORE_CEILING) * 100)),
         "confidence_basis": {
             "method": METHOD,
             "components": measured,
@@ -112,19 +141,53 @@ def _score(components: dict[str, float | None], **extra: Any) -> dict[str, Any]:
 # --- the components ----------------------------------------------------------
 
 
-def support(rows_in_scope: int | None) -> float | None:
-    """How much data stands behind the analysis.
+def comparison_groups(payload: Any) -> int:
+    """How many things this lens is distinguishing between.
 
-        support = n / (n + K)
+    The longest list of records anywhere in what it was given: the mechanics in
+    a breakdown, the retailers in a geography split, the events in a forensic
+    list. An approximation on purpose — the exact figure is not what matters,
+    the ORDER OF MAGNITUDE is. Six groups and sixty groups are different
+    questions of the same rows, and only the second one can run out of evidence.
+    """
+    widest = 0
 
-    The standard shrinkage form: monotone in n, never quite 0 and never quite
-    1, and worth exactly 0.5 at n = K. It is used instead of a threshold
-    because there is no row count at which evidence switches from bad to good,
-    and instead of a raw count because a score has to be bounded.
+    def walk(node: Any) -> None:
+        nonlocal widest
+        if isinstance(node, dict):
+            for item in node.values():
+                walk(item)
+            return
+        if isinstance(node, (list, tuple)):
+            if any(isinstance(item, dict) for item in node):
+                widest = max(widest, len(node))
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    return max(1, widest)
+
+
+def support(rows_in_scope: int | None, groups: int = 1) -> float | None:
+    """Whether there are enough observations behind each compared group.
+
+        observations_per_group = rows_in_scope / groups
+        support = o / (o + K)
+
+    The standard shrinkage form: monotone, never quite 0 and never quite 1, and
+    worth exactly 0.5 at o = K. Used instead of a threshold because there is no
+    count at which evidence switches from bad to good, and instead of a raw
+    count because a score has to be bounded.
+
+    Divided by the number of groups because that, not the size of the scope, is
+    what decides whether a lens can tell its groups apart — see
+    `OBSERVATIONS_PER_GROUP_HALF_SATURATION` for the reasoning, which is the
+    correction of a real mistake rather than a refinement.
     """
     if rows_in_scope is None or rows_in_scope < 0:
         return None
-    return rows_in_scope / (rows_in_scope + SUPPORT_HALF_SATURATION_ROWS)
+    per_group = rows_in_scope / max(1, groups)
+    return per_group / (per_group + OBSERVATIONS_PER_GROUP_HALF_SATURATION)
 
 
 def breadth(payload: Any) -> float | None:
@@ -269,7 +332,7 @@ def finding_confidence(finding: dict[str, Any], rows_in_scope: int | None) -> di
     data = finding.get("analysis_data")
     supplied = numeric_provenance(data)
     return _score({
-        "support": support(rows_in_scope),
+        "support": support(rows_in_scope, comparison_groups(data)),
         "breadth": breadth(data),
         "completeness": completeness(data),
         "traceability": traceability(
@@ -357,7 +420,9 @@ def analysis_confidence(
             texts.append(driver.get("note"))
 
     return _score({
-        "support": support(facts.get("rows_in_scope")),
+        "support": support(
+            facts.get("rows_in_scope"), len(decomposition.get("drivers") or []) or 1
+        ),
         "breadth": resolved,
         "completeness": completeness(facts),
         "traceability": traceability(texts, supplied),
@@ -413,7 +478,7 @@ def recommendation_confidence(
     for value in measured.values():
         product *= value
     return {
-        "confidence": int(round(_clamp(product) * 100)),
+        "confidence": int(round(min(_clamp(product), SCORE_CEILING) * 100)),
         "confidence_basis": {
             "method": METHOD,
             "components": {**measured, "lever_factor": factor},

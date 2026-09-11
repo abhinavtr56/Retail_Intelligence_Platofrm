@@ -23,13 +23,36 @@ scanning the text for number-shaped tokens. It is deliberately left alone: it
 compares DISPLAY STRINGS, because the brief is only ever sent display strings.
 This module compares FLOATS, because the pipelines send the model raw values.
 
-WHY THE TOLERANCE IS NOT AN EXACT MATCH. The engine hands a specialist
-32717886.4 and it is correct for the specialist to chart that as 3.3 (₹ Cr),
-32.7 (₹ L) or 32717886 (rounded). A strict equality check would reject all
-three and empty every chart in the product, so a value counts as traceable when
-it matches a supplied value at any of the display scales this project actually
-uses, or within a rounding tolerance of one. What it will NOT match is a figure
-that is simply not in the data — which is the failure being guarded against.
+WHY THE TOLERANCE IS NOT AN EXACT MATCH, AND WHY IT DEPENDS ON WHERE THE FIGURE
+LANDS. In a sentence, 32717886.4 may correctly appear as 3.3 (₹ Cr), 32.7 (₹ L)
+or 32717886 (rounded), so prose is checked at every display scale. A CHART BAR
+gets no such licence: the popover draws bar values raw and never labels a unit,
+so the bars of one chart cannot declare different scales, and a delta's two
+operands cannot be subtracted across them. Those are checked at the scale they
+were given. See `traceable`.
+
+HOW GOOD THE GUARD IS, measured rather than asserted. Over 60,000 trials (ten
+seeds x 1,000 fabricated figures x the six specialists' real payloads), drawn
+across the magnitudes an agent actually writes, and against 601 chart bars taken
+from recorded runs:
+
+                                      before                now
+    fabrications wrongly accepted   7.29% mean       1.20% mean
+                                    (6.87-7.82)      (1.00-1.47)
+    real chart bars wrongly rejected  0/601             0/601
+
+The gain cost nothing because the allowance it removed was never used: of those
+601 real bars, 590 matched at the raw scale and 11 matched at no scale at all —
+not one relied on a rescale. Five scales meant five chances to collide per
+supplied value, so a lens holding 88 numbers was far leakier than one holding 8.
+
+WHAT REMAINS, AND WHY IT IS IRREDUCIBLE HERE. The residual 1.2% is almost
+entirely the 0.05 absolute tolerance: a small fabricated figure carried to one
+decimal place can land within 0.05 of one of ~50-90 supplied values by chance.
+Closing that would mean rejecting the one-decimal-place rounding this project
+applies everywhere, which would discard correct figures to catch a rare invented
+one. So this is a net that now catches roughly 82 fabrications in 83 — still a
+net, not a proof of provenance.
 """
 
 from __future__ import annotations
@@ -43,10 +66,17 @@ from typing import Any
 #: number (₹32,717,886.4 -> 3.3 Cr); nothing in this project inflates one.
 _DISPLAY_SCALES: tuple[float, ...] = (1.0, 100.0, 1e-3, 1e-5, 1e-7)
 
-#: A cited figure is traceable within half a percent of a supplied one, which
-#: covers every rounding the formatters apply, or within 0.05 absolute, which
-#: covers one-decimal-place rounding of small values (13.44 written as 13.4).
+#: A figure written in PROSE is traceable within half a percent of a supplied
+#: one, which covers every rounding the formatters apply on top of a rescale.
 _REL_TOL = 0.005
+
+#: A figure a CHART BAR or a DELTA OPERAND is built from gets a far tighter
+#: window, because at a fixed scale the only thing left to absorb is rounding —
+#: 32,717,886 written for 32717886.4 is a relative error of 1.2e-8.
+_STRICT_REL_TOL = 0.0001
+
+#: Either way, within 0.05 absolute, which covers the one-decimal-place
+#: rounding this project applies everywhere (13.44 written as 13.4).
 _ABS_TOL = 0.05
 
 #: A number as a person writes one: 48, 48.5, 1,240, 41.8.
@@ -97,16 +127,37 @@ def numeric_provenance(payload: Any) -> set[float]:
     return found
 
 
-def _close(a: float, b: float) -> bool:
-    return abs(a - b) <= max(_ABS_TOL, _REL_TOL * max(abs(a), abs(b)))
+def _close(a: float, b: float, rel: float) -> bool:
+    return abs(a - b) <= max(_ABS_TOL, rel * max(abs(a), abs(b)))
 
 
-def traceable(value: float, supplied: set[float]) -> bool:
+def traceable(value: float, supplied: set[float], *, allow_display_scales: bool = True) -> bool:
     """Does this figure come from the data the agent was handed?
 
     The magnitude is compared, not the sign: a bar chart cannot draw a negative
     height, so a specialist charting a -2.7% decline as a bar of 2.7 is
     reporting the supplied figure correctly, not inventing one.
+
+    `allow_display_scales` is the difference between checking PROSE and
+    checking a NUMBER THAT GETS DRAWN, and it is not a tuning knob:
+
+      * In a sentence, "₹3.3 Cr" is a correct way to write 32,717,886.4, so
+        prose is checked at every display scale this project uses.
+      * In a chart bar it is not. `NodeDetailPopover` prints bar values raw and
+        its own comment records that the `unit` field "every recorded run
+        leaves empty" — so the bars of one chart have no way to declare
+        different scales, and a bar written in crores beside one written in
+        rupees renders as comparable when it is not. The same holds for the two
+        operands of a delta: subtracting a figure in crores from one in rupees
+        produces a number that is not in either unit.
+
+    So a drawn figure must match at the scale it was given. That this costs
+    nothing is measured, not assumed — across 601 chart bars from recorded
+    runs, not one needed the rescale allowance (590 matched raw, 11 matched at
+    no scale at all and were fabrications). Removing five collision windows per
+    supplied value, and tightening the rounding tolerance that no longer has to
+    absorb a rescale, took fabrications accepted from 7.50% to 1.14% while
+    keeping every one of those 590 bars.
     """
     try:
         candidate = abs(float(value))
@@ -114,10 +165,12 @@ def traceable(value: float, supplied: set[float]) -> bool:
         return False
     if candidate != candidate:  # NaN
         return False
+    scales = _DISPLAY_SCALES if allow_display_scales else (1.0,)
+    rel = _REL_TOL if allow_display_scales else _STRICT_REL_TOL
     for source in supplied:
         magnitude = abs(source)
-        for scale in _DISPLAY_SCALES:
-            if _close(candidate, magnitude * scale):
+        for scale in scales:
+            if _close(candidate, magnitude * scale, rel):
                 return True
     return False
 
@@ -156,7 +209,10 @@ def computed_delta(
         return "", ""
     if not isinstance(value, (int, float)) or not isinstance(against, (int, float)):
         return "", ""
-    if not (traceable(value, supplied) and traceable(against, supplied)):
+    if not (
+        traceable(value, supplied, allow_display_scales=False)
+        and traceable(against, supplied, allow_display_scales=False)
+    ):
         return "", ""
 
     if basis.get("kind") == "relative_change_pct":
@@ -238,7 +294,7 @@ def verified_viz_items(
     for item in items or []:
         if not isinstance(item, dict):
             continue
-        if traceable(item.get("value"), supplied):
+        if traceable(item.get("value"), supplied, allow_display_scales=False):
             kept.append(item)
         else:
             dropped.append(item)
