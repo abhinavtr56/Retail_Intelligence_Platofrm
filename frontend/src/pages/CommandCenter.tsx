@@ -367,9 +367,14 @@ export function CommandCenter() {
           </CardBody>
         </Card>
 
+        {/* One row per promotion EVENT -- a promotion on one product, in one
+            channel, in one business week -- whose ROI sits below the target.
+            Named for that grain: "Underperforming Promotions" is already the
+            table the Simulation context bar hands off from, and a promotion
+            can be above target overall while one of its events is not. */}
         <Card>
           <CardHeader
-            title="Underperforming Promotions"
+            title="Promotion Events Below ROI Target"
             actions={
               <div className="flex items-center gap-2">
                 {counts && (
@@ -377,7 +382,10 @@ export function CommandCenter() {
                     {counts.target_achieved} of {counts.total_events} at target
                   </span>
                 )}
-                <InfoPopover label="About Underperforming Promotions" title="Risk alert rule">
+                <InfoPopover label="About promotion events below ROI target" title="How events are banded">
+                  <InfoBlock label="Event">
+                    One promotion on one product, in one channel, in one business week
+                  </InfoBlock>
                   <InfoBlock label="Severity">
                     Critical &lt; 25%
                     <br />
@@ -406,7 +414,7 @@ export function CommandCenter() {
             />
           ) : (
             <CardBody className="px-5 py-1.5">
-              <EmptyState message="Every promotion in this selection is at or above target." />
+              <EmptyState message="Every promotion event in this selection is at or above target." />
             </CardBody>
           )}
         </Card>
