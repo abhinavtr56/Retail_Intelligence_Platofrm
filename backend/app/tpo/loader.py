@@ -94,11 +94,40 @@ class Channel:
 # --- parsing helpers -------------------------------------------------------
 
 
+#: Text an exporter writes when a cell is EMPTY. These are renderings of
+#: absence, not values, and a dimension that keeps them offers the user a
+#: filter option called "null".
+#:
+#: DELIBERATELY NARROW. "na" and "-" are left out because both are plausible
+#: real values in this domain — "NA" is a region code and a dash appears inside
+#: product names — and silently blanking a real value is a worse failure than
+#: showing an odd one. Only renderings that cannot be a business value are here.
+_ABSENT_TEXT = frozenset({"null", "none", "nan", "n/a"})
+
+
 def _clean(value: str | None) -> str:
-    """Trim a dimension value. Several dim_product / dim_promotion cells carry
-    stray leading spaces (" Liquid Laundry Detergent 50 mL"), which would
-    otherwise split one brand into two filter options."""
-    return (value or "").strip()
+    """Trim a dimension value, and treat written-out absence as absent.
+
+    Several dim_product / dim_promotion cells carry stray leading spaces
+    (" Liquid Laundry Detergent 50 mL"), which would otherwise split one brand
+    into two filter options.
+
+    THE LITERAL "null" IS THE SAME CLASS OF PROBLEM. `dim_geo_store_final.csv`
+    writes it where a store has no retailer and no distributor: all 64 B2B
+    stores carry `Retailer = "null"`, and 493 of 557 rows carry
+    `Distributor_Name = "null"`. Read as text it became a value — B2B reported
+    one retailer group whose name was "null" instead of reporting none, and the
+    distributor control offered a two-item list of "Distributor_01" and "null",
+    which is what made it look like a real choice.
+
+    Everything downstream already handles a blank correctly: `options_for`
+    drops empty values and `retailer_available` hides the control rather than
+    showing an empty dropdown. So the whole fix is to spell absence one way at
+    the point every dimension cell is read, rather than teaching each consumer
+    a second spelling of it.
+    """
+    text = (value or "").strip()
+    return "" if text.lower() in _ABSENT_TEXT else text
 
 
 def _float(value: str | None) -> float:
