@@ -353,8 +353,14 @@ async def run_star_pipeline(
         if on_event:
             await on_event(kind, payload)
 
-    summary = schema_summary()
-    overall = segment_kpis(None)
+    # Both are whole-business passes (~1.8s and ~1.0s here) and neither needs
+    # the other, so they run together and off the loop — this is the very start
+    # of a run, when the user is watching the progress card and nothing else
+    # has happened yet.
+    summary, overall = await asyncio.gather(
+        asyncio.to_thread(schema_summary),
+        asyncio.to_thread(segment_kpis, None),
+    )
 
     # ---- 1. Plan -----------------------------------------------------------
     plan = await complete_json(
@@ -507,7 +513,16 @@ async def run_star_pipeline(
         spec = assigned["spec"]
         await emit("specialist_started", {"key": spec.key})
         try:
-            data = spec.fetch(global_filters)
+            # OFF THE EVENT LOOP, WHICH IS WHAT MAKES THE PANEL PARALLEL AT ALL.
+            # `fetch` is synchronous and does real work — the benchmark lens
+            # alone runs two whole-business breakdowns — so calling it directly
+            # inside this coroutine meant `asyncio.gather` below started six
+            # tasks that then ran one after another. Measured on one alert's
+            # scope: 12.04s serialised against 6.32s genuinely parallel, and
+            # the loop served 0 heartbeats during the former against 61 during
+            # the latter. That freeze is also why the progress card could not
+            # update while the specialists were "running".
+            data = await asyncio.to_thread(spec.fetch, global_filters)
             error = None
         except Exception as e:  # one lens failing must not sink the whole RCA
             data, error = {}, f"{type(e).__name__}: {e}"

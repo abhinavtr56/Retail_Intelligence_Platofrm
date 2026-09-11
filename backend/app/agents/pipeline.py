@@ -356,7 +356,12 @@ async def run_pipeline(
     # ---- 2/3. Aggregate + specialists in parallel --------------------------
     async def run_specialist(spec: dict[str, Any]) -> dict[str, Any]:
         await emit("specialist_started", {"key": spec["key"]})
-        data = build_analysis(df, roles, spec["analysis"], spec.get("dimension"), spec.get("dimensions"))
+        # Off the loop, for the same reason as the star pipeline's fetches: this
+        # is pandas work inside a coroutine, and leaving it here serialised the
+        # specialists that `gather` is meant to overlap.
+        data = await asyncio.to_thread(
+            build_analysis, df, roles, spec["analysis"], spec.get("dimension"), spec.get("dimensions")
+        )
         if data.get("error"):
             result = {
                 "headline": f"{spec['name']} unavailable",

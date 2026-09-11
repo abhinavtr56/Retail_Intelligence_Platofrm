@@ -155,7 +155,24 @@ async def _execute(
             {"key": "advisor", "name": "Recommendation Advisor", "desc": "Turns the diagnosis into actions",
              "icon": "target", "status": "queued"},
         ])
-        facts = build_intelligence_facts(filters)
+        # OFF THE EVENT LOOP. `build_intelligence_facts` is synchronous and slow
+        # — it runs every breakdown the Analyst reads, each a pass of the KPI
+        # engine per group — and awaiting nothing while it ran blocked the whole
+        # server for its duration. Measured on a cold store, the POST that
+        # STARTS this run took 4.4s to come back instead of 0.2s, because its
+        # own response could not be flushed until this returned; on a wide scope
+        # it is tens of seconds, and every other request queues behind it.
+        #
+        # The visible symptom was on the page that launched it: the run's
+        # `specialists` are recorded immediately above, but the browser could
+        # not fetch them until this finished, so the progress card sat with no
+        # agents listed and no elapsed time for exactly as long as the slowest
+        # phase of the run.
+        #
+        # A thread is the right tool and not a new risk: `get_facts` is a sync
+        # `def` route, so FastAPI has always run this same function in its own
+        # threadpool for every page load of the Intelligence tab.
+        facts = await asyncio.to_thread(build_intelligence_facts, filters)
 
         def mark(key: str, status: str) -> None:
             run = get_run(run_id)
