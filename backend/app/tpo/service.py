@@ -808,6 +808,395 @@ def trend(state: FilterState, granularity: str = "week", currency: str = "INR") 
     }
 
 
+# --- sales performance comparison ------------------------------------------
+
+
+@dataclass(frozen=True)
+class ComparisonMetric:
+    """One measure the comparison card can be read in."""
+
+    key: str
+    label: str
+    unit: str  # currency | percent
+    formula: str
+    meaning: str
+    lower_is_better: bool = False
+    #: A ratio is compared in PERCENTAGE POINTS, not as a percentage OF a
+    #: percentage. ROI moving 29.9% -> 34.1% is +4.2 pp; calling it +14.0%
+    #: would be arithmetically true of the number and useless about the
+    #: business.
+    ratio: bool = False
+
+
+COMPARISON_METRICS: tuple[ComparisonMetric, ...] = (
+    ComparisonMetric(
+        key="sales",
+        label="Sales",
+        unit="currency",
+        formula="Σ Actual Revenue",
+        meaning=(
+            "Everything rung up in the period, promoted or not. A plain row sum, so "
+            "it divides across periods exactly."
+        ),
+    ),
+    ComparisonMetric(
+        key="incremental_sales",
+        label="Incremental Sales",
+        unit="currency",
+        formula="Σ over promoted rows of (Actual Quantity − baseline) × Actual Price",
+        meaning=(
+            "Revenue the promotions added above ordinary trading level. Every month "
+            "here is measured against ONE baseline taken over the whole span, so two "
+            "months differ by performance and not by baseline."
+        ),
+    ),
+    ComparisonMetric(
+        key="trade_spend",
+        label="Trade Spend",
+        unit="currency",
+        formula="Σ (Base Revenue − Actual Revenue + Promotion Cost)",
+        meaning="The investment behind the promotions — discount given away plus promotion cost.",
+        lower_is_better=True,
+    ),
+    ComparisonMetric(
+        key="roi",
+        label="Promotion ROI",
+        unit="percent",
+        formula="(Incremental Sales − Trade Spend) ÷ Trade Spend × 100",
+        meaning=(
+            "Return on the promotional investment for the period. A ratio of the two "
+            "sums above, so it is compared in percentage points."
+        ),
+        ratio=True,
+    ),
+)
+
+_METRIC_BY_KEY = {m.key: m for m in COMPARISON_METRICS}
+
+#: How many months the chart shows, ending at the selected one. Thirteen and
+#: not twelve so the YEAR-AGO month is always the leftmost column rather than
+#: one step off the edge of the chart that is meant to show the comparison.
+COMPARISON_SPAN = 13
+
+
+def _pkey(year: int, month: int) -> str:
+    """"2025-09". Zero-padded, so it sorts chronologically as a string."""
+    return f"{year}-{month:02d}"
+
+
+def _period_totals(state: FilterState) -> dict[tuple[int, int], dict[str, float | None]]:
+    """Every measure, per (year, month), for the selection with its own PERIOD
+    constraint lifted.
+
+    ONE BASELINE ACROSS THE WHOLE SPAN, which is the point. `A.period_series`
+    holds the baseline fixed at the level computed over every row passed in and
+    groups only the per-row terms — the same treatment the trend chart gets. So
+    September and the September before it are measured against the same trading
+    level, and the difference between them is performance rather than partly an
+    artefact of two separately-derived baselines.
+
+    That is also why the year filter is dropped: a year-ago comparison spans
+    years by definition, and re-baselining per year would make the two halves
+    of the comparison incommensurable.
+
+    NOTE this is not the same baseline the KPI card uses when you filter it to
+    a single month — that card re-derives from that month alone, which is right
+    for a card describing one period and wrong for one comparing two.
+
+    Two row sets, each the standard one for its measure:
+      * SALES is gross revenue over `rows_for` — the actual selection.
+      * The promotional measures use `baseline_rows_for`, which re-admits the
+        non-promoted rows the baseline is derived from. Those rows contribute
+        exactly zero to Trade Spend, so it is unaffected.
+    They are the same rows unless an Offer or Promotion-type filter is active.
+    """
+    period_free = state.replace(year=None, month=None, week=None)
+
+    sales: dict[str, float] = defaultdict(float)
+    for row in rows_for(period_free):
+        sales[_pkey(int(row.year), row.month)] += row.actual_revenue
+
+    points = A.period_series(
+        baseline_rows_for(period_free),
+        lambda r: _pkey(int(r.year), r.month),
+    )
+
+    totals: dict[tuple[int, int], dict[str, float | None]] = {}
+    for point in points:
+        year, month = int(point.period_key[:4]), int(point.period_key[-2:])
+        totals[(year, month)] = {
+            "sales": sales.get(point.period_key, 0.0),
+            "incremental_sales": point.incremental_sales,
+            "trade_spend": point.trade_spend,
+            "roi": A.roi_percent(point.incremental_sales, point.trade_spend),
+        }
+    return totals
+
+
+def _window_totals(
+    totals: dict[tuple[int, int], dict[str, float | None]],
+    window: Sequence[tuple[int, int]],
+) -> dict[str, float | None] | None:
+    """The measures over a run of months, or None if the run is incomplete.
+
+    The three additive measures sum. ROI does NOT: it is recomputed from the
+    summed parts through the same `roi_percent` every other ROI goes through,
+    because a mean of monthly ratios is not the ratio of the period.
+
+    An incomplete window returns None rather than a total over the months that
+    happen to exist — a real number computed over the wrong period is worse
+    than an honest gap, because nothing about it looks wrong.
+    """
+    if not window or any(k not in totals for k in window):
+        return None
+    summed = {
+        key: sum(totals[k][key] or 0.0 for k in window)
+        for key in ("sales", "incremental_sales", "trade_spend")
+    }
+    summed["roi"] = A.roi_percent(summed["incremental_sales"], summed["trade_spend"])
+    return summed
+
+
+def _previous_month(year: int, month: int) -> tuple[int, int]:
+    """The month before, crossing the year boundary: Jan 2025 -> Dec 2024."""
+    return (year - 1, 12) if month == 1 else (year, month - 1)
+
+
+def _month_label(year: int, month: int) -> str:
+    return f"{MONTHS[month - 1]} {F.fiscal_label(year)}"
+
+
+def _ytd_label(year: int, month: int) -> str:
+    """"Jan-Sep F25", or just "Jan F25" when the year is one month old."""
+    if month == 1:
+        return f"{MONTHS[0][:3]} {F.fiscal_label(year)}"
+    return f"{MONTHS[0][:3]}-{MONTHS[month - 1][:3]} {F.fiscal_label(year)}"
+
+
+def _amount(value: float | None, metric: ComparisonMetric, currency: str) -> dict[str, Any]:
+    """One measured amount, formatted by the metric's own unit."""
+    return {
+        "value": None if value is None else round(value, 1),
+        "display": _display(value, metric.unit, currency),
+    }
+
+
+def _delta(
+    current: float | None,
+    prior: float | None,
+    metric: ComparisonMetric,
+    currency: str,
+) -> dict[str, Any]:
+    """How `current` stands against `prior`, in the metric's own terms.
+
+    A ratio moves in percentage POINTS; an amount moves by a percentage of
+    itself. Both are formatted here so the card never divides and never has to
+    know which kind of number it is holding.
+
+    `direction` is the raw movement. `good` is whether that movement is welcome,
+    which is not the same question — a rise in Trade Spend is a rise and not an
+    improvement — and is None when the metric has no better direction.
+    """
+    if current is None or prior is None:
+        return {"value": None, "display": "—", "direction": None, "good": None, "basis": None}
+
+    if metric.ratio:
+        value = current - prior
+        display = f"{F.percent(value, signed=True)[:-1]} pp" if value else "0.0 pp"
+        basis = "percentage points"
+    else:
+        if not prior:
+            return {"value": None, "display": "—", "direction": None, "good": None, "basis": None}
+        value = (current - prior) / prior * 100
+        display = F.percent(value, signed=True)
+        basis = "percent change"
+
+    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+    good = None if direction == "flat" else (direction == "down") == metric.lower_is_better
+    return {
+        "value": round(value, 1),
+        "display": display,
+        "direction": direction,
+        "good": good,
+        "basis": basis,
+    }
+
+
+def sales_comparison(
+    state: FilterState,
+    year: int | None = None,
+    month: int | None = None,
+    currency: str = "INR",
+) -> dict[str, Any]:
+    """One month read beside the periods a planner judges it against.
+
+        MAGO  the month before               short-term momentum
+        YAGO  the same month a year earlier  year on year, seasonality held
+        YTD   January to the selected month, cumulative, against the same
+              window a year earlier          where the year stands
+
+    YTD is not itself a comparison but a cumulative total, so it is reported
+    beside YTD YAGO — otherwise its growth would have nothing to be a growth OF.
+
+    Four measures, each carried for every period: Sales, Incremental Sales,
+    Trade Spend and ROI. See `COMPARISON_METRICS` for what each one is and
+    `_period_totals` for the one baseline they share.
+
+    WHAT "AVAILABLE" MEANS HERE. This dataset starts in January 2024, so a 2024
+    month has no year-ago period at all, and January 2024 has no month-ago
+    period either. Those come back unavailable, with a reason. They are never
+    filled with zero, which would read as "sold nothing last year" rather than
+    "there was no last year".
+    """
+    currency = F.normalise_currency(currency)
+    totals = _period_totals(state)
+    periods = sorted(totals)
+
+    empty = {
+        "period": None,
+        "available_periods": [],
+        "latest": None,
+        "metric_specs": [],
+        "series": [],
+        "windows": {},
+        "figures": {},
+        "meta": _meta(state, [], currency, None),
+    }
+    if not periods:
+        return empty
+
+    # The DATA's latest month, never today's date: this fact table ends before
+    # the current date, so a wall-clock default would open the card on a month
+    # with no rows at all.
+    latest_year, latest_month = periods[-1]
+    if year is None or month is None or (year, month) not in totals:
+        year, month = latest_year, latest_month
+
+    mago_key = _previous_month(year, month)
+    yago_key = (year - 1, month)
+    ytd_window = [(year, m) for m in range(1, month + 1)]
+    yago_window = [(year - 1, m) for m in range(1, month + 1)]
+
+    current = totals.get((year, month))
+    mago = totals.get(mago_key)
+    yago = totals.get(yago_key)
+    ytd = _window_totals(totals, ytd_window)
+    ytd_yago = _window_totals(totals, yago_window)
+
+    no_prior_year = f"{F.fiscal_label(year - 1)} is not in this dataset"
+    reasons = {
+        "mago": None if mago else f"{_month_label(*mago_key)} is not in this dataset",
+        "yago": None if yago else no_prior_year,
+        "ytd_yago": None if ytd_yago else no_prior_year,
+    }
+
+    # The months the chart draws: the span ending at the selected month, and
+    # only months the selection actually has.
+    span: list[tuple[int, int]] = []
+    cursor = (year, month)
+    for _ in range(COMPARISON_SPAN):
+        if cursor in totals:
+            span.append(cursor)
+        cursor = _previous_month(*cursor)
+    span.reverse()
+
+    figures: dict[str, Any] = {}
+    for metric in COMPARISON_METRICS:
+        pick = lambda bucket: None if bucket is None else bucket[metric.key]  # noqa: E731
+        figures[metric.key] = {
+            "current": {
+                **_amount(pick(current), metric, currency),
+                "label": _month_label(year, month),
+                "available": current is not None,
+                "unavailable_reason": None,
+            },
+            "mago": {
+                **_amount(pick(mago), metric, currency),
+                "label": _month_label(*mago_key),
+                "available": mago is not None,
+                "unavailable_reason": reasons["mago"],
+            },
+            "yago": {
+                **_amount(pick(yago), metric, currency),
+                "label": _month_label(*yago_key),
+                "available": yago is not None,
+                "unavailable_reason": reasons["yago"],
+            },
+            "ytd": {
+                **_amount(pick(ytd), metric, currency),
+                "label": _ytd_label(year, month),
+                "available": ytd is not None,
+                "unavailable_reason": None,
+            },
+            "ytd_yago": {
+                **_amount(pick(ytd_yago), metric, currency),
+                "label": _ytd_label(year - 1, month),
+                "available": ytd_yago is not None,
+                "unavailable_reason": reasons["ytd_yago"],
+            },
+            "delta": {
+                "mago": _delta(pick(current), pick(mago), metric, currency),
+                "yago": _delta(pick(current), pick(yago), metric, currency),
+                "ytd": _delta(pick(ytd), pick(ytd_yago), metric, currency),
+            },
+        }
+
+    return {
+        "period": {"year": year, "month": month, "label": _month_label(year, month)},
+        # Every month the SELECTION has rows for. The control is built from
+        # this, so a period that cannot be answered cannot be picked.
+        "available_periods": [
+            {"year": y, "month": m, "label": _month_label(y, m)} for y, m in periods
+        ],
+        "latest": {"year": latest_year, "month": latest_month},
+        "metric_specs": [
+            {
+                "key": m.key,
+                "label": m.label,
+                "unit": m.unit,
+                "lower_is_better": m.lower_is_better,
+                "ratio": m.ratio,
+                "formula": m.formula,
+                "meaning": m.meaning,
+            }
+            for m in COMPARISON_METRICS
+        ],
+        "series": [
+            {
+                "key": _pkey(y, m),
+                "year": y,
+                "month": m,
+                "label": _month_label(y, m),
+                "short": MONTHS[m - 1][:3],
+                "year_short": F.fiscal_label(y),
+                "values": {
+                    metric.key: _amount(totals[(y, m)][metric.key], metric, currency)
+                    for metric in COMPARISON_METRICS
+                },
+            }
+            for y, m in span
+        ],
+        # Which columns each mode highlights, named so the chart never has to
+        # re-derive a window the figures were already computed from.
+        "windows": {
+            "mago": {
+                "current": [_pkey(year, month)],
+                "against": [_pkey(*mago_key)] if mago else [],
+            },
+            "yago": {
+                "current": [_pkey(year, month)],
+                "against": [_pkey(*yago_key)] if yago else [],
+            },
+            "ytd": {
+                "current": [_pkey(y, m) for y, m in ytd_window],
+                "against": [_pkey(y, m) for y, m in yago_window] if ytd_yago else [],
+            },
+        },
+        "figures": figures,
+        "meta": _meta(state, [], currency, None),
+    }
+
+
 def _period_label(period_key: str, monthly: bool) -> str:
     """"2025-03" -> "Mar F25"; "2025-W07" -> "W07 F25"."""
     year, part = period_key.split("-", 1)

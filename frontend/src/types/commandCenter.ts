@@ -240,3 +240,91 @@ export interface TopPromotionsResponse {
   rows: TopPromotionRow[]
   meta: Meta
 }
+
+// --- Sales Performance Comparison -------------------------------------------
+
+/** One measured amount, already formatted by its metric's unit. */
+export interface ComparisonAmount {
+  value: number | null
+  display: string
+}
+
+/** One amount at one period. `available: false` means the dataset has no such
+ *  period — a 2024 month has no year-ago figure at all — and `value` is null
+ *  rather than zero, which would read as "sold nothing" instead of "there was
+ *  no such period". */
+export interface ComparisonFigure extends ComparisonAmount {
+  label: string
+  available: boolean
+  unavailable_reason: string | null
+}
+
+/** How one period stands against another, in the metric's own terms.
+ *
+ *  `direction` is the raw movement; `good` is whether that movement is welcome,
+ *  which is a different question — a rise in Trade Spend is a rise and not an
+ *  improvement. Both computed server-side; the card never divides. */
+export interface ComparisonDelta {
+  value: number | null
+  display: string
+  direction: 'up' | 'down' | 'flat' | null
+  good: boolean | null
+  /** "percent change" or "percentage points" — a ratio moves in points. */
+  basis: string | null
+}
+
+export interface ComparisonMetricSpec {
+  key: string
+  label: string
+  unit: 'currency' | 'percent'
+  lower_is_better: boolean
+  /** True for a ratio, which is compared in percentage POINTS. */
+  ratio: boolean
+  formula: string
+  meaning: string
+}
+
+export interface ComparisonMetricFigures {
+  current: ComparisonFigure
+  mago: ComparisonFigure
+  yago: ComparisonFigure
+  ytd: ComparisonFigure
+  ytd_yago: ComparisonFigure
+  delta: { mago: ComparisonDelta; yago: ComparisonDelta; ytd: ComparisonDelta }
+}
+
+/** One month of the chart, carrying every metric so a hover can show them all
+ *  without a second request. */
+export interface ComparisonPoint {
+  key: string
+  year: number
+  month: number
+  label: string
+  short: string
+  year_short: string
+  values: Record<string, ComparisonAmount>
+}
+
+export interface SalesPeriod {
+  year: number
+  month: number
+  label: string
+}
+
+export interface SalesComparisonResponse {
+  period: SalesPeriod | null
+  /** Every month the SELECTION has data for — the period control is built from
+   *  this, so a month that cannot be answered cannot be picked. */
+  available_periods: SalesPeriod[]
+  /** The latest month in the DATA, which is what an unspecified period means.
+   *  Not today's date: this dataset ends before it. */
+  latest: { year: number; month: number } | null
+  metric_specs: ComparisonMetricSpec[]
+  /** The months the chart draws, oldest first. */
+  series: ComparisonPoint[]
+  /** Which columns each mode highlights, by `ComparisonPoint.key`, so the chart
+   *  never re-derives a window the figures were computed from. */
+  windows: Record<string, { current: string[]; against: string[] }>
+  figures: Record<string, ComparisonMetricFigures>
+  meta: Meta
+}

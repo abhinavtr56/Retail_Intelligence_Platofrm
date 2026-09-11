@@ -100,6 +100,27 @@ _BY_PATTERN = "^(" + "|".join(service.BREAKDOWN_DIMENSIONS) + ")$"
 _METRIC_PATTERN = "^(" + "|".join(service.BREAKDOWN_METRICS) + ")$"
 
 
+@router.get("/sales-comparison")
+def sales_comparison(
+    state: Filters,
+    period_year: int | None = None,
+    period_month: int | None = Query(None, ge=1, le=12),
+    currency: Currency = "INR",
+) -> dict[str, Any]:
+    """One month's sales beside MAGO, YAGO and YTD.
+
+    The period is named by its OWN parameters, not by the shared `year`/`month`
+    filters, because the card reaches deliberately outside whatever the filter
+    bar has selected — YAGO is the previous year by definition, so inheriting a
+    year constraint would empty exactly the comparison being asked for. Every
+    other dimension in `state` still applies.
+
+    Both are optional; omitted means the latest month the selection has data
+    for, which the payload also states as `latest`.
+    """
+    return service.sales_comparison(state, period_year, period_month, currency)
+
+
 @router.get("/breakdown")
 def breakdown(
     state: Filters,

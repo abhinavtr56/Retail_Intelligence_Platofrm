@@ -11,6 +11,7 @@ import type {
   KpiResponse,
   PromotionMixResponse,
   RiskAlertsResponse,
+  SalesComparisonResponse,
   TopPromotionsResponse,
   TrendResponse,
   UnderperformingResponse,
@@ -129,6 +130,35 @@ export function useChannelNames(): Record<string, string> {
     for (const channel of query.data?.channels ?? []) names[channel.code] = channel.name
     return names
   }, [query.data])
+}
+
+/** Sales Performance Comparison — one month against MAGO, YAGO and YTD.
+ *
+ *  PAGE SCOPE plus its own period. The full filter payload goes up, so the
+ *  card moves with Channel, Region and the rest exactly like the KPI cards.
+ *  The PERIOD, though, is the card's own: it is sent as `period_year` /
+ *  `period_month` and the backend lifts the shared year/month/week before
+ *  aggregating, because the comparisons reach outside the selected period by
+ *  definition — inheriting a year filter would empty the year-ago figure that
+ *  is the entire point of the card.
+ *
+ *  `period` null means "the latest month with data", which the response then
+ *  reports back as `period`. */
+export function useSalesComparison(period: { year: number; month: number } | null) {
+  const { filters, currency, enabled } = useScope()
+  const query = toQuery(filters, currency)
+  const own = period ? `&period_year=${period.year}&period_month=${period.month}` : ''
+  return useQuery({
+    queryKey: [
+      ...fullKey('sales-comparison', filters, currency),
+      period?.year ?? null,
+      period?.month ?? null,
+    ],
+    queryFn: () =>
+      apiFetch<SalesComparisonResponse>(`/command-center/sales-comparison?${query}${own}`),
+    enabled,
+    placeholderData: (previous) => previous,
+  })
 }
 
 export function useTrend(granularity: 'week' | 'month') {

@@ -351,210 +351,6 @@ ${r.channel} · ${r.period}
 }
 
 
-/** M3 · Retailer & Distributor Performance.
- *
- *  One card, two populations and three metrics — all served by the existing
- *  `/breakdown` endpoint, which already computes every KPI per dimension value
- *  through the frozen engine. Nothing is recomputed here; the client only
- *  re-orders, because the API ranks by the metric alone and this card wants
- *  ROI as the tie-break.
- *
- *  The full group list is fetched (31 retailers, not 5) so that tie-break has a
- *  real pool: taking the API's own top five would already have discarded the
- *  rows a tie could promote.
- */
-const METRICS = [
-  { key: 'trade_spend' as const, label: 'Trade Spend' },
-  { key: 'incremental_sales' as const, label: 'Incremental Sales' },
-  { key: 'roi' as const, label: 'ROI' },
-]
-type MetricKey = (typeof METRICS)[number]['key']
-
-const TOP_ROWS = 10
-
-/** The two dimensions this card merges. Both are real breakdown dimensions on
- *  the existing endpoint — nothing is derived from the other. */
-const SOURCES = [
-  { by: 'retailer' as const, type: 'Retailer' as const },
-  { by: 'distributor' as const, type: 'Distributor' as const },
-]
-type EntityType = (typeof SOURCES)[number]['type']
-
-type Entity = BreakdownGroup & { type: EntityType }
-
-function metricValue(g: BreakdownGroup, metric: MetricKey): number | null {
-  return metric === 'trade_spend' ? g.trade_spend : metric === 'roi' ? g.roi : g.incremental_sales
-}
-
-function metricDisplay(g: BreakdownGroup, metric: MetricKey): string {
-  if (metric === 'roi') return g.roi === null ? '—' : `${g.roi.toFixed(1)}%`
-  return metric === 'trade_spend' ? g.trade_spend_display : g.incremental_sales_display
-}
-
-/** Metric selector. One segmented control, so the card has a single top
- *  control and the rows below are the only ranking. */
-function MetricSelect({ value, onChange }: { value: MetricKey; onChange: (v: MetricKey) => void }) {
-  return (
-    <div
-      className="inline-flex h-[23px] items-stretch overflow-hidden rounded-[var(--r-sm)] border border-border-subtle"
-      role="radiogroup"
-      aria-label="Performance metric"
-    >
-      {METRICS.map((m) => (
-        <button
-          key={m.key}
-          type="button"
-          role="radio"
-          aria-checked={value === m.key}
-          onClick={() => onChange(m.key)}
-          className={`cursor-pointer px-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${
-            value === m.key
-              ? 'bg-brand-violet text-white'
-              : 'text-ink-muted hover:bg-surface-hover hover:text-ink-primary'
-          }`}
-        >
-          {m.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/** Retailer & Distributor Performance — ONE ranked list over both entity types.
- *
- *  Retailers and distributors are ranked against each other on the selected
- *  metric, so the list is whatever the data puts in the top ten. There is no
- *  quota per type: if a type has one qualifying entity it contributes one row,
- *  and if it has none it contributes none. Nothing is synthesised to fill the
- *  list — the rows are exactly the groups the breakdown endpoint returns for
- *  `by=retailer` and `by=distributor`.
- *
- *  The two dimensions are fetched separately because they ARE separate
- *  dimensions on the endpoint; the merge is a client-side sort over two real
- *  responses, never one dimension relabelled as the other. */
-export function RetailerDistributorSection() {
-  const [metric, setMetric] = useState<MetricKey>('incremental_sales')
-
-  // `metric` goes to the server so each side is ordered by the same measure the
-  // card ranks on; `limit` is the endpoint's maximum, so the merged Top 10 is
-  // chosen from the whole population rather than from two pre-truncated heads.
-  const retailers = useBreakdown('retailer', { metric, limit: 50 })
-  const distributors = useBreakdown('distributor', { metric, limit: 50 })
-
-  const rows = useMemo(() => {
-    const merged: Entity[] = [
-      ...(retailers.data?.groups ?? []).map((g) => ({ ...g, type: 'Retailer' as const })),
-      ...(distributors.data?.groups ?? []).map((g) => ({ ...g, type: 'Distributor' as const })),
-    ]
-    return merged
-      .filter((g) => metricValue(g, metric) !== null)
-      .sort(
-        (a, b) =>
-          (metricValue(b, metric) ?? 0) - (metricValue(a, metric) ?? 0) ||
-          (b.roi ?? 0) - (a.roi ?? 0) ||
-          (b.incremental_sales ?? 0) - (a.incremental_sales ?? 0),
-      )
-      .slice(0, TOP_ROWS)
-  }, [retailers.data, distributors.data, metric])
-
-  // Bars scale against the leader of the CURRENT metric, so the chart always
-  // reads as a ranking of what is selected.
-  const peak = rows.length ? Math.abs(metricValue(rows[0], metric) ?? 1) || 1 : 1
-
-  const metricLabel = METRICS.find((m) => m.key === metric)?.label
-  // The population both dimensions actually hold, from the API's own counts
-  // rather than from the pages it returned.
-  const total = (retailers.data?.total_groups ?? 0) + (distributors.data?.total_groups ?? 0)
-
-  const isLoading = retailers.isLoading || distributors.isLoading
-  const isFetching = retailers.isFetching || distributors.isFetching
-  const error = retailers.error ?? distributors.error
-
-  return (
-    <ChartFrame
-      title="Retailer & Distributor Performance"
-      hint="Top 10 retailers and distributors ranked by the selected performance metric."
-      controls={<MetricSelect value={metric} onChange={setMetric} />}
-      isLoading={isLoading}
-      isFetching={isFetching}
-      error={error}
-      onRetry={() => {
-        void retailers.refetch()
-        void distributors.refetch()
-      }}
-      isEmpty={rows.length === 0}
-      emptyMessage="No retailers or distributors with measurable performance in this scope."
-      footnote={
-        total > rows.length
-          ? `Top ${rows.length} of ${total} retailers and distributors by ${metricLabel}. ROI breaks ties.`
-          : `All ${total} retailers and distributors in this scope, ranked by ${metricLabel}. ROI breaks ties.`
-      }
-    >
-      {/* gap-2.5 and the row structure are the ranked lists' own spacing, so
-          this card and the ones beside it read as one system. */}
-      <div className="flex flex-col gap-2.5">
-        {rows.map((g, i) => (
-          <div
-            key={`${g.type}:${g.code}`}
-            className="group"
-            title={[
-              `${g.label} (${g.type})`,
-              '',
-              `Trade Spend: ${g.trade_spend_display}`,
-              `Incremental Sales: ${g.incremental_sales_display}`,
-              `ROI: ${g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}`,
-            ].join('\n')}
-          >
-            <div className="flex items-baseline justify-between gap-2 text-sm">
-              <span className="flex min-w-0 items-baseline gap-1.5">
-                <span className="tabular-nums text-ink-disabled">{i + 1}</span>
-                <span className="truncate font-semibold text-ink-primary">{g.label}</span>
-                {/* Type is a quiet qualifier, not a second ranking: it says
-                    which population the row came from without competing with
-                    the name or the numbers. */}
-                <span className="shrink-0 rounded-[var(--r-sm)] border border-border-subtle px-1 py-px text-2xs font-semibold text-ink-muted">
-                  {g.type}
-                </span>
-              </span>
-              <span className="shrink-0 tabular-nums">
-                <span className="font-bold text-ink-primary">{metricDisplay(g, metric)}</span>
-                {/* ROI stays on every row whatever the ranking metric, so a
-                    leader on spend is never mistaken for a leader on return.
-                    Ranking BY ROI already prints it in the value slot, so the
-                    second copy is dropped rather than shown twice. */}
-                {metric !== 'roi' && (
-                  <>
-                    {' · '}
-                    <span
-                      className={
-                        g.roi === null ? 'text-ink-muted'
-                        : g.roi < 0 ? 'font-semibold text-status-danger'
-                        : 'font-semibold text-status-success'
-                      }
-                    >
-                      {g.roi === null ? '—' : `${g.roi.toFixed(1)}%`}
-                    </span>
-                  </>
-                )}
-              </span>
-            </div>
-            {/* h-2.5 — the same bar height as the ranked lists beside it. */}
-            <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-ink-primary/[0.05]">
-              <div
-                className="h-full rounded-full bg-brand-violet transition-[width] duration-300 group-hover:brightness-110"
-                style={{
-                  width: `${Math.max(0, Math.min(100, (Math.abs(metricValue(g, metric) ?? 0) / peak) * 100))}%`,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </ChartFrame>
-  )
-}
-
-
 /** N1 · Promotion Contribution — where Incremental Sales and Trade Spend sit
  *  across promotion MECHANICS.
  *
@@ -983,19 +779,19 @@ export function ProductSection() {
  *  axis and leave every column squashed into the bottom half of the card. */
 const COLUMN_NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7.5, 10]
 
-function columnNiceStep(raw: number): number {
+export function columnNiceStep(raw: number): number {
   if (raw <= 0) return 1
   const mag = 10 ** Math.floor(Math.log10(raw))
   return (COLUMN_NICE.find((c) => c >= raw / mag - 1e-9) ?? 10) * mag
 }
 
-const COLUMN_DIVISIONS = 4
+export const COLUMN_DIVISIONS = 4
 
 /** Width AND height from the container, so the plot fills the card the grid
  *  row actually gives it instead of a hardcoded box. The SVG is positioned
  *  absolutely inside the measured element, so it can never feed its own height
  *  back into the measurement. */
-function useChartSize(fallbackW: number, fallbackH: number) {
+export function useChartSize(fallbackW: number, fallbackH: number) {
   const ref = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: fallbackW, height: fallbackH })
 
@@ -1015,7 +811,7 @@ function useChartSize(fallbackW: number, fallbackH: number) {
 
 /** One column, with the DATA END rounded and the baseline end square — so the
  *  bar reads as growing out of the axis rather than floating above it. */
-function columnPath(x: number, top: number, w: number, h: number, down: boolean): string {
+export function columnPath(x: number, top: number, w: number, h: number, down: boolean): string {
   const r = Math.min(4, w / 2, h)
   const b = top + h
   return down
@@ -1033,7 +829,7 @@ function fitLabel(text: string, px: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
-const SERIES = {
+export const SERIES = {
   incremental: 'var(--brand-violet)',
   spend: 'var(--status-danger)',
 } as const
@@ -1290,7 +1086,7 @@ function RegionColumns({
   )
 }
 
-function TipRow({ k, v, swatch }: { k: string; v: string; swatch?: string }) {
+export function TipRow({ k, v, swatch }: { k: string; v: string; swatch?: string }) {
   return (
     <div className="mt-1 flex items-center justify-between gap-3">
       <span className="flex min-w-0 items-center gap-1.5 text-ink-muted">

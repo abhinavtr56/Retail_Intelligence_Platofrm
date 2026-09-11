@@ -19,13 +19,13 @@ import { InfoBlock, InfoPopover } from '../components/ui/InfoPopover'
 import { calendarYear } from '../lib/labels'
 import { FilterBar } from '../components/command/FilterBar'
 import { PromotionMixCard } from '../components/command/PromotionMixCard'
+import { SalesComparisonCard } from '../components/command/SalesComparisonCard'
 import { RiskAlertsPanel } from '../components/command/RiskAlertsPanel'
 import { ALERT_FETCH_LIMIT, topPriorityAlert } from '../components/command/riskRanking'
 import { EmptyState as CcEmptyState, ErrorState, KpiSkeleton, PanelSkeleton, Stale } from '../components/command/States'
 import { TrendPanels } from '../components/command/TrendPanels'
 import {
   ChannelSection,
-  RetailerDistributorSection,
   ProductSection,
   PromotionTypeSection,
   PromotionContributionSection,
@@ -412,9 +412,16 @@ export function CommandCenter() {
         </Card>
       </div>
 
-      <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
+      {/* Sales by Region gives up the wide column it used to have: an even
+          split leaves the comparison card room for two full-width bars and
+          their labels, and the region list reads fine at half width. */}
+      <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
         <SalesByRegionSection />
+        <SalesComparisonCard />
+      </div>
 
+      {/* ---- Chart sections. Each reads the same filter state as the cards. ---- */}
+      <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
         <PromotionMixCard
           mix={mix.data}
           breakdown={mixBreakdown.data}
@@ -422,15 +429,10 @@ export function CommandCenter() {
           incrementalSalesTotal={kpis.data.kpis.incremental_sales?.display_value ?? '—'}
           emptyState={<EmptyState message="No promotional spend in this selection." />}
         />
-      </div>
-
-      {/* ---- Chart sections. Each reads the same filter state as the cards. ---- */}
-      <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
         <ChannelSection />
-        <TopPerformingSection />
       </div>
       <div className="mt-[14px] grid grid-cols-2 gap-4 @max-[1000px]:grid-cols-1">
-        <RetailerDistributorSection />
+        <TopPerformingSection />
         <PromotionContributionSection />
       </div>
       <div className="mt-[14px] grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4 @max-[1000px]:grid-cols-1">
