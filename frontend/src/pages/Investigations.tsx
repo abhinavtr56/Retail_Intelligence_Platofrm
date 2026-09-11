@@ -26,7 +26,6 @@ import { ASK_WHY_STATE_KEY, type AskWhyIntent } from '../lib/askWhy'
 import { useActiveInvestigationStore } from '../store/activeInvestigation'
 import { InvestigationGraph } from '../components/investigations/InvestigationGraph'
 import { bindCannibalizationNode } from '../components/investigations/cannibalizationNode'
-import { bindComparisonDelta } from '../components/investigations/comparisonDelta'
 import { NodeDetailPopover } from '../components/investigations/NodeDetailPopover'
 import { BizQuestionCard } from '../components/investigations/BizQuestionCard'
 import { AccelList } from '../components/investigations/AccelList'
@@ -548,15 +547,17 @@ export function Investigations() {
   // The Cannibalization Agent's node shows the figure the agent computed rather
   // than the one it wrote about — see cannibalizationNode.ts. Every other node
   // passes through untouched.
-  // ...and Benchmarking's and Effectiveness's deltas are computed from the two
-  // bars they compare rather than taken from the model's prose — see
-  // comparisonDelta.ts. Every other node passes through untouched.
-  const graphNodes = view
-    ? bindComparisonDelta(
-        bindCannibalizationNode(view.nodes, run?.result?.findings ?? []),
-        view.nodeDetails,
-      )
-    : []
+  //
+  // `bindComparisonDelta` used to sit here too, recomputing Benchmarking's and
+  // Effectiveness's deltas from their first two chart bars, because the model
+  // wrote `delta` as free text and got the units wrong most of the time. The
+  // backend now does that arithmetic itself, from two operands the specialist
+  // names and that are both checked against its own table, so this is no longer
+  // a patch over bad data — it is a second, different answer competing with a
+  // better one. It was also unsafe by then: bars that cannot be traced back to
+  // the specialist's data are dropped before rendering, which shifts the very
+  // indices it read as (subject, benchmark).
+  const graphNodes = view ? bindCannibalizationNode(view.nodes, run?.result?.findings ?? []) : []
   const isAgentRun = Boolean(liveOrch)
   const running = run?.status === 'running'
 

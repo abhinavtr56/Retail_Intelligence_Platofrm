@@ -128,11 +128,17 @@ def computed_delta(
     """The node's delta and trend, subtracted here rather than by the model.
 
     THE FIELD THIS REPLACES WAS MEASURED WRONG. `delta` used to be free text a
-    specialist wrote, and `comparisonDelta.ts` records what came back across
-    the recorded runs: a percentage-point difference 86% of the time, a
-    relative percentage 6%, neither 7% — every one of them labelled "%". A
-    point gap wearing a percent sign is not the figure it claims to be, and the
-    frontend already computes its way around this for two of the six agents.
+    specialist wrote, and someone tallied what came back across the recorded
+    runs: a percentage-point difference 86% of the time, a relative percentage
+    6%, neither 7% — every one of them labelled "%". A point gap wearing a
+    percent sign is not the figure it claims to be.
+
+    That tally lived in `frontend/.../comparisonDelta.ts`, which patched around
+    the problem in the client for two of the six agents by recomputing the
+    delta from their first two chart bars. It has since been deleted: this
+    function is the fix it was standing in for, and once bars that cannot be
+    traced to the specialist's own table are dropped before rendering, reading
+    them positionally as (subject, benchmark) is not safe either.
 
     So the specialist now names the TWO FIGURES it is comparing and which
     comparison it means, and both have to be traceable to its own table before
