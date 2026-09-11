@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Button } from '../ui'
 import { Icon } from '../../icons'
+import { ApiError } from '../../lib/api'
 
 /** Skeletons, empty and error states for the Command Center.
  *
@@ -120,6 +121,33 @@ export function ErrorState({
   compact?: boolean
 }) {
   const detail = error instanceof Error ? error.message : 'Unknown error'
+
+  // NO DATASET IS NOT A FAILED REQUEST. The six CSVs have been removed — a
+  // connector Reset, usually — so retrying cannot bring them back and offering
+  // Retry invites the user to keep pressing a button that will never work.
+  // `queryClient` re-checks the dataset status on this same error, so
+  // `RequireDataset` is already on its way to replacing this with the upload
+  // screen; this is what shows in the moment before it does.
+  if (error instanceof ApiError && error.datasetMissing) {
+    return (
+      <div
+        role="alert"
+        className={`grid place-items-center px-6 text-center ${compact ? 'min-h-[140px]' : 'min-h-[60vh]'}`}
+      >
+        <div className="max-w-sm">
+          <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-tint-lavender text-tint-lavender-icon [&_svg]:h-5 [&_svg]:w-5">
+            <Icon name="database" />
+          </div>
+          <p className="mt-3 text-md font-bold text-ink-primary">No dataset loaded</p>
+          <p className="mt-1 text-base text-ink-muted">
+            The six star-schema tables are no longer in place, so there is nothing to show. Upload them
+            again through the connector to continue.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       role="alert"
