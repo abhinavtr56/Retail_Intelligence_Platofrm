@@ -31,6 +31,14 @@ import { BizQuestionCard } from '../components/investigations/BizQuestionCard'
 import { AccelList } from '../components/investigations/AccelList'
 import { ProgressStrip } from '../components/investigations/ProgressStrip'
 import { QueryBar } from '../components/investigations/QueryBar'
+import {
+  CEILING,
+  PhaseRail,
+  ProgressTrack,
+  eased,
+  fmtElapsed,
+  useRunClock,
+} from '../components/agents/RunProgress'
 import type { Accelerator, OrchNode } from '../types/orchestration'
 import type { InvestigationType } from '../types/investigation'
 
@@ -147,33 +155,122 @@ function FailedState({
   )
 }
 
+/** Where each phase hands over. The middle band is the widest because it is the
+ *  only one carrying real milestones; the two ends are single model calls that
+ *  can only ever be estimated. */
+const PLAN_ENDS_AT = 0.22
+const INVESTIGATE_ENDS_AT = 0.82
+
+/** Rough durations, used ONLY to shape the curve between real events. Being
+ *  wrong about these makes the bar move at the wrong speed; it cannot make it
+ *  report a milestone that has not happened. */
+const PLAN_ESTIMATE_MS = 9_000
+const SPECIALISTS_ESTIMATE_MS = 30_000
+const SYNTHESIS_ESTIMATE_MS = 12_000
+
+const PHASES = [
+  { key: 'plan', label: 'Plan' },
+  { key: 'investigate', label: 'Investigate' },
+  { key: 'synthesise', label: 'Synthesise' },
+] as const
+
+/** What the page shows while the agents work.
+ *
+ *  THE BAR USED TO SPEND MOST OF THE RUN AT 0% AND THEN FREEZE AT 100%. It was
+ *  driven by `done / specialists.length` alone, so it sat empty through
+ *  planning — before any specialist exists — and filled completely the moment
+ *  the last one reported, while the synthesis call, the longest single step
+ *  after planning, was still running. Both ends of the run showed a bar that
+ *  said nothing.
+ *
+ *  So progress is modelled on the pipeline that actually runs: plan, then N
+ *  specialists in parallel, then synthesis. Two of those three are single model
+ *  calls with no sub-progress to report, and the middle one has genuine
+ *  milestones streamed from the backend.
+ *
+ *  WHAT IS MEASURED AND WHAT IS ESTIMATED, because the difference matters:
+ *
+ *    - Specialist completions are REAL. `done / total` is a true fraction, and
+ *      it always wins.
+ *    - Everything between milestones is an estimate, and is CLAMPED so it can
+ *      creep towards the next completion but never past it. The bar cannot
+ *      claim a specialist has reported when none has.
+ *    - Planning and synthesis are estimates outright, inside their own bands.
+ *
+ *  Nothing here ever reaches 100%: the component unmounts when the run
+ *  finishes, so a full bar can only ever mean done.
+ */
 function RunningState({
   question,
   specialists,
   stage,
+  startedAt,
 }: {
   question: string
   specialists: { key: string; name: string; desc: string; status: string }[]
   stage?: string
+  startedAt?: number
 }) {
+  const total = specialists.length
   const done = specialists.filter((s) => s.status === 'done').length
-  const pct = specialists.length ? Math.round((done / specialists.length) * 100) : 0
+  const planning = stage === 'planning' || total === 0
+  const synthesising = total > 0 && done === total
+  const phase = planning ? 'plan' : synthesising ? 'synthesise' : 'investigate'
+
+
+  const { now, stepElapsed } = useRunClock(`${phase}:${done}`)
+
+  let fraction: number
+  if (planning) {
+    // MEASURED FROM THE RUN, NOT FROM MOUNT. Planning begins when the run is
+    // created, so `startedAt` is exactly the right clock — and using it means
+    // coming back to this page mid-run resumes the bar where it should be
+    // rather than restarting it near zero. The later phases have no such
+    // timestamp (the backend records no per-specialist start), so they measure
+    // from the last event this component saw, which is the best available.
+    //
+    // Starts visibly non-zero: the request is already in flight, and an empty
+    // trough is indistinguishable from a page that has not started.
+    const planElapsed = startedAt ? now - startedAt : stepElapsed
+    fraction = 0.04 + eased(planElapsed, PLAN_ESTIMATE_MS) * (PLAN_ENDS_AT - 0.04)
+  } else if (!synthesising) {
+    const reported = done / total
+    const nextMilestone = (done + 1) / total
+    const creep = eased(stepElapsed, SPECIALISTS_ESTIMATE_MS / total) * (nextMilestone - reported)
+    const within = Math.min(reported + creep, nextMilestone)
+    fraction = PLAN_ENDS_AT + within * (INVESTIGATE_ENDS_AT - PLAN_ENDS_AT)
+  } else {
+    fraction = INVESTIGATE_ENDS_AT + eased(stepElapsed, SYNTHESIS_ESTIMATE_MS) * (CEILING - INVESTIGATE_ENDS_AT)
+  }
+  const pct = Math.round(Math.min(fraction, CEILING) * 100)
+
+  const heading = planning
+    ? 'Planning the investigation…'
+    : synthesising
+      ? 'Weighing the findings against each other…'
+      : `Investigating — ${done} of ${total} specialist${total === 1 ? '' : 's'} reported`
+
   return (
     <Card className="fade-in mt-4">
       <div className="border-b border-border-subtle p-[16px_20px]">
         <div className="flex items-center gap-2.5">
           <Spinner className="h-4 w-4 text-brand-violet" />
           <div className="min-w-0 flex-1">
-            <div className="text-md font-bold">
-              {stage === 'planning' || !specialists.length
-                ? 'Planning the investigation…'
-                : `Specialist agents running — ${done} of ${specialists.length} complete`}
-            </div>
+            <div className="text-md font-bold">{heading}</div>
             <div className="mt-0.5 truncate text-sm text-ink-muted">{question}</div>
           </div>
+          <span className="shrink-0 text-md font-extrabold tabular-nums text-brand-violet">{pct}%</span>
         </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-[3px] bg-surface-muted">
-          <div className="h-full rounded-[3px] bg-brand-violet transition-[width] duration-500" style={{ width: `${pct}%` }} />
+
+        <div className="mt-3">
+          <ProgressTrack pct={pct} label={heading} />
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <PhaseRail phases={PHASES} current={phase} />
+          <span className="shrink-0 text-xs tabular-nums text-ink-muted">
+            {startedAt ? `${fmtElapsed(now - startedAt)} elapsed` : ''}
+          </span>
         </div>
       </div>
 
@@ -205,8 +302,24 @@ function RunningState({
           ))}
         </div>
       ) : (
-        <div className="p-[18px_20px] text-base leading-[1.6] text-ink-muted">
-          Choosing which specialists this question needs, and the scope they should analyse.
+        // NO SPECIALIST ROWS YET, so this stands in for them. Ghosted seats
+        // rather than a sentence alone: the panel is what the next phase looks
+        // like, and showing its shape means the card does not appear to change
+        // into something else when the plan lands. Deliberately unlabelled —
+        // which specialists get assigned is the planner's to decide, and
+        // naming them here would be this page guessing at the answer.
+        <div className="p-[16px_20px]">
+          <div className="mb-3 text-base leading-[1.6] text-ink-muted">
+            Choosing which specialists this question needs, and the scope they should analyse.
+          </div>
+          <div className="flex flex-col gap-2.5" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3" style={{ opacity: 1 - i * 0.28 }}>
+                <span className="h-2 w-2 shrink-0 rounded-full bg-border-strong" />
+                <span className="h-2.5 flex-1 rounded-full bg-surface-muted" style={{ maxWidth: `${64 - i * 12}%` }} />
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </Card>
@@ -773,6 +886,7 @@ export function Investigations() {
           question={queryInput || activeQuestion}
           specialists={run?.specialists ?? []}
           stage={run?.stage}
+          startedAt={run?.created_at}
         />
       ) : (
         <>

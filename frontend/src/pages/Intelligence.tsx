@@ -25,6 +25,14 @@ import {
   type IntelligenceScope,
 } from '../hooks/usePromotionIntelligence'
 import { AiAnswerCard } from '../components/intelligence/AiAnswerCard'
+import {
+  CEILING,
+  PhaseRail,
+  ProgressTrack,
+  eased,
+  fmtElapsed,
+  useRunClock,
+} from '../components/agents/RunProgress'
 import { SaturationChart } from '../components/promotionIntelligence/SaturationChart'
 import {
   DimensionTable,
@@ -229,6 +237,138 @@ function InvestigationHeader({
           ))}
         </div>
       )}
+    </Card>
+  )
+}
+
+const DEEPEN_PHASES = [
+  { key: 'compute', label: 'Compute' },
+  { key: 'diagnose', label: 'Diagnose' },
+  { key: 'advise', label: 'Advise' },
+] as const
+
+/** Where each phase hands over, and roughly how long each takes.
+ *
+ *  COMPUTE GETS THE WIDEST BAND BECAUSE IT IS THE LONGEST, which is the
+ *  opposite of what the old card implied. `build_intelligence_facts` runs every
+ *  breakdown the Analyst needs — each one a pass of the KPI engine per group —
+ *  and takes ~11s warm and far longer cold, all of it before either agent has
+ *  anything to read. The card showed two grey dots for that entire stretch and
+ *  then two more while the agents ran, so the slowest part of the run was also
+ *  the part that looked most like nothing happening. */
+const COMPUTE_ENDS_AT = 0.42
+const DIAGNOSE_ENDS_AT = 0.74
+const COMPUTE_ESTIMATE_MS = 20_000
+const ANALYST_ESTIMATE_MS = 16_000
+const ADVISOR_ESTIMATE_MS = 16_000
+
+/** Promotion Intelligence working, in the three steps it actually runs.
+ *
+ *  Unlike an investigation's six specialists, which fan out in parallel, this
+ *  pipeline is strictly sequential: compute the fact base, diagnose it, then
+ *  advise against the diagnosis. So every handover is a REAL milestone streamed
+ *  from the backend — the bar only estimates WITHIN a step, never across one.
+ */
+function DeepeningState({
+  specialists,
+  stage,
+  startedAt,
+}: {
+  specialists: { key: string; name: string; desc: string; status: string }[]
+  stage?: string
+  startedAt?: number
+}) {
+  const statusOf = (key: string) => specialists.find((s) => s.key === key)?.status
+  const analyst = statusOf('analyst')
+  const advisor = statusOf('advisor')
+  // `analyst: done` and `advisor: queued` is the gap between the two calls; it
+  // belongs to Advise, because the diagnosis is finished by then.
+  const phase =
+    advisor === 'done' || advisor === 'running' || analyst === 'done'
+      ? 'advise'
+      : analyst === 'running'
+        ? 'diagnose'
+        : 'compute'
+
+  const { now, stepElapsed } = useRunClock(`${phase}`)
+
+  let fraction: number
+  if (phase === 'compute') {
+    // Measured from the run, not from mount: computing starts when the run
+    // does, so returning to this page mid-run resumes the bar where it belongs.
+    const elapsed = startedAt ? now - startedAt : stepElapsed
+    fraction = 0.04 + eased(elapsed, COMPUTE_ESTIMATE_MS) * (COMPUTE_ENDS_AT - 0.04)
+  } else if (phase === 'diagnose') {
+    fraction = COMPUTE_ENDS_AT + eased(stepElapsed, ANALYST_ESTIMATE_MS) * (DIAGNOSE_ENDS_AT - COMPUTE_ENDS_AT)
+  } else {
+    fraction = DIAGNOSE_ENDS_AT + eased(stepElapsed, ADVISOR_ESTIMATE_MS) * (CEILING - DIAGNOSE_ENDS_AT)
+  }
+  const pct = Math.round(Math.min(fraction, CEILING) * 100)
+
+  const heading =
+    phase === 'compute'
+      ? 'Computing the figures the analysis reads…'
+      : phase === 'diagnose'
+        ? 'Explaining the mechanism behind the root cause…'
+        : 'Turning the diagnosis into decisions…'
+
+  return (
+    <Card className="fade-in mt-3.5">
+      <div className="p-[14px_18px]">
+        <div className="flex items-center gap-3">
+          <Spinner className="h-4 w-4 text-brand-violet" />
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-semibold">{heading}</div>
+            <div className="mt-0.5 text-sm text-ink-muted">
+              Going deeper on the investigation's finding
+            </div>
+          </div>
+          <span className="shrink-0 text-md font-extrabold tabular-nums text-brand-violet">{pct}%</span>
+        </div>
+
+        <div className="mt-3">
+          <ProgressTrack pct={pct} label={heading} />
+        </div>
+
+        <div className="mt-2.5 flex items-center justify-between gap-3">
+          <PhaseRail phases={DEEPEN_PHASES} current={phase} />
+          <span className="shrink-0 text-xs tabular-nums text-ink-muted">
+            {startedAt ? `${fmtElapsed(now - startedAt)} elapsed` : ''}
+          </span>
+        </div>
+
+        {/* The two agents, with the step each is on. `stage` is carried so a
+            run recorded before the phases existed still renders something
+            truthful rather than an empty row. */}
+        <div className="mt-3 flex flex-col gap-2 border-t border-border-subtle pt-3">
+          {specialists.map((s) => (
+            <div key={s.key} className="flex items-center gap-2.5">
+              <span
+                className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+                  s.status === 'done'
+                    ? 'bg-status-success'
+                    : s.status === 'running'
+                      ? 'animate-[pulseDot_1.2s_ease-in-out_infinite] bg-brand-violet motion-reduce:animate-none'
+                      : 'bg-border-strong'
+                }`}
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{s.name}</span>
+              <span className="truncate text-xs text-ink-muted">{s.desc}</span>
+              <span
+                className={`shrink-0 text-xs font-semibold ${
+                  s.status === 'done'
+                    ? 'text-status-success'
+                    : s.status === 'running'
+                      ? 'text-brand-violet'
+                      : 'text-ink-muted'
+                }`}
+              >
+                {s.status === 'done' ? 'Done' : s.status === 'running' ? 'Running' : stage === 'computing' ? 'Waiting for facts' : 'Queued'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </Card>
   )
 }
@@ -447,30 +587,7 @@ export function Intelligence() {
       )}
 
       {analysing && (
-        <Card className="fade-in mt-3.5">
-          <div className="flex items-center gap-3 p-[14px_18px]">
-            <Spinner className="h-4 w-4 text-brand-violet" />
-            <div className="min-w-0 flex-1">
-              <div className="text-base font-semibold">Going deeper on the investigation's finding</div>
-              <div className="mt-0.5 flex flex-wrap gap-3 text-sm text-ink-muted">
-                {(run?.specialists ?? []).map((s) => (
-                  <span key={s.key} className="inline-flex items-center gap-1.5">
-                    <span
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${
-                        s.status === 'done'
-                          ? 'bg-status-success'
-                          : s.status === 'running'
-                            ? 'bg-brand-violet'
-                            : 'bg-border-strong'
-                      }`}
-                    />
-                    {s.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
+        <DeepeningState specialists={run?.specialists ?? []} stage={run?.stage} startedAt={run?.created_at} />
       )}
 
       <div className="mt-4">
