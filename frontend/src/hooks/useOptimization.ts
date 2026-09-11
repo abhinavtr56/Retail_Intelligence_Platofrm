@@ -11,8 +11,9 @@ import type {
  *
  *  MEASURES the selected category / channel / month so the controls can be
  *  bounded. The trade-spend ceiling in particular is a measurement — the mean
- *  Trade Spend across 2024 and 2025 for that scope — and the client has no way
- *  to work it out, which is exactly why it is fetched rather than assumed.
+ *  Trade Spend across the years the data holds for that scope — and the client
+ *  has no way to work it out, which is exactly why it is fetched rather than
+ *  assumed.
  *
  *  A mutation rather than a query because it is driven by an explicit control
  *  change and its `isPending` / `error` are the states the panel renders.

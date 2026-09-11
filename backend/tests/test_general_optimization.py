@@ -164,20 +164,39 @@ def test_the_optimizer_input_is_already_narrowed_not_filtered_afterwards():
 
 
 @pytest.mark.parametrize("month", [1, 6, 11])
-def test_month_filtering_selects_that_month_in_both_years(month):
+def test_month_filtering_selects_that_month_in_every_year_carrying_it(month):
     state = FilterState.build(month=month, channel=["CH002"])
     months = {r.month for r in rows_for(state)}
     years = {r.year for r in rows_for(state)}
     assert months == {month}
-    assert years == {"2024", "2025"}, f"expected both reference years, got {sorted(years)}"
+    # 2026 runs January-August, so it carries the first two months here and
+    # not November. The optimizer's two-year reference is asserted separately.
+    expected = {"2024", "2025"} | ({"2026"} if month <= 8 else set())
+    assert years == expected, f"expected {sorted(expected)}, got {sorted(years)}"
 
 
-def test_historical_reference_uses_both_2024_and_2025():
+def test_historical_reference_uses_every_year_the_data_holds():
+    """The reference window is the data's years, read from the store -- not a
+    literal pair. June is carried by all three (2026 runs January-August)."""
     state = FilterState.build(month=6, category=["Baby Care"], channel=["CH002"])
     reference = optimization.historical_reference(state)
-    assert reference["years"] == [2024, 2025]
-    assert {o["year"] for o in reference["observations"]} == {2024, 2025}
+    assert reference["years"] == [2024, 2025, 2026] == list(optimization.reference_years())
+    assert {o["year"] for o in reference["observations"]} == {2024, 2025, 2026}
+    assert reference["observed_years"] == 3
+
+
+def test_a_month_the_newest_year_has_not_reached_counts_only_the_years_that_carry_it():
+    """November 2026 is not in the data: the year is still listed, its
+    observation is marked unavailable, and it is not averaged in as a zero."""
+    state = FilterState.build(month=11, category=["Baby Care"], channel=["CH002"])
+    reference = optimization.historical_reference(state)
+    assert reference["years"] == [2024, 2025, 2026]
+    by_year = {o["year"]: o for o in reference["observations"]}
+    assert by_year[2026]["available"] is False and by_year[2026]["trade_spend"] is None
     assert reference["observed_years"] == 2
+    assert optimization.reference_year_count(state) == 2
+    measured = [by_year[y]["trade_spend"] for y in (2024, 2025)]
+    assert reference["average_trade_spend"] == pytest.approx(sum(measured) / 2)
 
 
 def test_reference_average_is_the_mean_of_the_observed_years():
@@ -186,7 +205,7 @@ def test_reference_average_is_the_mean_of_the_observed_years():
     reference = optimization.historical_reference(state)
     per_year = [
         A.calculate_trade_spend(rows_for(state.replace(year=year)))
-        for year in optimization.REFERENCE_YEARS
+        for year in optimization.reference_years()
     ]
     observed = [v for v in per_year if v is not None]
     assert reference["average_trade_spend"] == pytest.approx(sum(observed) / len(observed))
@@ -547,14 +566,15 @@ def test_the_plan_is_scaled_to_one_average_year():
     """THE UNIT-OF-TIME GUARD.
 
     The ceiling is ONE average year's trade spend for the selected month. The
-    selection spans two years, so every candidate figure is divided by the
-    number of reference years that carry rows — otherwise the plan would be two
-    Novembers of volume funded by one November's budget, and the revenue
-    "uplift" would be measured against a base twice the size of the plan.
+    selection spans every year the data holds, so every candidate figure is
+    divided by the number of reference years that carry rows — otherwise the
+    plan would be three Junes of volume funded by one June's budget, and the
+    revenue "uplift" would be measured against a base three times the size of
+    the plan.
     """
     state = FilterState.build(month=6, category=["Baby Care"], channel=["CH002"])
     years = optimization.reference_year_count(state)
-    assert years == 2, "this scope is supposed to exercise the two-year case"
+    assert years == 3, "this scope is supposed to exercise the multi-year case"
 
     candidates, _ = optimization._candidates(state)
     # Compared over the CANDIDATE keys only: `_candidates` legitimately drops
@@ -591,9 +611,9 @@ def test_the_year_count_is_the_years_that_carry_rows():
     considered."""
     state = FilterState.build(month=6, category=["Baby Care"], channel=["CH002"])
     expected = sum(
-        1 for year in optimization.REFERENCE_YEARS if rows_for(state.replace(year=year))
+        1 for year in optimization.reference_years() if rows_for(state.replace(year=year))
     )
-    assert optimization.reference_year_count(state) == expected == 2
+    assert optimization.reference_year_count(state) == expected == 3
 
 
 # --- API surface -------------------------------------------------------------

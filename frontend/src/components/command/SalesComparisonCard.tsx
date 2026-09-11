@@ -445,7 +445,7 @@ export function SalesComparisonCard() {
 
   return (
     <ChartFrame
-      title="Sales Performance Comparison"
+      title="Performance Comparison"
       hint={
         spec
           ? `${spec.label} — ${spec.meaning}\n\nFormula: ${spec.formula}\n\n` +

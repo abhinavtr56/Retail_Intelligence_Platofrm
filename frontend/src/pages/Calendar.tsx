@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AppShell } from '../components/layout/AppShell'
 import { Button, Card, CardBody, CardHeader, Dropdown, InfoPopover } from '../components/ui'
 import { Icon } from '../icons'
@@ -23,7 +23,13 @@ import { usePromotionCell, usePromotionMatrix, useUpcoming } from '../hooks/useP
 const ALL_CHANNELS = 'All Channels'
 
 export function Calendar() {
+  // Opens on the LATEST year the data carries, adopted from the matrix payload
+  // once it reports which years exist -- the same rule the Command Center
+  // initialises its period by. The literal below is only the first request's
+  // year; the data decides where the page lands, and a year the user has
+  // clicked is never overridden.
   const [year, setYear] = useState(2025)
+  const [yearChosen, setYearChosen] = useState(false)
   const [channel, setChannel] = useState<string | null>(null)
   const [selected, setSelected] = useState<{ month: number; channel: string } | null>(null)
   // Owned here, not in the panel: expanding Upcoming re-weights it against the
@@ -32,6 +38,12 @@ export function Calendar() {
 
   const channels = useMemo(() => (channel ? [channel] : []), [channel])
   const matrix = usePromotionMatrix(year, channels)
+  const availableYears = matrix.data?.years
+  useEffect(() => {
+    if (yearChosen || !availableYears?.length) return
+    const latest = Math.max(...availableYears)
+    if (latest !== year) setYear(latest)
+  }, [availableYears, yearChosen, year])
   const detail = usePromotionCell(selected ? { ...selected, year } : null)
   // The feed is relative to the month being viewed: nothing selected means the
   // whole year is still ahead, so `after_month` is 0.
@@ -132,6 +144,7 @@ export function Calendar() {
                     aria-checked={y === year}
                     onClick={() => {
                       setYear(y)
+                      setYearChosen(true)
                       setSelected(null)
                     }}
                     className={`cursor-pointer px-3 text-sm font-bold tabular-nums transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-brand-violet ${

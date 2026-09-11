@@ -58,16 +58,23 @@ def main() -> int:
     print("\nA. DATA INTEGRITY")
     # 205,920 through CH001-CH005; + 37,440 when CH006 (Q-Commerce) was added as
     # 10 stores x 36 products x 104 weeks, matching the sample size every other
-    # channel carries. See scripts/generate_ch006.py.
-    check("row count == 243,360", len(rows) == 243_360, f"{len(rows):,}")
+    # channel carries (scripts/generate_ch006.py); + 81,900 for 2026 W01-W35,
+    # 65 stores x 36 products x 35 weeks (scripts/generate_2026.py).
+    check("row count == 325,260", len(rows) == 325_260, f"{len(rows):,}")
     products = {r["Product_id"] for r in rows}
     check("36 products", len(products) == 36, str(len(products)))
     channels = {r["Channel_Id"] for r in rows}
     check("6 channels", channels == {"CH001", "CH002", "CH003", "CH004", "CH005", "CH006"}, ",".join(sorted(channels)))
     years = {r["Date"].strip()[-4:] for r in rows}
-    check("2024 + 2025", years == {"2024", "2025"}, ",".join(sorted(years)))
+    check("2024 + 2025 + 2026", years == {"2024", "2025", "2026"}, ",".join(sorted(years)))
+    # 52 + 52 full-year weeks, then 2026 W01-W35: August closes at W35, the last
+    # business week entirely inside the month (W36 starts 31 Aug and runs into
+    # September), so every 2026 month carries the weeks its 2025 month has.
     yw = {(r["Date"].strip()[-4:], r["Week"]) for r in rows}
-    check("104 Year x Week", len(yw) == 104, str(len(yw)))
+    check("139 Year x Week", len(yw) == 139, str(len(yw)))
+    weeks_2026 = {int(r["Week"]) for r in rows if r["Date"].strip()[-4:] == "2026"}
+    check("2026 covers W01-W35 exactly", weeks_2026 == set(range(1, 36)),
+          f"W{min(weeks_2026):02d}-W{max(weeks_2026):02d}, {len(weeks_2026)} weeks" if weeks_2026 else "none")
     ids = Counter(r["Transaction_Id"] for r in rows)
     dupes = [k for k, v in ids.items() if v > 1]
     check("no duplicate Transaction_Id", not dupes, f"{len(dupes)} duplicates")
@@ -110,7 +117,10 @@ def main() -> int:
     known = set(store.dims.promotions) - {NO_PROMOTION}
     check("promotion IDs all defined in dim_promotion", pids <= known,
           f"unknown: {sorted(pids - known)}")
-    check("no new promotion IDs invented", len(pids) == 21 or pids <= known, f"{len(pids)} distinct ids")
+    # 3 regular + 6 dated seasonal ids per full year, + the 4 seasonal events
+    # inside January-August 2026 (PBNY26, PBHO26, PBSU26, PBIN26): 19 in the
+    # fact, every one declared in dim_promotion first.
+    check("no new promotion IDs invented", len(pids) == 19 and pids <= known, f"{len(pids)} distinct ids")
 
     print("\nC. QUANTITY INTEGRITY")
     bad = sum(1 for r in rows if float(r["Base_Quantity"]) != float(r["Actual_Quantity"]))
@@ -131,7 +141,7 @@ def main() -> int:
               f"measured {got:.2%} on {disc[t][1]:,} rows")
 
     print("\nE. PROMOTION UPLIFT  (vs each product's own non-promotional baseline, per channel)")
-    for yr in ("2024", "2025"):
+    for yr in ("2024", "2025", "2026"):
         base_sum, base_n = defaultdict(float), Counter()
         for r in rows:
             if r["Date"].strip()[-4:] == yr and r["Promotion_Id"].strip() == NO_PROMOTION:
@@ -227,9 +237,9 @@ def main() -> int:
     # known. Recorded explicitly rather than quietly widening the band; the
     # all-channel figure is still asserted against it.
     ACCEPTED_BELOW_FLOOR = {"F25"}
-    for yr in (2024, 2025, None):
+    for yr in (2024, 2025, 2026, None):
         roi = aggregate.calculate_roi(filters.rows_for(FilterState.build(year=yr)))
-        tag = "F24" if yr == 2024 else "F25" if yr == 2025 else "ALL"
+        tag = "ALL" if yr is None else f"F{yr % 100:02d}"
         if tag in ACCEPTED_BELOW_FLOOR:
             print(f"  [NOTE] ALL {tag} ROI {roi:.1f}% -- below the 35% floor, accepted "
                   "with the approved 25% Buy3Get1 price representation")

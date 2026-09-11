@@ -493,7 +493,7 @@ def general_optimization_scope(body: GeneralOptimizationScopeRequest) -> dict[st
     """Measure the selected scope so its controls can be bounded.
 
     The trade-spend ceiling is the one thing the client cannot work out for
-    itself: it is the mean Trade Spend across 2024 and 2025 for this category,
+    itself: it is the mean Trade Spend across the reference years for this category,
     channel and month, measured by the validated engine. Optimises nothing.
     """
     try:

@@ -95,10 +95,21 @@ MODE = "general_optimization"
 #: (`PB001`, 25%), read from the rules rather than written down again.
 MAX_DISCOUNT_PCT: float = max(response.APPROVED_DISCOUNT_PCT)
 
-#: The years the historical reference is built from. Both, always: a single
-#: year is one observation of a month and the reference is an average across
-#: the years the dataset actually holds.
-REFERENCE_YEARS: tuple[int, ...] = (2024, 2025)
+def reference_years() -> tuple[int, ...]:
+    """The years the historical reference is built from: EVERY year the dataset
+    holds. A single year is one observation of a month and the reference is an
+    average across the years the data actually carries.
+
+    Read from the loaded store rather than written down here. This was a
+    literal `(2024, 2025)`, which stopped being true the day 2026 rows arrived:
+    the plan's window (`rows_for(state)`, every year in the data) then held
+    three years of a month while the ceiling divided by two, and the
+    "historical" side of the screen no longer described the same trading as
+    the budget it was compared with. A year the data holds but that carries no
+    rows for a scope (2026 runs January-August) still contributes nothing --
+    `historical_reference` counts observations, not years.
+    """
+    return tuple(get_store().years())
 
 #: How many buckets the budget is discretised into for the exact solve. 2,000
 #: over a ceiling of a few crore is sub-lakh granularity -- finer than any
@@ -258,16 +269,17 @@ def reference_year_count(state: FilterState) -> int:
     THE PLAN AND THE BUDGET MUST DESCRIBE THE SAME AMOUNT OF TRADING. The
     ceiling is an AVERAGE year's trade spend for the selected month, by
     contract -- so the plan it funds has to be an AVERAGE year's volume too.
-    The selection spans 2024 and 2025, which is two Novembers of units; funding
-    two Novembers from one November's budget would make the optimizer look
-    starved and would report a revenue "uplift" against a base twice its size.
+    The selection spans every year the data holds, which is two Novembers of
+    units (three Junes); funding two Novembers from one November's budget would
+    make the optimizer look starved and would report a revenue "uplift" against
+    a base twice its size.
 
     So every candidate figure is divided by this count, and the whole screen
     describes ONE representative month. Zero years is impossible here -- a
     scope with no rows produces no candidates and never reaches this -- but the
     guard keeps the division total.
     """
-    return sum(1 for year in REFERENCE_YEARS if rows_for(_reference_state(state, year))) or 1
+    return sum(1 for year in reference_years() if rows_for(_reference_state(state, year))) or 1
 
 
 def _candidates(state: FilterState) -> tuple[list[Candidate], list[dict[str, Any]]]:
@@ -539,8 +551,9 @@ def historical_reference(state: FilterState) -> dict[str, Any]:
     single category's plan by every category's spend would leave the constraint
     non-binding and the slider meaningless.
     """
+    years = reference_years()
     observations: list[dict[str, Any]] = []
-    for year in REFERENCE_YEARS:
+    for year in years:
         rows = rows_for(_reference_state(state, year))
         if not rows:
             observations.append({"year": year, "trade_spend": None, "row_count": 0, "available": False})
@@ -557,23 +570,31 @@ def historical_reference(state: FilterState) -> dict[str, Any]:
     average = sum(measured) / len(measured) if measured else None
 
     return {
-        "years": list(REFERENCE_YEARS),
+        "years": list(years),
         "observations": observations,
         "observed_years": len(measured),
         "average_trade_spend": average,
         "available": average is not None and average > 0,
         "basis": (
             "Mean Trade Spend across the "
-            f"{len(measured)} of {len(REFERENCE_YEARS)} reference year(s) carrying rows for "
+            f"{len(measured)} of {len(years)} reference year(s) carrying rows for "
             "this category, channel and month. Trade Spend is the validated definition: "
             "(Base Revenue - Actual Revenue) + Promotion Cost."
         ),
         "unavailable_reason": (
             None if measured else
-            "Neither 2024 nor 2025 has rows for this category, channel and month, so "
+            f"None of {years_label(years)} has rows for this category, channel and month, so "
             "there is no historical trade spend to bound the ceiling with."
         ),
     }
+
+
+def years_label(years: Sequence[int]) -> str:
+    """"2024, 2025 and 2026" -- the reference window, named from the data."""
+    labels = [str(y) for y in years]
+    if len(labels) <= 1:
+        return "".join(labels)
+    return ", ".join(labels[:-1]) + " and " + labels[-1]
 
 
 # --- request validation -----------------------------------------------------
@@ -640,10 +661,10 @@ def _scope_block(state: FilterState, candidates: Sequence[Candidate], excluded: 
         "channels_in_scope": len(channels),
         "month": state.month,
         "month_label": F.period_label(None, state.month) if state.month else "All months",
-        "years": list(REFERENCE_YEARS),
+        "years": list(reference_years()),
         "period_label": (
-            f"{F.period_label(None, state.month)} · 2024 and 2025"
-            if state.month else "2024 and 2025"
+            f"{F.period_label(None, state.month)} · {years_label(reference_years())}"
+            if state.month else years_label(reference_years())
         ),
         "candidate_count": len(candidates),
         "excluded_count": len(excluded),

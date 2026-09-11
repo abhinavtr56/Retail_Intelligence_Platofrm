@@ -50,8 +50,12 @@ def _warm_caches() -> None:
                 log.info("No dataset in the data folder yet — upload the star-schema CSVs to populate it.")
                 return
             log.info("Warmed fact store: %s rows", store.row_count)
-            build_intelligence_facts({"year": 2025}, ("core",))
-            log.info("Warmed Promotion Intelligence core facts (F25)")
+            # The latest year in the data, which is where the Command Center
+            # opens -- not a year written down here that the data may have
+            # moved past.
+            latest = max(store.years())
+            build_intelligence_facts({"year": latest}, ("core",))
+            log.info("Warmed Promotion Intelligence core facts (F%02d)", latest % 100)
         except Exception:  # a warmup failure must never stop the server booting
             log.exception("Cache warmup failed; first request will be slow instead")
 

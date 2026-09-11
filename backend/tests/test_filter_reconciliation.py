@@ -273,7 +273,7 @@ def test_13_and_14_f24_f25_are_calendar_years():
     assert F.fiscal_label(2025) == "F25"
 
     store = get_store()
-    for year in (2024, 2025):
+    for year in (2024, 2025, 2026):
         rows = rows_for(FilterState.build(year=year))
         assert {r.year for r in rows} == {str(year)}, "a period leaked into another calendar year"
 
@@ -282,7 +282,10 @@ def test_13_and_14_f24_f25_are_calendar_years():
     for month in (1, 12):
         rows = rows_for(FilterState.build(year=2025, month=month))
         assert rows and {r.year for r in rows} == {"2025"}
-    assert store.years() == [2024, 2025]
+    # 2026 is January-August (business weeks W01-W35); its months are its own.
+    assert rows_for(FilterState.build(year=2026, month=1))
+    assert not rows_for(FilterState.build(year=2026, month=9))
+    assert store.years() == [2024, 2025, 2026]
 
 
 # --- 15. month resolution ----------------------------------------------------

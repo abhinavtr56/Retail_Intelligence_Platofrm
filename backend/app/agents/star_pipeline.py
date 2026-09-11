@@ -113,7 +113,7 @@ FIRST, decide whether the question is answerable at all.
 
 This platform holds trade promotion data: promotions and their mechanics,
 channels, retailers, regions, states, cities, products, brands, categories,
-trade spend, incremental sales and ROI, for 2024 and 2025.
+trade spend, incremental sales and ROI, for 2024, 2025 and January-August 2026.
 
 Set `answerable` to false for anything outside that — questions about people,
 places, current events, weather, other marketing channels (digital, TV, social),

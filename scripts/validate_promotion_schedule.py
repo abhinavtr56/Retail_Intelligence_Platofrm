@@ -48,6 +48,7 @@ Every off-month assignment is therefore CLASS 2 -- blocked pending
 TPO_FINAL/*.ipynb or an authoritative generation rule.
 
 Run:  python scripts/validate_promotion_schedule.py
+      TPO_DATA_DIR=<dir> python scripts/validate_promotion_schedule.py
 Exit: 0 when every check passes, 1 otherwise.
 """
 
@@ -55,11 +56,14 @@ from __future__ import annotations
 
 import collections
 import csv
+import os
 import sys
 from datetime import date
 from pathlib import Path
 
-DATA = Path(__file__).resolve().parent.parent / "Data"
+#: The same override app/tpo/config.py honours, so a staged copy of the six
+#: files can be validated before it replaces Data/.
+DATA = Path(os.environ.get("TPO_DATA_DIR") or Path(__file__).resolve().parent.parent / "Data")
 FACT = DATA / "fact_sales_2024_2025_all_channels.csv"
 DIM_DATE = DATA / "dim_date2425_corrected.csv"
 DIM_PROMO = DATA / "dim_promotion_final.csv"
@@ -74,14 +78,16 @@ WEEKLY_CHANNELS = {"CH001", "CH004"}
 
 #: The established seasonal calendar, keyed by the event token inside the
 #: Promotion_Id (PB**NY**25 -> "NY"). Diwali is the only event that moves:
-#: November in 2024, October in 2025.
+#: November in 2024, October in 2025, November again in 2026 (8 Nov). The
+#: 2026 data runs January-August, so only NY/HO/SU/IN have 2026 rows; the
+#: Dussehra and Diwali months are declared so the check is ready for them.
 EVENT_MONTH: dict[str, dict[int, int]] = {
-    "NY": {2024: 1, 2025: 1},
-    "HO": {2024: 3, 2025: 3},
-    "SU": {2024: 5, 2025: 5},
-    "IN": {2024: 8, 2025: 8},
-    "DU": {2024: 10, 2025: 10},
-    "DI": {2024: 11, 2025: 10},
+    "NY": {2024: 1, 2025: 1, 2026: 1},
+    "HO": {2024: 3, 2025: 3, 2026: 3},
+    "SU": {2024: 5, 2025: 5, 2026: 5},
+    "IN": {2024: 8, 2025: 8, 2026: 8},
+    "DU": {2024: 10, 2025: 10, 2026: 10},
+    "DI": {2024: 11, 2025: 10, 2026: 11},
 }
 
 _failures = 0

@@ -574,7 +574,7 @@ def simulation_general_optimization(state: FilterState, currency: str,
         # place to change a frozen module's copy.
         scope_line=" · ".join(x for x in (
             (MONTHS[state.month - 1] if state.month else "All months"),
-            "2024 and 2025",
+            optimization.years_label(scope.get("years") or optimization.reference_years()),
             scope.get("channel_label", ""),
             scope.get("category_label", ""),
         ) if x),

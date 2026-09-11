@@ -46,6 +46,14 @@ const ALL_MONTHS = 'All Months'
  *  itself — the API sends it, and the panel shows what it sent. */
 const DISCOUNT_STEP = 5
 
+/** [2024, 2025, 2026] -> "2024, 2025 and 2026"; an empty list reads as
+ *  "the reference years" until the scope has been measured. */
+function joinYears(years: number[]): string {
+  if (!years.length) return 'the reference years'
+  if (years.length === 1) return String(years[0])
+  return `${years.slice(0, -1).join(', ')} and ${years[years.length - 1]}`
+}
+
 export function GeneralOptimization({ options }: { options: FiltersResponse | undefined }) {
   const { controls, setControl, seedCeiling } = useGeneralOptimizationStore()
   const scope = useOptimizationScope()
@@ -99,6 +107,10 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
 
   const categories = scope.data?.scope.available_categories ?? []
   const channels = options?.channels ?? []
+  // The reference window is named from the payload, never written down here:
+  // it is every year the data holds, and the data has moved past a literal
+  // "2024 and 2025" once already.
+  const referenceYears = joinYears(scope.data?.reference.years ?? scope.data?.scope.years ?? [])
   const channelName = channels.find((c) => c.code === controls.channel)?.name
 
   return (
@@ -117,7 +129,9 @@ export function GeneralOptimization({ options }: { options: FiltersResponse | un
                   Optimized trade spend at the high end of the band must stay within the ceiling
                 </InfoBlock>
                 <InfoBlock label="Trade Spend">(Base Revenue − Actual Revenue) + Promotion Cost</InfoBlock>
-                <InfoBlock label="Reference">Mean trade spend across 2024 and 2025 for this scope</InfoBlock>
+                <InfoBlock label="Reference">
+                  Mean trade spend across {referenceYears} for this scope
+                </InfoBlock>
               </InfoPopover>
             </span>
           }

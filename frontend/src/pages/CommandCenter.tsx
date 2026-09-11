@@ -369,7 +369,7 @@ export function CommandCenter() {
 
         <Card>
           <CardHeader
-            title="Risk Alerts"
+            title="Underperforming Promotions"
             actions={
               <div className="flex items-center gap-2">
                 {counts && (
@@ -377,7 +377,7 @@ export function CommandCenter() {
                     {counts.target_achieved} of {counts.total_events} at target
                   </span>
                 )}
-                <InfoPopover label="About Risk Alerts" title="Risk alert rule">
+                <InfoPopover label="About Underperforming Promotions" title="Risk alert rule">
                   <InfoBlock label="Severity">
                     Critical &lt; 25%
                     <br />

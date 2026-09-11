@@ -5,7 +5,9 @@ written down, what actually constrains the platform in practice, and what the
 app does before any data exists.
 
 Every figure in the "measured" sections was measured on this machine against the
-shipped dataset (243,360 fact rows, 25 MB) — none is an estimate.
+shipped dataset — none is an estimate. The loader table below was re-measured
+after the dataset grew to 325,260 fact rows (2026 January–August added); the
+connector figures further down were measured on the earlier 243,360-row file.
 
 Related: [`CODEBASE_GUIDE.md`](CODEBASE_GUIDE.md) §9 for module layout.
 
@@ -119,11 +121,11 @@ The loader's in-memory representation is compact — roughly 0.09 KB per fact ro
 
 | | |
 | --- | ---: |
-| fact rows | 243,360 |
-| CSV on disk | 25 MB |
-| resident Python heap | **20 MB** |
-| peak during parse | 21 MB |
-| load time | 1.7 s |
+| fact rows | 325,260 |
+| CSV on disk | 33 MB |
+| resident Python heap | **28 MB** |
+| peak during parse | 28 MB |
+| load time | 2.4 s |
 
 Projected, at the same row width:
 
