@@ -202,10 +202,15 @@ Neither is urgent at current data volumes; both are recorded rather than fixed.
 2. **The cap is checked after the body is in memory**, which is not what a size
    limit is usually for, and there is no client-side pre-check.
 
-3. **`dataset_missing` is never read by the frontend.** The 503 handler's own
-   docstring calls it "the flag the UI keys on", but nothing outside
-   `useDecisionBrief.ts` inspects a 503. In practice `RequireDataset` blocks
-   every page before a query runs, so this is only reachable when a dataset is
-   removed *while* a page is open — a connector Reset in another tab. The page
-   then shows the generic "Unable to load data / Retry" error, and retrying will
-   not fix it.
+3. ~~`dataset_missing` is never read by the frontend.~~ **Fixed.** `ApiError`
+   now carries `datasetMissing`, a failed query anywhere re-checks the dataset
+   status so `RequireDataset` flips to the upload screen on its own, and a
+   missing dataset is no longer retried. Only reachable when a dataset is
+   removed *while* a page is open — a connector Reset in another tab — which
+   previously showed "Unable to load data / Retry", an action that could not
+   work.
+
+4. **Deep links 404 on the prod static mount.** `StaticFiles(html=True)` serves
+   `index.html` for `/` but has no SPA fallback, so `GET /login` returns 404
+   against a built frontend. The app uses a hash router (`/#/command`), so this
+   does not bite in normal use, and Vite handles it in dev.
