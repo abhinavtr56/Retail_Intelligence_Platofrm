@@ -259,7 +259,23 @@ def _matching_indices(store: FactStore, state: FilterState, *, keep_baseline: bo
         if month is not None and month_col[i] != month:
             continue
         if week is not None and week_col[i] != week:
-            continue
+            # THE BASELINE IS READ FROM THE WEEKS THE PROMOTION WAS NOT RUNNING,
+            # so a week filter must not reach it. Scoped to the single week an
+            # offer ran, this left the baseline set holding nothing but the
+            # promoted row itself: Incremental Sales computed as 0 and ROI came
+            # back as exactly -100% — not a promotion that returned nothing, but
+            # one with nothing to measure against. The same drill-down without
+            # the week reports -3.6%, which is the figure the risk alert that
+            # launched it already showed.
+            #
+            # This is the lift `neighbour_sales_decline` already performs for the
+            # same reason, in the same commit that introduced the week filter:
+            # "a week filter left on that pass leaves no such weeks". Incremental
+            # Sales, ROI and PEI need it just as much, and only the baseline pass
+            # takes it — `rows_for` still answers for the week the user selected,
+            # so Trade Spend and Margin Impact are untouched.
+            if not (keep_baseline and promo_filtered and not promoted_col[i]):
+                continue
         if store_masks[store_col[i]]:
             continue
         if product_masks[product_col[i]]:
